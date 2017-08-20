@@ -95,7 +95,6 @@ def glue_crust_and_core(crust, core):
     rho_tr = (tropes_core[0].K / tropes_crust[-1].K )**( 1.0/( tropes_crust[-1].G - tropes_core[0].G ) )
     #print "Transition from core to crust at", rho_tr, np.log10(rho_tr), crust.edens_inv( crust.pressure( rho_tr ) )/cgs.GeVfm_per_dynecm
     trans_core[0] = rho_tr
-    #trans_crust[-1] = rho_tr
 
     #repack
     tropes = tropes_crust + tropes_core
