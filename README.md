@@ -9,9 +9,11 @@
  - Optionally one can install `mpi4py` for running the sampler in parallel
 
 ## TODO
- -[ ] Implement QMC crust to `crust.py`
+
+- [ ] Implement QMC crust to `crust.py`
     - This should be just a simple wrapper to transform `L`, `S`, `a`, and `b` to polytropic indices and then using `monotrope`+`polytrope` classes to make it into an eos?
- -[ ] pQCD functions to their own file `pQCD.py`?
+    
+- [ ] pQCD functions to their own file `pQCD.py`?
     - Should just give constraints for the last monotrope in `polytrope` collection so that it satisfies `X`?
 
 
