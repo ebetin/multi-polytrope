@@ -19,6 +19,7 @@ G  = 6.6730831e-8
 me = 9.1093897e-28
 mp = 1.6726231e-24
 mn = 1.6749286e-24
+mmu = 1.8835327e-25
 kB = 1.380658e-16
 hP = 6.6260755e-27
 hbar = 1.05457266e-27
@@ -55,6 +56,8 @@ erg_per_kev = 1.0e-10 / eVSI
 
 GeVfm_per_dynecm = 1.e9 * eV / (1.0e-13)**3
 
+GeV3_to_fm3 = 1.0e3/1.9732705**3 #GeV^3->fm^-3 (approx.)
+
 
 
 ##################################################
@@ -89,4 +92,8 @@ cm_per_tenkpc = 1.0e-6 / pcSI
 Msun   = 1.988435e33
 #kg_per_Msun    = 1.988435e30
 
+#baryon mass
+mB = mn
 
+#mass saturation density
+rhoS = 0.16e39 * mn

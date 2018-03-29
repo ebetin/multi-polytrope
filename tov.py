@@ -38,8 +38,8 @@ class tov:
 
     def tovsolve(self, rhoc):
 
-        N = 800
-        r = np.linspace(1e0, 18e5, N)
+        N = 80000
+        r = np.linspace(1e0, 25e5, N)
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r[0]**3*eden
@@ -51,8 +51,8 @@ class tov:
         N = 100
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        rhocs = np.logspace(14.0, 16.0, N)
-
+        #rhocs = np.logspace(14.0, 16.0, N)
+        rhocs = np.logspace(14.3, 16.0, N)
         mass_max = 0.0
         j = 0
         for rhoc in rhocs:
@@ -70,9 +70,9 @@ class tov:
             mcurve[j] = mstar
             rcurve[j] = rstar
 
-            j += 1
             if mass_max < mstar:
                 mass_max = mstar
+                j += 1
             else:
                 break
 
