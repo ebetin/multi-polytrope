@@ -17,20 +17,25 @@ if not os.path.exists("chains"): os.mkdir("chains")
 # Prior function; changes from [0,1] to whatever physical lims
 def myprior(cube):
 
-    cube[0] = cube[0] * (14.0 - 10.0) + 10.0 #a
-    cube[1] = cube[1] * (0.55 - 0.40) + 0.40 #alpha
-    cube[2] = cube[2] * (7.5 - 1.5) + 1.5 #b
-    cube[3] = cube[3] * (8.0 - 1.7) + 1.7 #beta
-    cube[4] = cube[4] * (4.0 - 1.0) + 1.0 #X
+    # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
+    cube[0] = cube[0] * (14.0 - 10.0) + 10.0 #a [Mev]
+    cube[1] = cube[1] * (0.55 - 0.40) + 0.40 #alpha [unitless]
+    cube[2] = cube[2] * (7.5 - 1.5) + 1.5 #b [MeV]
+    cube[3] = cube[3] * (2.7 - 1.8) + 1.8 #beta [unitless]
 
-    cube[5] *= 15.0 #gamma3
-    cube[6] *= 15.0 #gamma4
+    # Scale parameter of the perturbative QCD, see Frage et al. (2014, arXiv:1311.5154) for details
+    cube[4] = cube[4] * (4.0 - 1.0) + 1.0 #X [unitless]
 
-    cube[7] *= 15.0 #delta_n1
-    cube[8] *= 15.0 #delta_n2
-    cube[9] *= 15.0 #delta_n3
+    # Polytropic exponents excluding the first two ones
+    #cube[5] *= 15.0 #gamma3 [unitless]
+    #cube[6] *= 15.0 #gamma4 [unitless]
+
+    # Lengths of the first N-1 monotropes (N = # of polytropes)
+    #cube[7] *= 15.0 #delta_n1 [rhoS]
+    #cube[8] *= 15.0 #delta_n2 [rhoS]
+    #cube[9] *= 15.0 #delta_n3 [rhoS]
     
-    #cube[0] = cube[0] * (30.0-1.0) + 1.0
+    cube[5] *= 50.0 #delta_n1 [rhoS]
 
     return cube
 
@@ -42,51 +47,56 @@ def myloglike(cube):
 
     logl = 0.0
 
-    #unpack EoS
 
-    gammas = [cube[5], cube[6]]
+    # Polytropic exponents excluding the first two ones
+    #gammas = [cube[5], cube[6]] # 4-trope
+    gammas = [] # 2-trope
 
 
-    #trans  = [0.2 * cgs.rhoS, 1.1 * cgs.rhoS, cube[0] * cgs.rhoS]
+    # Transition ("matching") densities (g/cm^3)
     trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS]
-    trans.append(trans[-1] + cgs.rhoS * cube[7])
-    trans.append(trans[-1] + cgs.rhoS * cube[8])
-    trans.append(trans[-1] + cgs.rhoS * cube[9])
+    #trans.append(trans[-1] + cgs.rhoS * cube[7])
+    #trans.append(trans[-1] + cgs.rhoS * cube[8])
+    #trans.append(trans[-1] + cgs.rhoS * cube[9])
+    trans.append(trans[-1] + cgs.rhoS * cube[5]) # 2-trope
 
 
-    #a = 13.4e6 * cgs.eV
-    #alpha = 0.514
-    #b = 5.62e6 * cgs.eV
-    #beta = 2.436
-
-    a = cube[0] * 1.0e6 * cgs.eV
-    alpha = cube[1]
-    b = cube[2] * 1.0e6 * cgs.eV
-    beta = cube[3]
+    # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
+    a = cube[0] * 1.0e6 * cgs.eV # (erg)
+    alpha = cube[1] # untiless
+    b = cube[2] * 1.0e6 * cgs.eV # (erg)
+    beta = cube[3] # unitless
+    S = 16.0e6 * cgs.eV + a + b # (erg)
+    L = 3.0 * (a * alpha + b * beta) # (erg)
     lowDensity = [a, alpha, b, beta]
 
-    #X = 1.2
+
+    # Perturbative QCD parameters, see Frage et al. (2014, arXiv:1311.5154) for details
     X = cube[4]
-    muQCD = 2.6 # (GeV)
+    muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
     highDensity = [muQCD, X]
 
 
+    # Check that last transition (matching) point is large enough
     if nQCD(muQCD, X) * cgs.mB <= trans[-1]:
         logl = -linf
 
         return logl
 
-    #construct it
+
+    # Construct the EoS
     struc = structure(gammas, trans, lowDensity, highDensity)
 
-    if struc.realistic == False:
+    # Is the obtained EoS realistic, e.g. causal?
+    if not struc.realistic:
         logl = -linf
 
         return logl
 
+
     struc.tov()
 
-    #check validity
+    # two-solar-mass constrain
     if struc.maxmass < 1.97:
         logl = -linf
 
@@ -98,15 +108,18 @@ def myloglike(cube):
 ##################################################
 # number of dimensions our problem has
 
-#twop
-#parameters = ["gamma1", "K1", "gamma2", "K2"]
+#4-trope
+#parameters = ["a", "alpha", "b", "beta", "X", "gamma3", "gamma4", "trans_delta1", "trans_delta2", "trans_delta3"]
 
-#quadrutrope
-parameters = ["a", "alpha", "b", "beta", "X", "gamma3", "gamma4", "trans_delta1", "trans_delta2", "trans_delta3"]
+#3-trope
+#parameters = ["a", "alpha", "b", "beta", "X", "gamma3", "trans_delta1", "trans_delta2"]
+
+#2-trope
+parameters = ["a", "alpha", "b", "beta", "X", "trans_delta1"]
 
 n_params = len(parameters)
 
-
+prefix = "chains/13-"
 
 
 
@@ -116,8 +129,8 @@ n_params = len(parameters)
 result = solve( LogLikelihood=myloglike, 
                 Prior=myprior, 
 	        n_dims=n_params,  
-            n_live_points=400,
-                outputfiles_basename="chains/7-",
+            n_live_points=50000,
+                outputfiles_basename=prefix,
                 )
 
 
@@ -129,3 +142,7 @@ print('parameter values:')
 
 for name, col in zip(parameters, result['samples'].transpose()):
 	print('%15s : %.3f +- %.3f' % (name, col.mean(), col.std()))
+
+import json
+with open('%sparams.json' % prefix, 'w') as f:
+    json.dump(parameters, f, indent=2)

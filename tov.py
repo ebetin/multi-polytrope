@@ -38,7 +38,7 @@ class tov:
 
     def tovsolve(self, rhoc):
 
-        N = 80000
+        N = 800 # XXX correct value?
         r = np.linspace(1e0, 25e5, N)
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )

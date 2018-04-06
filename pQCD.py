@@ -50,15 +50,13 @@ class matchPolytopesWithLimits:
 
     # Input parameters:
     #   EoSLow: Low-density EoS parameters [p0, e0, n0]
-    #     p0, e0, n0: Pressure (Ba), energy density (g/cm^3) and number density (1/cm^3) at the starting point
+    #     p0, e0, n0: Pressure (Ba), energy density (g/cm^3) and baryon density (rhoS) at the starting point
     #   EoSHigh: High-density EoS parameters [X, muFin]
     #     pN, eN: Pressure (Ba), energy density (g/cm^3) at the end point
-    #   rhooEOS: Matching (transition) number densities (1/cm^3): [n0,n1,...,nN]
+    #   rhooEOS: Matching (transition) baryon densities (rhoS): [n0,n1,...,nN]
     #   gammaEOS: Known polytropic indexes [gamma_2,gamma_3,---]
     #     NB The two first polytropic indexes are assumed to be unknown
     def __init__(self, EoSLow, EoSHigh, rhooTransition, gammaKnown):
-        #self.x = EoSHigh[0]
-        #self.mu = EoSHigh[1]
         self.pN = EoSHigh[0]
         self.eN = EoSHigh[1]
         self.p0 = EoSLow[0]
@@ -73,34 +71,37 @@ class matchPolytopesWithLimits:
     # Gamma solver's test function: Checks pressure and energy density conditions for interpolated polytropes
     #   gammaUnknown: Two (still) unknown gammas,  [gamma_0,gamma_1]
     def solveGamma(self, gammaUnknown):
-        # Pressure and energy density (erg/cm^3) at n0
-        p = [self.p0]
-        e = [self.e0 * cgs.c**2]
+        # Normalized pressure and energy density at the starting density
+        p = [self.p0 / (self.e0 * cgs.c**2)]
+        e = [1.0]
 
         # Number densities [n0,n1,...nN,nQCD] (1/cm^3)
         rhoo = self.rhooT[:]
-        #rhoo.append(nQCD(self.mu, self.x))
 
         # Number of mathing (transition) points
         n=len(rhoo)
 
-        # Polytropic indexes
+        # Polytropic exponents
         g = self.gamma[:]
         g.insert(0, gammaUnknown[0])
         g.insert(1, gammaUnknown[1])
 
         for k in range(1, n):
             # Matching ("transition") pressures
-            p.append(p[-1] * (rhoo[k] / rhoo[k-1])**g[k-1]) #XXX ONGELMA
+            p.append(p[-1] * (rhoo[k] / rhoo[k-1])**g[k-1])
 
             # Matching ("transition") energy densities
             if g[k-1] == 1:
-                e.append(p[k] * log(rhoo[k]) + e[k-1] - p[k-1] * log(rhoo[k-1]) ) #XXX ONGELMA
+                e.append(p[k] * log(rhoo[k] / rhoo[k-1]) + e[k-1] * rhoo[k] / rhoo[k-1] )
             else:
-                e.append(p[k] / (g[k-1] - 1.0) + (e[k-1] - p[k-1] / (g[k-1] - 1.0)) * (rhoo[k] / rhoo[k-1])) #XXX ONGELMA
+                e.append(p[k] / (g[k-1] - 1.0) + (e[k-1] - p[k-1] / (g[k-1] - 1.0)) * (rhoo[k] / rhoo[k-1]))
     
-        out = [(p[-1] - self.pN) / self.pN] # Pressure condition at the end point
-        out.append((e[-1] - self.eN) / self.eN) # Energy density condition at the end point
+        # Pressure condition at the end point
+        out = [p[-1] - self.pN / (self.e0 * cgs.c**2)] 
+
+        # Energy density condition at the end point
+        out.append(e[-1] - self.eN / (self.e0 * cgs.c**2))
+
         return out
 
     # Returns all polytropic indexes (list) for given data set in case of interpolation between
@@ -116,32 +117,25 @@ class matchPolytopesWithLimits:
             if self.p0 <= 0.0 or self.e0 <= 0.0 or self.pN <= 0.0 or self.eN <= 0.0 or self.rhooT[0] <= 0.0:
                 raise NegativeQuantitativeError
 
-            # Number density is not monotonically increasing
-            #if self.rhooT[-1] >= nQCD(self.mu, self.x):
-            #    raise NumberDensityDecreasingError
-
             for k in range(1,len(self.rhooT)):
                 if self.rhooT[k-1] >= self.rhooT[k]:
                     return NumberDensityDecreasingError
         
             # Calculate unknown polytropic indexes
-            [Gammas,infoG,flagG,mesgG]=fsolve(self.solveGamma,GammaGuess,full_output=1)
-            #print Gammas, flagG, "((((((((((((((", self.solveGamma(GammaGuess) #XXX TESTING STUFF
-            GammaAll = Gammas.tolist()+self.gamma
+            [Gammas,infoG,flagG,mesgG]=fsolve(self.solveGamma,GammaGuess,full_output=1,xtol=1.0e-10)
+
+            GammaAll = Gammas.tolist() + self.gamma
 
             # Could not determine the polytropic indexes
             if flagG != 1:
-                return [-1.0, -1.0]
-                #raise GammaError
+                #print "?", self.solveGamma(GammaAll), infoG, flagG
+                raise GammaError
 
-            #print self.solveGamma(GammaGuess), "&&&&&&&&&&" #XXX TESTING STUFF
-            test = all(y < 1.0e4 for y in self.solveGamma(GammaGuess))
-            #print test, "@@@@@@@@@@@@@@@@@@@", Gammas[0] == GammaGuess[0], Gammas[1] == GammaGuess[1] #XXX TESTING STUFF
-            #print Gammas == GammaGuess, "=============", Gammas[0] == GammaGuess[0] and Gammas[1] == GammaGuess[1] and test #XXX TESTING STUFF
+            test = all(y < 1.0e-7 for y in self.solveGamma(GammaGuess)) 
+            #print self.solveGamma(GammaAll) XXX
+            if Gammas[0] == GammaGuess[0] and Gammas[1] == GammaGuess[1] and not test:
 
-            if Gammas[0] == GammaGuess[0] and Gammas[1] == GammaGuess[1] and test == False:
-                return [-1.0, -1.0]
-                #raise GammaError
+                raise GammaError
 
             return GammaAll
 
@@ -201,6 +195,7 @@ def pSB(mu):
 
     except NonpositiveChemicalPotential:
         print("Chemical potential is nonpositive!")
+
 
 # Pressure (difference) (Ba) as a function of the baryon chemical potential (GeV)
 #   params: High-density parameters [X, muFin]
@@ -274,6 +269,7 @@ def eQCD(mu, x, e=0):
     except NonpositiveEnergyDensity:
         print("Energy density is nonpositive!")
 
+
 # Pressure (Ba) as a function of function of the "energy" density (g/cm^3)
 #   e: Energy density
 #   x: Perturbatice QCD parameter related to renormalization scale
@@ -288,6 +284,7 @@ def pQCD_energy(e, x):
 
     except NonpositiveEnergyDensity:
         print("Energy density is nonpositive!")
+
 
 # Pressure (Ba) as a function of function of the baryon number density (1/cm^3)
 #   rhoo: Baryon number density
@@ -319,6 +316,7 @@ def nQCD_pressure(p, x):
     except NonpositivePressure:
         print("Pressure is nonpositive!")
 
+
 # "Energy" density (g/cm^3) as a function of the baryon number density (1/cm^3)
 #   rhoo: Baryon number density
 #   x: Perturbatice QCD parameter related to renormalization scale
@@ -334,6 +332,7 @@ def eQCD_density(rhoo, x):
     except NonpositiveNumberDensity:
         print("Baryon number density is nonpositive!")
 
+
 # "Energy" density (g/cm^3) as a function of the pressure (Ba)
 #   p: Pressure
 #   x: Perturbatice QCD parameter related to renormalization scale
@@ -348,6 +347,7 @@ def eQCD_pressure(p, x):
 
     except NonpositivePressure:
         print("Pressure is nonpositive!")
+
 
 # Quark matter EoS from perturbative QCD
 class qcd:
@@ -365,7 +365,7 @@ class qcd:
             if rhoo <= 0.0:
                 raise NonpositiveNumberDensity
 
-            mu = fsolve(nQCD, 2.6, args = (self.X, rhoo / cgs.mn))[0]
+            mu = fsolve(nQCD, 2.6, args = (self.X, rhoo / cgs.mB))[0]
 
             return pQCD(mu, self.X)
 
@@ -376,7 +376,7 @@ class qcd:
     def pressures(self, rhos):
         press = []
         for rho in rhos:
-            pr = self.pressure(rho / cgs.mn)
+            pr = self.pressure(rho / cgs.mB)
             press.append( pr )
         return press
 
@@ -401,7 +401,7 @@ class qcd:
 
             mu = fsolve(pQCD, 2.6, args = (self.X, press))[0]
 
-            return nQCD(mu, self.X) * cgs.mn
+            return nQCD(mu, self.X) * cgs.mB
 
         except NonpositivePressure:
             print("Pressure is nonpositive!")

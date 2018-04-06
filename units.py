@@ -14,19 +14,19 @@ RsSI     = 2.9532500772e3 #Sch radius of Sun in m
 Rs     = 2.9532500772 #Sch radius of Sun in m
 
 
-c  = 2.99792458e10
-G  = 6.6730831e-8
-me = 9.1093897e-28
-mp = 1.6726231e-24
-mn = 1.6749286e-24
-mmu = 1.8835327e-25
-kB = 1.380658e-16
-hP = 6.6260755e-27
-hbar = 1.05457266e-27
-eC = 4.8032068e-10
-mH = 1.6733e-24
-eV = 1.602177e-12
-pc = 3.08567758149e18
+c  = 2.99792458e10    # speed of light
+G  = 6.6730831e-8     # gravitational constant
+me = 9.1093897e-28    # mass of electron
+mp = 1.6726231e-24    # mass of proton
+mn = 1.6749286e-24    # mass of neutron
+mmu = 1.8835327e-25   # mass of muon
+kB = 1.380658e-16     # Boltzmann constant
+hP = 6.6260755e-27    # Planck cosntant
+hbar = 1.05457266e-27 # reduced Planck constant
+eC = 4.8032068e-10    # elementary charge
+mH = 1.6733e-24       # mass of hydrogen atom
+eV = 1.602177e-12     # electron volt
+pc = 3.08567758149e18 # parsec
 
 
 #plasma electron relativity temperature
@@ -96,4 +96,4 @@ Msun   = 1.988435e33
 mB = mn
 
 #mass saturation density
-rhoS = 0.16e39 * mn
+rhoS = 0.16e39 * mB

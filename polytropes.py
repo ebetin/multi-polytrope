@@ -5,7 +5,6 @@ from numpy import log, exp
 from math import pi
 from math import isnan
 
-from pQCD import nQCD #XXX
 
 #Monotropic eos
 class monotrope:
@@ -68,7 +67,7 @@ class polytrope:
         self.eds  = []
 
         for (trope, transition) in zip(self.tropes, self.transitions):
-            #, ie. this is not the crust monotrope
+            # Does a previous polytrope (prev_trope) exist?
             if not( prev_trope == None ):
                 #transition continuity constant
                 trope.a = self._ai( prev_trope, trope, transition )
@@ -84,8 +83,6 @@ class polytrope:
             self.prs.append( pr )
             self.eds.append( ed )
 
-            prev_ed = ed #XXX tarpeellinen?
-            prev_tr = transition #XXX tarpeellinen?
             prev_trope = trope
 
 
@@ -164,20 +161,18 @@ class doubleMonotrope:
     #   flagSymmetryEnergyModel: Symmetry energy models (default 1)
     #      1: SS(n) = S + L / 3 * (rho - rho_s) / rho
     #      2: SS(n) = S (rho / rho_s)^G, where G = L / (3 * S)
-    def __init__(self, trope, trans, S, L, rhoS, m, flagBetaEQ = True, flagMuon = False, flagSymmetryEnergyModel = 1):
+    def __init__(self, trope, trans, S, L, flagBetaEQ = True, flagMuon = False, flagSymmetryEnergyModel = 1):
         self.trope1      = trope[0]
         self.trope2      = trope[1]
         self.transition = trans
 
         self.S = S
         self.L = L
-        self.rhoS = rhoS
-        self.m = m
 
         self.alphaCoeff = self.trope1.G - 1.0
         self.betaCoeff = self.trope2.G - 1.0
-        self.aCoeff = self.trope1.K * m * (rhoS / m)**self.alphaCoeff / self.alphaCoeff
-        self.bCoeff = self.trope2.K * m * (rhoS / m)**self.betaCoeff / self.betaCoeff
+        self.aCoeff = self.trope1.K * cgs.mB * (cgs.rhoS / cgs.mB)**self.alphaCoeff / self.alphaCoeff
+        self.bCoeff = self.trope2.K * cgs.mB * (cgs.rhoS / cgs.mB)**self.betaCoeff / self.betaCoeff
 
         self.flagMuon = flagMuon
         self.flagBetaEQ = flagBetaEQ
@@ -195,15 +190,15 @@ class doubleMonotrope:
 
         # Symmetry energy
         if self.flagSymmetryEnergyModel == 1:
-            SS = self.S + self.L / 3.0 * (rho - self.rhoS) / self.rhoS
+            SS = self.S + self.L / 3.0 * (rho - cgs.rhoS) / cgs.rhoS
         elif self.flagSymmetryEnergyModel == 2:
             G = self.L / (3.0 * self.S)
-            SS = self.S * pow(rho / self.rhoS, G)
+            SS = self.S * pow(rho / cgs.rhoS, G)
         #else error XXX
 
         # Temp functions
-        A = cgs.hbar * cgs.c * pow(3.0 * pi**2 * rho / self.m, 1.0/3.0) / (8.0 * SS)
-        B = (cgs.mmu * cgs.c / cgs.hbar)**2 / pow(3.0 * pi**2 * rho / self.m, 2.0/3.0)
+        A = cgs.hbar * cgs.c * pow(3.0 * pi**2 * rho / cgs.mB, 1.0/3.0) / (8.0 * SS)
+        B = (cgs.mmu * cgs.c / cgs.hbar)**2 / pow(3.0 * pi**2 * rho / cgs.mB, 2.0/3.0)
 
         # Factor equations
         out = []    
@@ -222,18 +217,17 @@ class doubleMonotrope:
 
         # Symmetry energy
         if self.flagSymmetryEnergyModel == 1:
-            SS = self.S + self.L / 3.0 * (rho - self.rhoS) / self.rhoS
+            SS = self.S + self.L / 3.0 * (rho - cgs.rhoS) / cgs.rhoS
         elif self.flagSymmetryEnergyModel == 2:
             G = self.L / (3.0 * self.S)
-            SS = self.S * pow(rho / self.rhoS, G)
+            SS = self.S * pow(rho / cgs.rhoS, G)
         #else error XXX
 
         # Electron factor equation
         out = []  
-        A = cgs.hbar * cgs.c * pow(3.0 * pi**2 * rho / self.m, 1.0/3.0) / (8.0 * SS)  
+        A = cgs.hbar * cgs.c * pow(3.0 * pi**2 * rho / cgs.mB, 1.0/3.0) / (8.0 * SS)  
 
-        #print electronFactor, A, pow(electronFactor, 1.0/3.0), A * pow(electronFactor, 1.0/3.0)
-        out.append(electronFactor - 0.5 + A * pow(electronFactor, 1.0/3.0) ) # XXX ONGELMA
+        out.append(electronFactor - 0.5 + A * pow(electronFactor, 1.0/3.0) )
 
         return out
 
@@ -251,7 +245,7 @@ class doubleMonotrope:
             [xe] = fsolve(self.protonFactorMuonless, 5.0e-2, args = rho)
 
             # NB Muons do not exist if xe <= B^(3/2)
-            B = (cgs.mmu * cgs.c / cgs.hbar)**2 / pow(3.0 * pi**2 * rho / self.m, 2.0/3.0)
+            B = (cgs.mmu * cgs.c / cgs.hbar)**2 / pow(3.0 * pi**2 * rho / cgs.mB, 2.0/3.0)
 
             # Muons are present
             #   NB The if statement works at least with the curren symmetry energy models!
@@ -264,7 +258,7 @@ class doubleMonotrope:
         # Beta eq. with only electrons
         else:
             xm = 0.0;
-            #print rho, "KKKKKKKKKKKKKKKKKKKKKK"
+
             [xe] = fsolve(self.protonFactorMuonless, 5.0e-2, args = rho)
 
         return [xe, xm]
@@ -283,17 +277,17 @@ class doubleMonotrope:
         if x > 0.0: # Beta eq.
             # Derivative of the symmetry energy multiplied by rhoo
             if self.flagSymmetryEnergyModel == 1:
-                DS = self.L / 3.0 * (rho / self.rhoS)
+                DS = self.L / 3.0 * (rho / cgs.rhoS)
             elif self.flagSymmetryEnergyModel == 2:
                 G = self.L / (3.0 * self.S)
-                DS = G * self.S * pow(rho / self.rhoS, G)
+                DS = G * self.S * pow(rho / cgs.rhoS, G)
             #else error XXX
 
             # Proton correctin
-            pressureProton = 4.0 * DS * x * (x - 1.0) * rho / self.m
+            pressureProton = 4.0 * DS * x * (x - 1.0) * rho / cgs.mB
 
             # Electron correction
-            pressureElectron = 0.25 * xe * cgs.hbar * cgs.c * pow(3.0 * pi**2 * xe * rho / self.m, 1.0/3.0) * rho / self.m
+            pressureElectron = 0.25 * xe * cgs.hbar * cgs.c * pow(3.0 * pi**2 * xe * rho / cgs.mB, 1.0/3.0) * rho / cgs.mB
 
         else: # Non-beta eq.
             pressureProton = 0.0
@@ -301,11 +295,11 @@ class doubleMonotrope:
 
         if xm > 0.0: # w/ muons
             # Muon correction
-            chemicalPotentialMuon = sqrt(cgs.mmu**2 * cgs.c**4 + cgs.c**2 * cgs.hbar**2 * pow(3.0 * pi**2 * xm * rho / self.m, 2.0/3.0))
+            chemicalPotentialMuon = sqrt(cgs.mmu**2 * cgs.c**4 + cgs.c**2 * cgs.hbar**2 * pow(3.0 * pi**2 * xm * rho / cgs.mB, 2.0/3.0))
 
-            pressureMuonNoLog = (0.25 * xm * rho / self.m - cgs.c**2 * cgs.mmu**2 * pow(3.0 * pi**2 * xm * rho / self.m, 1.0/3.0) / (8.0 * pi**2 * cgs.hbar**2) ) * chemicalPotentialMuon
+            pressureMuonNoLog = (0.25 * xm * rho / cgs.mB - cgs.c**2 * cgs.mmu**2 * pow(3.0 * pi**2 * xm * rho / cgs.mB, 1.0/3.0) / (8.0 * pi**2 * cgs.hbar**2) ) * chemicalPotentialMuon
 
-            pressureMuonLog = -cgs.c**5 * cgs.mmu**4 / (8.0 * pi**2 * cgs.hbar**3) * log(cgs.mmu * cgs.c**2 / (cgs.c * cgs.hbar * pow(3.0 * pi**2 * xm * rho / self.m, 1.0/3.0) + chemicalPotentialMuon) )
+            pressureMuonLog = -cgs.c**5 * cgs.mmu**4 / (8.0 * pi**2 * cgs.hbar**3) * log(cgs.mmu * cgs.c**2 / (cgs.c * cgs.hbar * pow(3.0 * pi**2 * xm * rho / cgs.mB, 1.0/3.0) + chemicalPotentialMuon) )
 
             pressureMuon = energyDensityMuonNoLog + energyDensityMuonLog
         else: # w/out muons
@@ -319,11 +313,9 @@ class doubleMonotrope:
     #vectorized version
     def pressures(self, rhos, p=0):
         press = []
-
         for rho in rhos:
             pr = self.pressure(rho, p)
             press.append( pr )
-
         return press
 
     # Energy density (g/cm^3!) as a function of the mass density rho (g/cm^3)
@@ -341,17 +333,17 @@ class doubleMonotrope:
         if x > 0.0: # Beta eq.
             # Symmetry energy
             if self.flagSymmetryEnergyModel == 1:
-                SS = self.S + self.L / 3.0 * (rho - self.rhoS) / self.rhoS
+                SS = self.S + self.L / 3.0 * (rho - cgs.rhoS) / cgs.rhoS
             elif self.flagSymmetryEnergyModel == 2:
                 G = self.L / (3.0 * self.S)
-                SS = self.S * pow(rho / self.rhoS, G)
+                SS = self.S * pow(rho / cgs.rhoS, G)
             #else error XXX
 
             # Proton correction
-            energyDensityProton = 4.0 * SS * x * (x - 1.0) * rho / self.m / cgs.c**2
+            energyDensityProton = 4.0 * SS * x * (x - 1.0) * rho / cgs.mB / cgs.c**2
 
             # Electron correction
-            energyDensityElectron = 0.75 * xe * cgs.hbar * cgs.c * pow(3.0 * pi**2 * xe * rho / self.m, 1.0/3.0) * rho / self.m / cgs.c**2
+            energyDensityElectron = 0.75 * xe * cgs.hbar * cgs.c * pow(3.0 * pi**2 * xe * rho / cgs.mB, 1.0/3.0) * rho / cgs.mB / cgs.c**2
 
         else: # Non-beta eq.
             energyDensityProton = 0.0
@@ -359,11 +351,11 @@ class doubleMonotrope:
        
         if xm > 0.0: # w/ muons
             # Muon correction
-            chemicalPotentialMuon = sqrt(cgs.mmu**2 * cgs.c**4 + cgs.c**2 * cgs.hbar**2 * pow(3.0 * pi**2 * xm * rho / self.m, 2.0/3.0))
+            chemicalPotentialMuon = sqrt(cgs.mmu**2 * cgs.c**4 + cgs.c**2 * cgs.hbar**2 * pow(3.0 * pi**2 * xm * rho / cgs.mB, 2.0/3.0))
 
-            energyDensityMuonMass = cgs.mmu * rho / self.m
-            energyDensityMuonNoLog = (0.75 * xm * rho / self.m / cgs.c**2 + cgs.mmu**2 * pow(3.0 * pi**2 * xm * rho / self.m, 1.0/3.0) / (8.0 * pi**2 * cgs.hbar**2) ) * chemicalPotentialMuon
-            energyDensityMuonLog = cgs.c**3 * cgs.mmu**4 / (8.0 * pi**2 * cgs.hbar**3) * log(cgs.mmu * cgs.c**2 / (cgs.c * cgs.hbar * pow(3.0 * pi**2 * xm * rho / self.m, 1.0/3.0) + chemicalPotentialMuon) )
+            energyDensityMuonMass = cgs.mmu * rho / cgs.mB
+            energyDensityMuonNoLog = (0.75 * xm * rho / cgs.mB / cgs.c**2 + cgs.mmu**2 * pow(3.0 * pi**2 * xm * rho / cgs.mB, 1.0/3.0) / (8.0 * pi**2 * cgs.hbar**2) ) * chemicalPotentialMuon
+            energyDensityMuonLog = cgs.c**3 * cgs.mmu**4 / (8.0 * pi**2 * cgs.hbar**3) * log(cgs.mmu * cgs.c**2 / (cgs.c * cgs.hbar * pow(3.0 * pi**2 * xm * rho / cgs.mB, 1.0/3.0) + chemicalPotentialMuon) )
 
             energyDensityMuon =  energyDensityMuonMass + energyDensityMuonNoLog + energyDensityMuonLog
         else: # w/out muons
@@ -376,12 +368,15 @@ class doubleMonotrope:
 
     def edens_inv(self, press):
         rho = self.rho(press)
+        
         return self.edens(rho)
 
     def rho(self, press):
-        rho = fsolve(self.pressures, 1.3e33, args = press)
+        rho = fsolve(self.pressures, cgs.rhoS, args = press)
 
         return rho[0]
+
+
 
 #Combines EoS parts together, SPECIAL CASE
 class combiningEos:
@@ -395,7 +390,6 @@ class combiningEos:
         #ordered list of matching/transition points, mass density (g/cm^3), between monotropes
         self.transitions = trans
 
-        # XXX miten muutat?
         #transition/matching pressures (Ba) and energy densities (g/cm^3)
         self.prs  = []
         self.eds  = []
@@ -403,52 +397,13 @@ class combiningEos:
         #prev_piece = None
 
         for (piece, transition) in zip(self.pieces, self.transitions):
-            #if isinstance(piece, polytrope):
-                #, ie. this is not the crust monotrope
-            #    print "BBBBBBBBBBBBBBBBBBBBBBB", piece.tropes[0].a, piece.tropes[0].K, piece.tropes[0].G
-            #    firstMonotrope = piece.tropes[0]
-            #    if not( prev_piece == None or firstMonotrope.a != 0.0):
-                    #transition continuity constant
-            #        if isinstance(prev_piece, polytrope):
-            #            #XXX a ei maaritetty oikein!!!!
-            #            firstMonotrope.a = self._ai( prev_piece, piece, transition )
-            #        else:
-            #            prev_pr = piece.pressure(transition)
-            #            prev_edens = prev_piece.edens_inv(prev_pr)
-            #            if firstMonotrope.G == 1.0:
-            #                firstMonotrope.a = exp(prev_edens / (firstMonotrope.K * transition)) / transition
-            #            else:
-            #                firstMonotrope.a = prev_edens / transition - firstMonotrope.K / (firstMonotrope.G - 1.0) * transition**(firstMonotrope.G - 1.0) - 1.0
-            #        print "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",firstMonotrope.a
-                #no previous trope, ie. this is the crust monotrope
-                #else:                
-            #    elif prev_piece == None:
-            #        transition = 0.0
-
             pr = piece.pressure(transition)
             ed = piece.edens_inv(pr)
 
             self.prs.append( pr )
             self.eds.append( ed )
 
-            prev_ed = ed
-            prev_tr = transition #XXX tarpeellinen?
             prev_piece = piece
-
-    #XXX pois?
-    #transition continuity constant (unitless)
-    #  pm: previous monotrope, ie. the monotrope before matching point
-    #  m: monotrope after the matching point
-    #  tr: transtion mass density (g/cm^3)
-    def _ai(self, pm, m, tr):
-        if pm.G == 1.0 and m.G == 1.0:
-            return pm.a
-        elif pm.G == 1.0 and m.G != 1.0:
-            return pm.K * log(pm.a * tr) - 1.0 - (m.K / (m.G - 1.0)) * tr**(m.G - 1.0)
-        elif pm.G != 1.0 and m.G == 1.0:
-            return exp(1.0 / (pm.G - 1.0) + (1.0 + pm.a) / pm.K) / tr
-        else:
-            return pm.a + (pm.K / (pm.G - 1.0)) * tr**(pm.G - 1.0) - (m.K / (m.G - 1.0)) * tr**(m.G - 1.0)
 
     #finds the correct monotrope for given (mass) density (g/cm^3)
     def _find_interval_given_density(self, rho):
@@ -460,10 +415,9 @@ class combiningEos:
                 part = self.pieces[q]
                 partLatter = self.pieces[q+1]
                 K = partLatter.pressure(self.transitions[q+1])
-                #print K, part.pressure(self.transitions[q+1]) , "##########"
-                if part.pressure(self.transitions[q+1]) >= (1.0 - 1.0e-11) * K:
-                #if abs(K - part.pressure(self.transitions[q+1])) / K < 1.0e-10:
-                #if part.pressure(self.transitions[q+1]) >= K:
+
+                if part.pressure(self.transitions[q+1]) >= (1.0 - 1.0e-9) * K: # XXX rajat!!!!!!!!!!!!!!!!!!!!!
+
                     if part.pressure(rho) > K:
                         mono = monotrope(K, 0.0)
                         mono.a = (self.eds[q+1] + K) / self.transitions[q+1] - 1.0
@@ -472,9 +426,9 @@ class combiningEos:
                     else:
                         return part
                 else:
-                    print K,  part.pressure(self.transitions[q+1]), "LOLOLOLOLOLOLOLOLOL", q, "KKK", K - part.pressure(self.transitions[q+1]), (K - part.pressure(self.transitions[q+1])) / K, abs(K - part.pressure(self.transitions[q+1]))
+                    ##print K,  part.pressure(self.transitions[q+1]), "LOLOLOLOLOLOLOLOLOL", q, "KKK", K - part.pressure(self.transitions[q+1]), (K - part.pressure(self.transitions[q+1])) / K, abs(K - part.pressure(self.transitions[q+1])) #XXX
                     poly = polytrope([monotrope(-1.0, 0.0)], [0.0])
-                    return poly #XXX ERROR!!! faasitransitio vaarinpain 
+                    return poly #XXX ERROR!!! faasitransitio vaarinpain  ONEGLMA
 
         return self.pieces[-1]
 
@@ -505,8 +459,7 @@ class combiningEos:
 
     def edens_inv(self, press):
         trope = self._find_interval_given_pressure(press)
-        #rho = trope.rho(press)
-        #return trope.edens(rho)
+
         return trope.edens_inv(press)
 
     def rho(self, press):
