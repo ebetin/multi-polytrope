@@ -21,10 +21,6 @@ class NumberDensityDecreasingError(Error):
     """Raised when number density inputs are not in monotonically increasing order"""
     pass
 
-class GammaError(Error):
-    """Raised when the unknown polytropic indexes could not be determined"""
-    pass
-
 class IncorrectFlag(Error):
     """Raised when variable 'flag' has an incorrext value in function ab(x, flag)"""
     pass
@@ -71,8 +67,11 @@ class matchPolytopesWithLimits:
     # Gamma solver's test function: Checks pressure and energy density conditions for interpolated polytropes
     #   gammaUnknown: Two (still) unknown gammas,  [gamma_0,gamma_1]
     def solveGamma(self, gammaUnknown):
-        # Normalized pressure and energy density at the starting density
-        p = [self.p0 / (self.e0 * cgs.c**2)]
+        # Scaling factor
+        denominator = 1.0 / (self.e0 * cgs.c**2)
+
+        # Scaled pressure and energy density at the starting density
+        p = [self.p0 * denominator]
         e = [1.0]
 
         # Number densities [n0,n1,...nN,nQCD] (1/cm^3)
@@ -87,20 +86,30 @@ class matchPolytopesWithLimits:
         g.insert(1, gammaUnknown[1])
 
         for k in range(1, n):
-            # Matching ("transition") pressures
-            p.append(p[-1] * (rhoo[k] / rhoo[k-1])**g[k-1])
+            ratio = rhoo[k] / rhoo[k-1]
+
+            if p[-1] == 0.0 or g[k-1] < -10.0 or g[k-1] > 335.0:
+                # Breaking out if the situation is unrealistic
+                p.append(0.0)
+                return  [-10.0, -10.0]
+
+            else:
+                # Matching ("transition") pressures
+                p.append( ratio**g[k-1] * p[-1] )
 
             # Matching ("transition") energy densities
             if g[k-1] == 1:
-                e.append(p[k] * log(rhoo[k] / rhoo[k-1]) + e[k-1] * rhoo[k] / rhoo[k-1] )
+                e.append(p[k] * log(ratio) + e[k-1] * ratio)
             else:
-                e.append(p[k] / (g[k-1] - 1.0) + (e[k-1] - p[k-1] / (g[k-1] - 1.0)) * (rhoo[k] / rhoo[k-1]))
+                division = 1.0 / (g[k-1] - 1.0)
+                e.append(p[k] * division + (e[k-1] - p[k-1] * division) * ratio)
+
     
         # Pressure condition at the end point
-        out = [p[-1] - self.pN / (self.e0 * cgs.c**2)] 
+        out = [p[-1] - self.pN * denominator] 
 
         # Energy density condition at the end point
-        out.append(e[-1] - self.eN / (self.e0 * cgs.c**2))
+        out.append(e[-1] - self.eN * denominator)
 
         return out
 
@@ -119,23 +128,21 @@ class matchPolytopesWithLimits:
 
             for k in range(1,len(self.rhooT)):
                 if self.rhooT[k-1] >= self.rhooT[k]:
-                    return NumberDensityDecreasingError
-        
+                    raise NumberDensityDecreasingError
+
             # Calculate unknown polytropic indexes
-            [Gammas,infoG,flagG,mesgG]=fsolve(self.solveGamma,GammaGuess,full_output=1,xtol=1.0e-10)
+            [Gammas,infoG,flagG,mesgG]=fsolve(self.solveGamma,GammaGuess,full_output=1,xtol=1.0e-9)
+
+            # Could not determine the polytropic indexes (flagG != 1)
+            if flagG != 1:
+                # Recalculate with a bit different starting point
+                [Gammas,infoG,flagG,mesgG]=fsolve(self.solveGamma,[10.0,10.0],full_output=1,xtol=1.0e-9)
+
+                # No realistic solutions found
+                if flagG != 1:
+                    Gammas = numpy.array([-1.0, -1.0])
 
             GammaAll = Gammas.tolist() + self.gamma
-
-            # Could not determine the polytropic indexes
-            if flagG != 1:
-                #print "?", self.solveGamma(GammaAll), infoG, flagG
-                raise GammaError
-
-            test = all(y < 1.0e-7 for y in self.solveGamma(GammaGuess)) 
-            #print self.solveGamma(GammaAll) XXX
-            if Gammas[0] == GammaGuess[0] and Gammas[1] == GammaGuess[1] and not test:
-
-                raise GammaError
 
             return GammaAll
 
@@ -147,9 +154,6 @@ class matchPolytopesWithLimits:
             print()
         except NumberDensityDecreasingError:
             print("Number density is not monotonically increasing!")
-            print()
-        except GammaError:
-            print("Cannot solve polytropic indexes!")
             print()
 
 
