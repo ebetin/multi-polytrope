@@ -215,9 +215,12 @@ class doubleMonotrope:
             B = (cgs.mmu * cgs.c / cgs.hbar)**2 * pow(coeff, -2.0/3.0)
 
             # Factor equations
-            out = []    
-            out.append(muonFactor + electronFactor - 0.5 + A * pow(electronFactor, 1.0/3.0) )
-            out.append(pow(electronFactor, 2.0/3.0) - pow(muonFactor, 2.0/3.0)  - B)
+            out = []   
+            if electronFactor < 0.0 or muonFactor < 0.0: 
+                out = [10.1, -10.1]
+            else:
+                out.append(muonFactor + electronFactor - 0.5 + A * pow(electronFactor, 1.0/3.0) )
+                out.append(pow(electronFactor, 2.0/3.0) - pow(muonFactor, 2.0/3.0)  - B)
 
             return out
 
@@ -226,14 +229,9 @@ class doubleMonotrope:
             print()
 
 
-    # Determines the value of the electron factor (x_e = rhoo_e / rhoo_B) equation 
-    # Inputs:
-    #   rho: mass density (g/cm^3)
-    #   factors: electron factor
-    def protonFactorMuonless(self, factors, rho):
+    # Determines the electron fraction in beta stabile matter when muons are not present, as a function of baryon mass density (g/cm^3)
+    def electronFactor(self, rho):
         try:
-            [electronFactor] = factors
-
             # Symmetry energy
             if self.flagSymmetryEnergyModel == 1:
                 SS = self.S + self.L / 3.0 * (rho - cgs.rhoS) / cgs.rhoS
@@ -243,17 +241,22 @@ class doubleMonotrope:
             else:
                 raise IncorrectSymmetryEnergyModelError
 
-            # Electron factor equation
-            out = []  
-            A = cgs.hbar * cgs.c * pow(3.0 * pi**2 * rho / cgs.mB, 1.0/3.0) / (8.0 * SS)  
+            # Temp variables
+            chemicalPotential3 = (cgs.hbar * cgs.c)**3 * (3.0 * pi**2 * rho / cgs.mB)
+            SQRT = 6.0 * (chemicalPotential3**3 + 864.0 * chemicalPotential3**2 * pow(SS, 3.0))
+            coeff = pow(-72.0 * chemicalPotential3 * pow(SS, -3.0) + sqrt(SQRT) * pow(SS, -4.5), 1.0/3.0)
 
-            out.append(electronFactor - 0.5 + A * pow(electronFactor, 1.0/3.0) )
+            xePart1 = chemicalPotential3 * pow(6.0, -1.0/3.0) * pow(SS, -3.0) / coeff
+            xePart2 = coeff * pow(6.0, -2.0/3.0)
 
-            return out
+            # Electron factor
+            xe = 0.0625 * (8.0 - xePart1 + xePart2) 
+
+            return xe
 
         except IncorrectSymmetryEnergyModelError:
             print("Incorrect value of the symmetry energy model!")
-            print()
+            print() 
 
 
     # Calculates the electron (xe) and muon (xm) factors as a function of the mass density rho (g/cm^3)
@@ -266,7 +269,7 @@ class doubleMonotrope:
 
         # Beta eq. with muons
         elif self.flagMuon and self.flagBetaEQ:
-            [xe] = fsolve(self.protonFactorMuonless, 5.0e-2, args = rho)
+            xe = self.electronFactor(rho)
 
             # NB Muons do not exist if xe <= B^(3/2)
             B = (cgs.mmu * cgs.c / cgs.hbar)**2.0 * pow(3.0 * pi**2.0 * rho / cgs.mB, -2.0/3.0)
@@ -274,7 +277,13 @@ class doubleMonotrope:
             # Muons are present
             #   NB The if statement works at least with the current symmetry energy models!
             if xe > pow(B, 1.5) or isnan(xe):
-                [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [5.0e-2, 0.0], args = rho, full_output=1) #XXX TESTAA, tarviiko full_output?, eli toimiiko aina => kaatuuko? (kato muos edellinen fsolve)
+                [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [xe, 0.0], args = rho, full_output=1)
+
+                if flag != 1:
+                    [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [1.0e-2, 1.0e-2], args = rho, full_output=1)
+                    if flag != 1:
+                        xe = -1.0
+                        xm = -1.0
 
             else: # Without muons
                 xm = 0.0
@@ -282,13 +291,12 @@ class doubleMonotrope:
         # Beta eq. with only electrons
         else:
             xm = 0.0;
-
-            [xe] = fsolve(self.protonFactorMuonless, 5.0e-2, args = rho)
+            xe = self.electronFactor(rho)
 
         return [xe, xm]
 
 
-    #XXX selitys
+    # Pressure (Ba) as a function of the mass density rho (g/cm^3)
     def pressure(self, rho, p=0.0):
         try:
             pressure1 = self.trope1.pressure(rho)
@@ -314,7 +322,8 @@ class doubleMonotrope:
                 nB = rho / cgs.mB
 
                 # Temp constants
-                coeff = 3.0 * pi**2 * nB
+                pi2nB = pi**2 * nB
+                coeff = 3.0 * pi2nB
                 ch = cgs.c * cgs.hbar
 
                 # Proton correctin
@@ -329,10 +338,21 @@ class doubleMonotrope:
 
 
             if xm > 0.0: # w/ muons
-                # Muon chemical potential
-                chemicalPotentialMuon = sqrt(cgs.mmu**2 * cgs.c**4 + ch**2 * pow(coeff * xm, 2.0/3.0))
+                # Temp constant
+                c2m2 = (cgs.c * cgs.mmu)**2
+                hbar2 = cgs.hbar**2
+                coeffPower = pow(coeff * xm, 1.0/3.0)
 
-                pressureMuon = ch**2 * pi * nB * pow(pi * (xm * nB)**2 / 3.0, 1.0/3.0) / chemicalPotentialMuon
+                # Muon chemical potential diveded by c
+                chemicalPotentialMuon = sqrt( c2m2 + hbar2 * coeffPower**2 )
+
+                pressureMuonLogless = 2.0 * ch * chemicalPotentialMuon * (-2.0 * hbar2 * pi2nB * xm + c2m2 * coeffPower)
+
+                pressureMuonLog = c2m2**2 * cgs.c * (log(c2m2) - 2.0 * log(cgs.hbar * coeffPower + chemicalPotentialMuon) )
+
+                # Muon correction
+                pressureMuon = -(pressureMuonLog + pressureMuonLogless) / (16.0 * cgs.hbar**3 * pi**2)
+
             else: # w/out muons
                 pressureMuon = 0.0
             
@@ -382,14 +402,15 @@ class doubleMonotrope:
                 nB = rho / cgs.mB
 
                 # Temp constant
-                coeff = 3.0 * pi**2 * nB
-                c2Inv = 1.0 / cgs.c**2
+                pi2nB = pi**2 * nB
+                coeff = 3.0 * pi2nB
+                nBc2Inv = nB / cgs.c**2
 
                 # Proton correction
-                energyDensityProton = 4.0 * SS * x * (x - 1.0) * nB * c2Inv
+                energyDensityProton = 4.0 * SS * x * (x - 1.0) * nBc2Inv
 
                 # Electron correction
-                energyDensityElectron = 0.75 * xe * cgs.hbar * cgs.c * pow(coeff * xe, 1.0/3.0) * nB * c2Inv
+                energyDensityElectron = 0.75 * xe * cgs.hbar * cgs.c * pow(coeff * xe, 1.0/3.0) * nBc2Inv
 
             else: # Non-beta eq.
                 energyDensityProton = 0.0
@@ -397,12 +418,25 @@ class doubleMonotrope:
            
 
             if xm > 0.0: # w/ muons
-                # Muon chemical potential diveded by c^2
-                chemicalPotentialMuon = sqrt(cgs.mmu**2 + cgs.hbar**2 * c2Inv * pow(coeff * xm, 2.0/3.0))
+                # Temp constant
+                c2m2 = (cgs.c * cgs.mmu)**2
+                cInv = 1.0 / cgs.c
+                hbar2 = cgs.hbar**2
+                coeffPower = pow(coeff * xm, 1.0/3.0)
 
-                energyDensityMuon = chemicalPotentialMuon * nB
+                # Muon chemical potential diveded by c
+                chemicalPotentialMuon = sqrt( c2m2 + hbar2 * coeffPower**2 )
+
+                energyDensityMuonLogless = 2.0 * cgs.hbar * chemicalPotentialMuon * (6.0 * hbar2 * pi2nB * xm * cInv + cgs.mmu**2 * coeffPower)
+
+                energyDensityMuonLog = c2m2**2 * cInv * (log(c2m2) - 2.0 * log(cgs.hbar * coeffPower + chemicalPotentialMuon) )
+
+                # Muon correction
+                energyDensityMuon = (energyDensityMuonLog + energyDensityMuonLogless) / (16.0 * cgs.hbar**3 * pi**2)
+
             else: # w/out muons
                 energyDensityMuon = 0.0
+
 
             # Total energy density
             energyDensity = energyDensity1 + energyDensity2 + energyDensityProton + energyDensityElectron + energyDensityMuon
@@ -432,32 +466,28 @@ class combiningEos:
     
     def __init__(self, pieces, trans):
         #  prev_trope: previous monotrope which is not icnluded in the tropes (optional)
-        print "AA"
+
         #ordered list of monotropes (from low-density to high-density)
         self.pieces = pieces
-        print "BB"
+
         #ordered list of matching/transition points, mass density (g/cm^3), between monotropes
         self.transitions = trans
-        print "CC"
+
         #transition/matching pressures (Ba) and energy densities (g/cm^3)
         self.prs  = []
         self.eds  = []
-        print "DD"
-        #prev_piece = None
+
 
         for (piece, transition) in zip(self.pieces, self.transitions):
-            print "AAA", transition
             pr = piece.pressure(transition)
-            print "BBB", pr
             ed = piece.edens_inv(pr)
-            print "CCC", ed
+
             self.prs.append( pr )
             self.eds.append( ed )
-            print "DDD"
-            prev_piece = piece
-            print "EEE"
 
-        print "EE"
+            prev_piece = piece
+
+
 
     #finds the correct monotrope for given (mass) density (g/cm^3)
     def _find_interval_given_density(self, rho):
