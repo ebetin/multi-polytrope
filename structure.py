@@ -16,7 +16,6 @@ class structure:
         # Equation of state of the crust
         crustEoS = SLyCrust
 
-
         # QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
         a = lowDensity[0]
         alpha = lowDensity[1]
@@ -39,15 +38,11 @@ class structure:
         tropesBeta = [mBeta]
 
         # Form the bimonotropic EoS
-        print "A", transitions[0]
-        gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=False, flagSymmetryEnergyModel=1, flagBetaEQ = True)
+        gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=True, flagSymmetryEnergyModel=2, flagBetaEQ = True)
 
         # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
-        print "B", gandolfiEoS.pressure(transitions[0])
         gandolfiPressureHigh = gandolfiEoS.pressure(transitions[1])
-        print "C", gandolfiPressureHigh
         gandolfiEnergyDensityHigh = gandolfiEoS.edens(transitions[1])
-        print "D", gandolfiEnergyDensityHigh
         gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh]
 
 
@@ -66,12 +61,12 @@ class structure:
         transitionsPoly = transitions[1:] # mass density
         transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
         transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
-        print "E"
+
         # Determine polytropic exponents
         polyConditions = matchPolytopesWithLimits(gandolfiMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
 
         gammasAll = polyConditions.GammaValues()
-        print "F"
+
         
         # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
         testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
@@ -82,7 +77,7 @@ class structure:
 
         else:
             testCausality = True
-        print "G"
+
         # Do not proceed if tested failed
         if gammasAll == None or not testHydro or not testCausality:
             self.tropes = None
@@ -96,38 +91,39 @@ class structure:
 
             for i in range(1, len(gammasAll)):
                 Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
-            print "H"
+
             # Create polytropic presentation 
-            assert len(gammasAll) == len(Ks) == len(transitionsPoly) # XXX erorr condition?
+            assert len(gammasAll) == len(Ks) == len(transitionsPoly)
+
             self.tropes = []
             self.trans  = []
 
             for i in range(len(gammasAll)):
                 self.tropes.append( monotrope(Ks[i], gammasAll[i]) )
                 self.trans.append( transitionsPoly[i] )
-            print "I"
+
             # Fix the first transition continuity constant (unitless)
             if gammasAll[0] == 1.0:
                 self.tropes[0].a = ( gandolfiEnergyDensityHigh - gandolfiPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
             else:
                 self.tropes[0].a = ( gandolfiEnergyDensityHigh - gandolfiPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
-            print "J"
+
             # Create polytropic EoS
             polytropicEoS = polytrope( self.tropes, self.trans )
 
             # Combining EoSs
             combinedEoS = [crustEoS, gandolfiEoS, polytropicEoS, qcdEoS]
             transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
-            print "K"
+
             self.eos = combiningEos(combinedEoS, transitionPieces)
-            print "L"
+
 
             # Is the pQCD EoS causal?
             test3 = causalityPerturbativeQCD(muQCD)
-            print "M"
+
             # Is the latent heat between EoS pieces positive?
             test4 = positiveLatentHeat(combinedEoS, transitionPieces)
-            print "N"
+
             if not test3 or not test4:
                 self.realistic = False
             else:
