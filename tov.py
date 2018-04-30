@@ -13,11 +13,6 @@ from label_line import label_line
 
 import math
 
-#from matplotlib import cm
-import palettable as pal
-cmap = pal.colorbrewer.qualitative.Set1_6.mpl_colormap
-#cmap = pal.cmocean.sequential.Matter_8.mpl_colormap #best so far
-#cmap = pal.wesanderson.Zissou_5.mpl_colormap
 
 #--------------------------------------------------
 
@@ -81,6 +76,12 @@ class tov:
 
 #--------------------------------------------------
 def main(argv):
+
+    #from matplotlib import cm
+    import palettable as pal
+    cmap = pal.colorbrewer.qualitative.Set1_6.mpl_colormap
+    #cmap = pal.cmocean.sequential.Matter_8.mpl_colormap #best so far
+    #cmap = pal.wesanderson.Zissou_5.mpl_colormap
 
     plt.rc('font', family='serif')
     plt.rc('xtick', labelsize=7)
