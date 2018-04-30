@@ -1,7 +1,5 @@
 import sys
 import os
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import units as cgs
 from math import pi
@@ -13,11 +11,6 @@ from label_line import label_line
 
 import math
 
-#from matplotlib import cm
-import palettable as pal
-cmap = pal.colorbrewer.qualitative.Set1_6.mpl_colormap
-#cmap = pal.cmocean.sequential.Matter_8.mpl_colormap #best so far
-#cmap = pal.wesanderson.Zissou_5.mpl_colormap
 
 #--------------------------------------------------
 
@@ -38,8 +31,8 @@ class tov:
 
     def tovsolve(self, rhoc):
 
-        N = 800
-        r = np.linspace(1e0, 18e5, N)
+        N = 800 # XXX correct value?
+        r = np.linspace(1e0, 25e5, N)
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r[0]**3*eden
@@ -51,10 +44,10 @@ class tov:
         N = 100
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        rhocs = np.logspace(14.0, 16.0, N)
-
+        rhocs = np.logspace(14.3, 16.0, N)
         mass_max = 0.0
         j = 0
+
         for rhoc in rhocs:
             rad, press, mass = self.tovsolve(rhoc)
 
@@ -70,17 +63,29 @@ class tov:
             mcurve[j] = mstar
             rcurve[j] = rstar
 
-            j += 1
             if mass_max < mstar:
                 mass_max = mstar
+                j += 1
             else:
                 break
 
         return mcurve[:j], rcurve[:j], rhocs[:j]
 
 
+
+
+
 #--------------------------------------------------
 def main(argv):
+
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    #from matplotlib import cm
+    import palettable as pal
+    cmap = pal.colorbrewer.qualitative.Set1_6.mpl_colormap
+    #cmap = pal.cmocean.sequential.Matter_8.mpl_colormap #best so far
+    #cmap = pal.wesanderson.Zissou_5.mpl_colormap
 
     plt.rc('font', family='serif')
     plt.rc('xtick', labelsize=7)
@@ -189,6 +194,7 @@ if __name__ == "__main__":
     main(sys.argv)
     plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)
     plt.savefig('mr.pdf')
+
 
 
 

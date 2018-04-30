@@ -5,27 +5,28 @@
 
 #Particle Data Group (Review of particle Physics 2015) values
 # in SI units
-#c      = 2.99792458e8 #speed of light
-#h      = 6.62607004081e-34 #Planck constant
-#G      = 6.6730831e-11 #gravitational constant
-eVSI     = 1.602176620898e-19 #electron volt/Joule
-pcSI    = 3.08567758149e16 #parsec in m
-RsSI     = 2.9532500772e3 #Sch radius of Sun in m
-Rs     = 2.9532500772 #Sch radius of Sun in m
+#c   = 2.99792458e8 #speed of light
+#h   = 6.62607004081e-34 #Planck constant
+#G   = 6.6730831e-11 #gravitational constant
+eVSI = 1.602176620898e-19 # electron volt/Joule
+pcSI = 3.08567758149e16   # parsec in m
+RsSI = 2.9532500772e3     # Sch radius of Sun in m
+Rs   = 2.9532500772       # Sch radius of Sun in m
 
 
-c  = 2.99792458e10
-G  = 6.6730831e-8
-me = 9.1093897e-28
-mp = 1.6726231e-24
-mn = 1.6749286e-24
-kB = 1.380658e-16
-hP = 6.6260755e-27
-hbar = 1.05457266e-27
-eC = 4.8032068e-10
-mH = 1.6733e-24
-eV = 1.602177e-12
-pc = 3.08567758149e18
+c    = 2.99792458e10    # speed of light
+G    = 6.6730831e-8     # gravitational constant
+me   = 9.1093897e-28    # mass of electron
+mp   = 1.6726231e-24    # mass of proton
+mn   = 1.6749286e-24    # mass of neutron
+mmu  = 1.8835327e-25    # mass of muon
+kB   = 1.380658e-16     # Boltzmann constant
+hP   = 6.6260755e-27    # Planck cosntant
+hbar = 1.05457266e-27   # reduced Planck constant
+eC   = 4.8032068e-10    # elementary charge
+mH   = 1.6733e-24       # mass of hydrogen atom
+eV   = 1.602177e-12     # electron volt
+pc   = 3.08567758149e18 # parsec
 
 
 #plasma electron relativity temperature
@@ -54,6 +55,8 @@ erg_per_kev = 1.0e-10 / eVSI
 
 
 GeVfm_per_dynecm = 1.e9 * eV / (1.0e-13)**3
+
+GeV3_to_fm3 = 1.0e3/1.9732705**3 #GeV^3->fm^-3 (approx.)
 
 
 
@@ -89,4 +92,8 @@ cm_per_tenkpc = 1.0e-6 / pcSI
 Msun   = 1.988435e33
 #kg_per_Msun    = 1.988435e30
 
+#baryon mass
+mB = mn
 
+#mass saturation density
+rhoS = 0.16e39 * mB
