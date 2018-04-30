@@ -51,10 +51,10 @@ class tov:
         N = 100
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        #rhocs = np.logspace(14.0, 16.0, N)
         rhocs = np.logspace(14.3, 16.0, N)
         mass_max = 0.0
         j = 0
+
         for rhoc in rhocs:
             rad, press, mass = self.tovsolve(rhoc)
 

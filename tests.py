@@ -36,11 +36,11 @@ def causalityPolytropes(gammas, transitions, lowDensity):
             e.append(p[k] / (gammas[k-1] - 1.0) + (e[k-1] - p[k-1] / (gammas[k-1] - 1.0)) * (rhoo[k] / rhoo[k-1]))
 
         
-        # Speed of sound before transition
+        # Speed of sound before a transition
         coeff = p[-1] / (p[-1] + e[-1])
         speedHigh = gammas[k-1] * coeff
         
-        # Speed of sound after transition
+        # Speed of sound after a transition
         if k < len(rhoo) - 1:
             speedLow = gammas[k] * coeff
 
@@ -78,13 +78,8 @@ def positiveLatentHeat(pieces, transitions):
         pressureLow = pieces[q].pressure(transitions[q+1])
         pressureHigh = pieces[q+1].pressure(transitions[q+1])
 
-        # The pressure of the low density site should be greater or equal to the pressure of the high desity EoS. Nevertheless, due to possible rounding errors etc. some extra buffer is also included. #XXX tarkista!!!
-        if pressureLow < (1.0 - 1.0e-10) * pressureHigh:
-        #if pressureLow < pressureHigh:
-            if q > 0:
-                piece = pieces[2]
-                print (pressureLow - pressureHigh) / pressureHigh, pressureLow, pressureHigh, q
-                raw_input('Ongelma')
+        # The pressure of the low density site should be greater or equal to the pressure of the high desity EoS. Nevertheless, due to possible rounding errors etc. some extra buffer is also included.
+        if pressureLow < (1.0 - 1.49013e-08) * pressureHigh:
             return False
 
     return True
