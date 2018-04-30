@@ -141,5 +141,91 @@ class structure:
 
 
 
+# test TOV solver with various setups
+def test_tov():
+
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+
+
+    eos_Ntrope = 3 #polytrope order
+    #cube = [10.35546398,  0.46968896,  6.90197682,  1.8698988,   3.63685125,  9.24444854, 0.18240452, 20.5893892 ]
+    cube = [13.72713733,  0.41359602,  1.75415611,  2.54708464,  2.9140442,   3.05818737, 16.93841636, 18.90894771]
+
+
+    ##################################################
+    # build EoS
+    ci = 5
+    gammas = []  
+    for itrope in range(eos_Ntrope-2):
+        gammas.append(cube[ci])
+        ci += 1
+
+    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #starting point
+    for itrope in range(eos_Ntrope-1):
+        trans.append(trans[-1] + cgs.rhoS * cube[ci]) 
+        ci += 1
+
+    a     = cube[0] * 1.0e6 * cgs.eV     # (erg)
+    alpha = cube[1]                      # untiless
+    b     = cube[2] * 1.0e6 * cgs.eV     # (erg)
+    beta  = cube[3]                      # unitless
+    S     = 16.0e6 * cgs.eV + a + b      # (erg)
+    L     = 3.0 * (a * alpha + b * beta) # (erg)
+    lowDensity = [a, alpha, b, beta]
+
+    X = cube[4]
+    muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
+    highDensity = [muQCD, X]
+
+    ################################################## 
+    # solve
+    struc = structure(gammas, trans, lowDensity, highDensity)
+    print(struc.realistic)
+    struc.tov()
+
+
+
+    #visualize
+
+    plt.rc('font', family='serif')
+    plt.rc('xtick', labelsize=7)
+    plt.rc('ytick', labelsize=7)
+    plt.rc('axes', labelsize=7)
+    
+
+    fig = plt.figure(figsize=(3.54, 2.19)) #single column fig
+    #fig = plt.figure(figsize=(7.48, 4.0))  #two column figure
+    gs = plt.GridSpec(1, 1)
+
+    ax = plt.subplot(gs[0, 0])
+    ax.minorticks_on()
+    ax.set_xlim(9.0, 16.0)
+    ax.set_ylim(0.0, 3.0)
+
+    ax.set_xlabel(r'Radius $R$ (km)')
+    ax.set_ylabel(r'Mass $M$ (M$_{\odot}$)')
+
+
+    #mass, rad, rho = struc.t.mass_radius()
+    print struc.mass
+    print struc.rad
+    ax.plot(struc.rad, struc.mass)
+
+
+    plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)
+    plt.savefig('mr.pdf')
+
+
+
+
+
+if __name__ == "__main__":
+    #main(sys.argv)
+    #plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)
+    #plt.savefig('mr.pdf')
+
+    test_tov()
 
 
