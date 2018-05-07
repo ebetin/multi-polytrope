@@ -66,13 +66,13 @@ def hydrodynamicalStabilityPolytropes(gammas):
 # Input:
 #   muMatching: chemical potential (GeV) of the pQCD EoS at the matching point
 def causalityPerturbativeQCD(muMatching):
-    if muMatching < 2.009005:
+    if muMatching < 2.02583:
         return False
 
     return True
 
 
-# XXX
+# Tests that latent heats are positive quantities 
 def positiveLatentHeat(pieces, transitions):
     for q in range( len(transitions) - 1 ):
         pressureLow = pieces[q].pressure(transitions[q+1])
