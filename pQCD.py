@@ -263,7 +263,7 @@ def eQCD(mu, x, e=0):
     
         energy = (mu * 1.0e9 * cgs.eV) * nQCD(mu, x) - pQCD(mu, x)
 
-        if energy <= 0.0 and e==0:
+        if energy < 0.0 and e==0:
             raise NonpositiveEnergyDensity
 
         return energy / cgs.c**2 - e
@@ -410,3 +410,20 @@ class qcd:
         except NonpositivePressure:
             print("Pressure is nonpositive!")
 
+    # Square of the speed of sound (unitless)
+    def speed2(self, press):
+        try:
+            if press <= 0.0:
+                raise NonpositivePressure
+
+            c1 = 0.9008
+
+            mu = fsolve(pQCD, 2.6, args = (self.X, press))[0]
+
+            numerator = ( ab(x,1) * (4.0 * ab(x,2) - 3.0 * mu) + 4.0 * c1 * (ab(x,2) - mu)**2 ) * (ab(x,2) - mu)
+            denominator = 2.0 * ( 6.0 * c1 * (ab(x,2) - mu)**3 + ab(x,1) * (6.0 * ab(x,2)**2 - 8.0 * ab(x,2) * mu + 3.0 * mu**2) )
+
+            return numerator / denominator
+
+        except NonpositivePressure:
+            print("Pressure is nonpositive!")

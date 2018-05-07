@@ -58,6 +58,17 @@ class monotrope:
             return 0.0
         return ( press / (self.cgsunits * self.K) )**(1.0 / self.G)
 
+    #XXX
+    def Dpressure(self, rho):
+        return self.cgsunits * self.K * self.G * cgs.mB * rho**(self.G-1.0)
+
+    #XXX
+    def Dedens(self, rho):
+        if self.G == 1.0:
+            return (self.K * (log(rho / cgs.mB) + 1.0) + 1.0 + self.a) * cgs.mB * self.cgsunits
+        else:
+            return ( 1.0 + self.a + self.G / (self.G - 1.0) * self.K * rho**(self.G-1.0) ) * cgs.mB * self.cgsunits
+
 
 
 # Piecewise polytropes
@@ -156,6 +167,11 @@ class polytrope:
     def rho(self, press):
         trope = self._find_interval_given_pressure(press)
         return trope.rho(press)
+
+    # Square of the speed of sound (unitless)
+    def speed2(self, press):
+        trope = self._find_interval_given_pressure(press)
+        return trope.G * press / (press + self.edens_inv(press) * cgs.c**2) 
 
 
 
@@ -277,10 +293,10 @@ class doubleMonotrope:
             # Muons are present
             #   NB The if statement works at least with the current symmetry energy models!
             if xe > pow(B, 1.5) or isnan(xe):
-                [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [xe, 0.0], args = rho, full_output=1)
+                [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [xe, 0.0], args = rho, full_output=1, xtol=1.0e-9)
 
                 if flag != 1:
-                    [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [1.0e-2, 1.0e-2], args = rho, full_output=1)
+                    [[xe, xm],info,flag,mesg] = fsolve(self.protonFactorMuon, [1.0e-2, 1.0e-2], args = rho, full_output=1, xtol=1.0e-9)
                     if flag != 1:
                         xe = -1.0
                         xm = -1.0
@@ -326,7 +342,7 @@ class doubleMonotrope:
                 coeff = 3.0 * pi2nB
                 ch = cgs.c * cgs.hbar
 
-                # Proton correctin
+                # Proton correction
                 pressureProton = 4.0 * DS * x * (x - 1.0) * nB
 
                 # Electron correction
@@ -459,6 +475,86 @@ class doubleMonotrope:
 
         return rho[0]
 
+    # Square of the speed of sound (unitless) #XXX KESKEN
+    def speed2(self, press):
+        try:
+            rho = self.rho(press)
+            #XXX LUO
+            DenergyDensity1 = self.trope1.Dedens(rho) # a-alpha part ("low" density)
+            DenergyDensity2 = self.trope2.Dedens(rho) # b-beta part ("high" density)
+            Dpressure1 = self.trope1.Dpressure(rho)
+            Dpressure2 = self.trope2.Dpressure(rho)
+
+            # Electron and muon factors (xe = rho_e / rho_B)
+            [xe, xm] = self.electronMuonFactors(rho)
+
+            # Proton factor rho_p / rho_B
+            x = xe + xm
+
+            if x > 0.0: # Beta eq.
+                # Symmetry energy related parameters
+                if self.flagSymmetryEnergyModel == 1:
+                    SS = self.S + self.L / 3.0 * (rho - cgs.rhoS) / cgs.rhoS
+                    DS = self.L / 3.0 * (rho / cgs.rhoS)
+                    DDS = 2.0 * DS
+                elif self.flagSymmetryEnergyModel == 2:
+                    G = self.L / (3.0 * self.S)
+                    SS = self.S * pow(rho / cgs.rhoS, G)
+                    DS = G * self.S * pow(rho / cgs.rhoS, G)
+                    DDS = (G + 1.0) * DS
+                else:
+                    raise IncorrectSymmetryEnergyModelError
+
+                # Baryon number density
+                nB = rho / cgs.mB
+
+                # Temp constants
+                pi2nB = pi**2 * nB
+                coeff = pi2nB / 9.0
+                ch = cgs.c * cgs.hbar
+                coeffProton = 4.0 * x * (x - 1.0)
+
+                # Proton correctin
+                DpressureProton = coeffProton * DDS
+                DenergyDensityProton = coeffProton * (SS + DS)
+
+                # Electron correction
+                DpressureElectron = xe * ch * pow(coeff * xe, 1.0/3.0)
+                DenergyDensityElectron = 3.0 * DpressureElectron
+
+            else: # Non-beta eq.
+                DpressureProton = 0.0
+                DpressureElectron = 0.0
+
+
+            if xm > 0.0: # w/ muons
+                # Temp constant
+                c2m2 = (cgs.c * cgs.mmu)**2
+                hbar2 = cgs.hbar**2
+                coeffPower = pow(coeff * xm, 1.0/3.0)
+                coeffMuon = cgs.c * xm
+
+                # Muon chemical potential diveded by c
+                chemicalPotentialMuon = sqrt( c2m2 + hbar2 * coeffPower**2 )
+
+                # Muon correction
+                DpressureMuon = coeffMuon * hbar2 * pi * pow(pi * (nB * xm)**2 / 3.0, 1.0/3.0) / chemicalPotentialMuon
+                DenergyDensityMuon = coeffMuon * chemicalPotentialMuon
+
+            else: # w/out muons
+                DpressureMuon = 0.0
+                DenergyDensityMuon = 0.0
+            
+
+            Dpressure = Dpressure1 + Dpressure2 + DpressureProton + DpressureElectron + DpressureMuon
+            DenergyDensity = DenergyDensity1 + DenergyDensity2 + DenergyDensityProton + DenergyDensityElectron + DenergyDensityMuon
+
+            return Dpressure / DenergyDensity
+
+        except IncorrectSymmetryEnergyModelError:
+            print("Incorrect value of the symmetry energy model!")
+            print()
+
 
 
 #Combines EoS parts together, SPECIAL CASE
@@ -552,3 +648,7 @@ class combiningEos:
     def rho(self, press):
         trope = self._find_interval_given_pressure(press)
         return trope.rho(press)
+
+    def speed2(self, press):
+        trope = self._find_interval_given_pressure(press)
+        return trope.speed2(press)
