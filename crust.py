@@ -29,32 +29,3 @@ for (K, G, r) in zip(KSLy, GSLy, RSLy):
 
 #Create crust using polytrope class
 SLyCrust = polytrope(tropes, trans)
-
-
-#Gandolf's crust #TODO beta stability
-rhoo_tr_Gandolfi = 0.2 * 0.16 # (1/fm^3)
-a = 13.4e6 * cgs.eV#12.7e6 * cgs.eV
-alpha = 0.514#0.49
-b = 5.62e6 * cgs.eV#1.78e6 * cgs.eV
-beta = 2.436 #2.26
-ns = 0.16 * 1.0e39 * cgs.mn
-
-tropesAlpha = []
-tropesBeta = []
-transAlpha = []
-transBeta = []
-
-mAlpha = monotrope(a * alpha / (cgs.mn * ns**alpha), alpha+1.0)
-mBeta = monotrope(b * beta / (cgs.mn * ns**beta), beta+1.0)
-
-mAlpha.a = -0.5
-mBeta.a = -0.5
-
-tropesAlpha.append( mAlpha )
-tropesBeta.append( mBeta )
-
-transAlpha.append(rhoo_tr_Gandolfi * 1.0e39 * cgs.mn)
-transBeta.append(rhoo_tr_Gandolfi * 1.0e39 * cgs.mn)
-
-GandoliCrustAlpha = polytrope(tropesAlpha, transAlpha)
-GandoliCrustBeta = polytrope(tropesBeta, transBeta)
