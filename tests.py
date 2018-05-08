@@ -1,7 +1,7 @@
 from scipy.optimize import fmin
 import units as cgs
 
-# NB The double monotropic EoS by Gandolfi et al. (2012, arXiv:1101.1921) is causal and hydrodynamically stable because the mass of the baryon (neutron) is ~1000 MeV >> a, b ~ 1 MeV. However, this statement may not work with values of a, b, alpha and beta smaller than zero or they are larger than O(10 [MeV])!
+# NB The double monotropic EoS by Gandolfi et al. (2012, arXiv:1101.1921) is causal and hydrodynamically stable because the mass of the baryon (neutron) is ~1000 MeV >> a, b ~ 1 MeV. However, this statement may not work with values of a, b, alpha and beta smaller than zero or they are larger than O(10 [MeV]) and the density is more than 2--3 times the saturation density!
 
 
 # Checks that the polytropes are causal

@@ -202,6 +202,10 @@ class tov:
             return love
 
 
+    def tidalDeformability(self, m1, m2, lambda1, lambda2):
+        return 16.0 / 13.0 * ( (m1 + 12.0 * m2) * m1**4 * lambda1 + (m2 + 12.0 * m1) * m2**4 * lambda2 ) / (m1 + m2)**5
+
+
 #--------------------------------------------------
 def main(argv):
 

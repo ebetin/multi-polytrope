@@ -58,11 +58,11 @@ class monotrope:
             return 0.0
         return ( press / (self.cgsunits * self.K) )**(1.0 / self.G)
 
-    #XXX
+    # First derivative of the pressure with respect to the (baryon) number density (1/cm^3)
     def Dpressure(self, rho):
         return self.cgsunits * self.K * self.G * cgs.mB * rho**(self.G-1.0)
 
-    #XXX
+    # First derivative of the energy density with respect to the (baryon) number density (1/cm^3) multiplied by c^2
     def Dedens(self, rho):
         if self.G == 1.0:
             return (self.K * (log(rho / cgs.mB) + 1.0) + 1.0 + self.a) * cgs.mB * self.cgsunits
@@ -475,11 +475,11 @@ class doubleMonotrope:
 
         return rho[0]
 
-    # Square of the speed of sound (unitless) #XXX KESKEN
+    # Square of the speed of sound (unitless)
     def speed2(self, press):
         try:
             rho = self.rho(press)
-            #XXX LUO
+
             DenergyDensity1 = self.trope1.Dedens(rho) # a-alpha part ("low" density)
             DenergyDensity2 = self.trope2.Dedens(rho) # b-beta part ("high" density)
             Dpressure1 = self.trope1.Dpressure(rho)
@@ -500,7 +500,7 @@ class doubleMonotrope:
                 elif self.flagSymmetryEnergyModel == 2:
                     G = self.L / (3.0 * self.S)
                     SS = self.S * pow(rho / cgs.rhoS, G)
-                    DS = G * self.S * pow(rho / cgs.rhoS, G)
+                    DS = G * SS
                     DDS = (G + 1.0) * DS
                 else:
                     raise IncorrectSymmetryEnergyModelError
@@ -526,6 +526,9 @@ class doubleMonotrope:
                 DpressureProton = 0.0
                 DpressureElectron = 0.0
 
+                DenergyDensityProton = 0.0
+                DenergyDensityElectron = 0.0
+
 
             if xm > 0.0: # w/ muons
                 # Temp constant
@@ -545,7 +548,6 @@ class doubleMonotrope:
                 DpressureMuon = 0.0
                 DenergyDensityMuon = 0.0
             
-
             Dpressure = Dpressure1 + Dpressure2 + DpressureProton + DpressureElectron + DpressureMuon
             DenergyDensity = DenergyDensity1 + DenergyDensity2 + DenergyDensityProton + DenergyDensityElectron + DenergyDensityMuon
 
