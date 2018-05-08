@@ -1,8 +1,6 @@
 from scipy.optimize import fmin
 import units as cgs
 
-# NB The double monotropic EoS by Gandolfi et al. (2012, arXiv:1101.1921) is causal and hydrodynamically stable because the mass of the baryon (neutron) is ~1000 MeV >> a, b ~ 1 MeV. However, this statement may not work with values of a, b, alpha and beta smaller than zero or they are larger than O(10 [MeV]) and the density is more than 2--3 times the saturation density!
-
 
 # Checks that the polytropes are causal
 #   Inputs:
@@ -82,4 +80,17 @@ def positiveLatentHeat(pieces, transitions):
         if pressureLow < (1.0 - 1.49013e-08) * pressureHigh:
             return False
 
+    return True
+
+
+# NB The double monotropic EoS by Gandolfi et al. (2012, arXiv:1101.1921) is hydrodynamically stable because the mass of the baryon (neutron) is ~1000 MeV >> a, b ~ 1 MeV. However, this statement may not work with values of a, b, alpha and beta smaller than zero or they are larger than O(10 [MeV]). Besides, the derivative of the speed of sound is monotonicly increasing due to the same effect.
+
+# EOS = doubleMonotropic EoS
+# rhoMax = highest used value of the baryon mass density with this EoS
+def causalityDoubleMonotrope(EOS, rhoMax):
+    pressMax = EOS.pressure(rhoMax)
+
+    if EOS.speed2(pressMax) > 1.0:
+        return False
+    
     return True
