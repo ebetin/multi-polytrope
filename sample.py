@@ -59,7 +59,7 @@ print(parameters)
 ##################################################
 
 n_params = len(parameters)
-prefix = "chains/14-"
+prefix = "chains/20-"
 
 # next follows the parameters that we save but do not sample
 # NOTE: For convenience, the correct index is stored in the dictionary,
@@ -136,8 +136,8 @@ def myloglike(cube):
     """
 
     if debug:
-        icalls += 1
         global icalls
+        icalls += 1
         print(icalls, cube)
 
     logl = 0.0 #total likelihood
