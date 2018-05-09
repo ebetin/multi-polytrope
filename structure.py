@@ -7,7 +7,7 @@ from polytropes import monotrope, polytrope, doubleMonotrope, combiningEos
 from crust import SLyCrust
 from tov import tov
 from pQCD import qcd, matchPolytopesWithLimits, pQCD, eQCD, nQCD
-from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat
+from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope
 
 
 class structure:
@@ -40,36 +40,43 @@ class structure:
         # Form the bimonotropic EoS
         gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=True, flagSymmetryEnergyModel=2, flagBetaEQ = True)
 
-        # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
-        gandolfiPressureHigh = gandolfiEoS.pressure(transitions[1])
-        gandolfiEnergyDensityHigh = gandolfiEoS.edens(transitions[1])
-        gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh]
+        # Causality test
+        testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[1])
+
+        if testCausalityGandolfi:
+            # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
+            gandolfiPressureHigh = gandolfiEoS.pressure(transitions[1])
+            gandolfiEnergyDensityHigh = gandolfiEoS.edens(transitions[1])
+            gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh]
+
+            # Perturbative QCD EoS
+            muQCD = QCD[0]
+            X = QCD[1]
+            qcdEoS = qcd(X)
+
+            # Pressure and energy density at the beginning of the pQCD EoS
+            qcdPressureLow = pQCD(muQCD, X)
+            qcdEnergyDensityLow = eQCD(muQCD, X)
+            qcdMathing = [qcdPressureLow, qcdEnergyDensityLow * cgs.c**2]
 
 
-        # Perturbative QCD EoS
-        muQCD = QCD[0]
-        X = QCD[1]
-        qcdEoS = qcd(X)
+            # Transition (matching) densities of the polytrypic EoS 
+            transitionsPoly = transitions[1:] # mass density
+            transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
+            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
 
-        # Pressure and energy density at the beginning of the pQCD EoS
-        qcdPressureLow = pQCD(muQCD, X)
-        qcdEnergyDensityLow = eQCD(muQCD, X)
-        qcdMathing = [qcdPressureLow, qcdEnergyDensityLow * cgs.c**2]
+            # Determine polytropic exponents
+            polyConditions = matchPolytopesWithLimits(gandolfiMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
 
-
-        # Transition (matching) densities of the polytrypic EoS 
-        transitionsPoly = transitions[1:] # mass density
-        transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
-        transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
-
-        # Determine polytropic exponents
-        polyConditions = matchPolytopesWithLimits(gandolfiMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
-
-        gammasAll = polyConditions.GammaValues()
+            gammasAll = polyConditions.GammaValues()
 
         
-        # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
-        testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
+            # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
+            testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
+
+        else:
+            testHydro = False
+
 
         if testHydro:
             # Check that the polytropi EoS is also causal
