@@ -1,4 +1,5 @@
 from scipy.optimize import fmin
+from pQCD import pQCD
 import units as cgs
 
 
@@ -62,9 +63,12 @@ def hydrodynamicalStabilityPolytropes(gammas):
 # NB expects that the EoS is causal for all 1<=X<=4 and mu >= muLow
 # NB this also means that the EoS is hydrodynamically stable
 # Input:
+#   EOS: qcd EOS
 #   muMatching: chemical potential (GeV) of the pQCD EoS at the matching point
-def causalityPerturbativeQCD(muMatching):
-    if muMatching < 2.02583:
+def causalityPerturbativeQCD(EOS, muMatching):
+    press = pQCD(muMatching, EOS.X)
+
+    if EOS.speed2(press) < 0.0:
         return False
 
     return True
@@ -83,7 +87,7 @@ def positiveLatentHeat(pieces, transitions):
     return True
 
 
-# NB The double monotropic EoS by Gandolfi et al. (2012, arXiv:1101.1921) is hydrodynamically stable because the mass of the baryon (neutron) is ~1000 MeV >> a, b ~ 1 MeV. However, this statement may not work with values of a, b, alpha and beta smaller than zero or they are larger than O(10 [MeV]). Besides, the derivative of the speed of sound is monotonicly increasing due to the same effect.
+# NB The double monotropic EoS by Gandolfi et al. (2012, arXiv:1101.1921) is hydrodynamically stable because the mass of the baryon (neutron) is ~1000 MeV >> a, b ~ 1 MeV. However, this statement may not work with values of a, b, alpha and beta smaller than zero or they are larger than O(10 [MeV]). Besides, the derivative of the speed of sound is monotonically increasing due to the same effect.
 
 # EOS = doubleMonotropic EoS
 # rhoMax = highest used value of the baryon mass density with this EoS

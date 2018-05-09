@@ -416,12 +416,10 @@ class qcd:
             if press <= 0.0:
                 raise NonpositivePressure
 
-            c1 = 0.9008
-
             mu = fsolve(pQCD, 2.6, args = (self.X, press))[0]
 
-            numerator = ( ab(x,1) * (4.0 * ab(x,2) - 3.0 * mu) + 4.0 * c1 * (ab(x,2) - mu)**2 ) * (ab(x,2) - mu)
-            denominator = 2.0 * ( 6.0 * c1 * (ab(x,2) - mu)**3 + ab(x,1) * (6.0 * ab(x,2)**2 - 8.0 * ab(x,2) * mu + 3.0 * mu**2) )
+            numerator = ( self.a * (4.0 * self.b - 3.0 * mu) + 4.0 * self.c1 * (self.b - mu)**2 ) * (self.b - mu)
+            denominator = 2.0 * ( 6.0 * self.c1 * (self.b - mu)**3 + self.a * (6.0 * self.b**2 - 8.0 * self.b * mu + 3.0 * mu**2) )
 
             return numerator / denominator
 

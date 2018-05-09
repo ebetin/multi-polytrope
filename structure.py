@@ -119,7 +119,7 @@ class structure:
 
 
             # Is the pQCD EoS causal?
-            test3 = causalityPerturbativeQCD(muQCD)
+            test3 = causalityPerturbativeQCD(qcdEoS, muQCD)
 
             # Is the latent heat between EoS pieces positive?
             test4 = positiveLatentHeat(combinedEoS, transitionPieces)
