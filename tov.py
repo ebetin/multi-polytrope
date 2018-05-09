@@ -1,7 +1,5 @@
 import sys
 import os
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import units as cgs
 from math import pi
@@ -15,11 +13,6 @@ from scipy.misc import factorial2
 
 import math
 
-#from matplotlib import cm
-import palettable as pal
-cmap = pal.colorbrewer.qualitative.Set1_6.mpl_colormap
-#cmap = pal.cmocean.sequential.Matter_8.mpl_colormap #best so far
-#cmap = pal.wesanderson.Zissou_5.mpl_colormap
 
 #--------------------------------------------------
 
@@ -80,6 +73,7 @@ class tov:
                 break
 
         return mcurve[:j], rcurve[:j], rhocs[:j]
+
 
 
     # TOV [see Oppenheimer & Volkoff (1939), Phys. Rev. 55, 374] and (electric) Love number [see arXiv:1404.6798] solver
@@ -209,6 +203,15 @@ class tov:
 #--------------------------------------------------
 def main(argv):
 
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    #from matplotlib import cm
+    import palettable as pal
+    cmap = pal.colorbrewer.qualitative.Set1_6.mpl_colormap
+    #cmap = pal.cmocean.sequential.Matter_8.mpl_colormap #best so far
+    #cmap = pal.wesanderson.Zissou_5.mpl_colormap
+
     plt.rc('font', family='serif')
     plt.rc('xtick', labelsize=7)
     plt.rc('ytick', labelsize=7)
@@ -316,6 +319,7 @@ if __name__ == "__main__":
     main(sys.argv)
     plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)
     plt.savefig('mr.pdf')
+
 
 
 
