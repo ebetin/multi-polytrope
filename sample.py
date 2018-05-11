@@ -74,7 +74,7 @@ prefix = "chains/20-"
 # Prior function; changes from [0,1] to whatever physical lims
 #def myprior(cube, ndim, nparams):
 def myprior(cube):
-
+    # TODO check these!
     # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
     cube[0] = transform_uniform(cube[0], 10.0, 14.0 ) #a [Mev]
     cube[1] = transform_uniform(cube[1],  0.4,  0.55) #alpha [unitless]
@@ -99,7 +99,7 @@ def myprior(cube):
     for itrope in range(eos_Ntrope-1):
         if debug:
             print("prior for trans from cube #{}".format(ci))
-        cube[ci] = transform_uniform(cube[ci], 0.0, 30.0)  #delta_ni [rhoS]
+        cube[ci] = transform_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
         ci += 1
 
 
@@ -162,7 +162,7 @@ def myloglike(cube):
 
 
     # Transition ("matching") densities (g/cm^3)
-    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #starting point
+    trans  = [1.0e14, 1.1 * cgs.rhoS] #starting point #TODO QMC-polytrope boundary (1-1.3(-2) * rhoS)? BTW 1.0e14 ~ 0.4*rhoS
     for itrope in range(eos_Ntrope-1):
         if debug:
             print("loading trans from cube #{}".format(ci))
@@ -217,7 +217,7 @@ def myloglike(cube):
     # solve structure 
     if debug:
         print("TOV...")
-    struc.tov()
+    struc.tov(m1 = 1.4 * cgs.Msun)
 
 
 
@@ -226,6 +226,10 @@ def myloglike(cube):
 
     # strict two-solar-mass constrain
     if struc.maxmass < 1.97:
+        logl = -linf
+
+    # strict tidal deformablity constrain
+    if struc.TD >= 1000.0
         logl = -linf
 
 
