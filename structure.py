@@ -138,9 +138,25 @@ class structure:
 
 
     #solve TOV equations
-    def tov(self):
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
         t = tov(self.eos)
-        self.mass, self.rad, self.rho = t.mass_radius()
+
+        assert instance(l, int)
+
+        if m1 < 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho = t.mass_radius()
+            self.TD = 1.0e10
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 > 0.0:
+            self.mass, self.rad, self.rho, self.TD, TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, TD2)
+        else:
+            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef2 = m2)
+            self.TDtilde = 1.0e10
+        
         self.maxmass = np.max( self.mass )
 
 

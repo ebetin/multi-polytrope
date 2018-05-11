@@ -103,14 +103,14 @@ class tov:
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r[0]**3*eden
-        eta = l
+        eta = 1.0 * l
 
-        psol = odeint(self.tovLove, [P, m, eta], r, args=(l,), rtol=1.0e-7, atol=1.0e-7)
+        psol = odeint(self.tovLove, [P, m, eta], r, args=(1.0 * l,), rtol=1.0e-7, atol=1.0e-7)
 
         return r, psol[:,0], psol[:,1], psol[:,2]
 
     
-    def massRadiusEta(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 800):
+    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 800):
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
         etaCurve = np.zeros(N)
@@ -168,7 +168,7 @@ class tov:
             return mcurve[:j], rcurve[:j], rhocs[:j], tidalDeformabilityRef1
         elif mRef1 > 0.0 and mRef2 > 0.0:
             return mcurve[:j], rcurve[:j], rhocs[:j], tidalDeformabilityRef1, tidalDeformabilityRef2
-        elif mRef1 < 0.0 and mRef > 0.0:
+        elif mRef1 < 0.0 and mRef2 > 0.0:
             return mcurve[:j], rcurve[:j], rhocs[:j], tidalDeformabilityRef2
 
         return mcurve[:j], rcurve[:j], rhocs[:j]
@@ -180,17 +180,17 @@ class tov:
         coeff = 2.0 * compactness / (1.0 - compactness)
 
         # Hypergeometric functions
-        A1 = hyp2f1(-l, 2.0-l, -2.0*l, compactness)
-        B1 = hyp2f1(l+1.0, l+3.0, 2.0*l+2.0, compactness)
+        A1 = hyp2f1(-1.0*l, 2.0-1.0*l, -2.0*l, compactness)
+        B1 = hyp2f1(1.0*l+1.0, 1.0*l+3.0, 2.0*l+2.0, compactness)
 
         # Derivatives of the hypergeometric functions multiplicated by the radius
-        DA1 = 0.5 * compactness * (l - 2.0) * hyp2f1(1.0-l, 3.0-l, 1.0-2.0*l, compactness)
-        DB1 = -0.5 * compactness * (l + 3.0) * hyp2f1(l+2.0, l+4.0, 2.0*l+3.0, compactness)
+        DA1 = 0.5 * compactness * (1.0*l - 2.0) * hyp2f1(1.0-1.0*l, 3.0-1.0*l, 1.0-2.0*l, compactness)
+        DB1 = -0.5 * compactness * (1.0*l + 3.0) * hyp2f1(1.0*l+2.0, 1.0*l+4.0, 2.0*l+3.0, compactness)
 
-        love = 0.5 * ( DA1 - (eta - l - coeff) * A1 ) / ( (eta + l + 1.0 - coeff) * B1 - DB1 )
+        love = 0.5 * ( DA1 - (eta - 1.0*l - coeff) * A1 ) / ( (eta + 1.0*l + 1.0 - coeff) * B1 - DB1 )
         
         if tdFlag:
-            return 2.0 * love * pow(0.5 * compactness,-2.0*l-1.0) / factorial2(int(round(2.0 * l - 1.0)))
+            return 2.0 * love * pow(0.5 * compactness,-2.0*l-1.0) / factorial2(2*l-1)
 
         else:
             return love
