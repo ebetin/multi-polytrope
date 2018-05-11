@@ -99,4 +99,4 @@ mB = mn
 rhoS = 0.16e39 * mB
 
 #nuclear binding energy at the saturation density
-Enuc = 16.0e6 * cgs.eV
+Enuc = 16.0e6 * eV
