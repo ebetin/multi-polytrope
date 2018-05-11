@@ -4,7 +4,7 @@ import units as cgs
 
 
 ##################################################
-#SLy (Skyrme) crust
+#SLy (Skyrme) crust (Douchin & Haensel A&A 380, 151 (2001); see also Read et al. Phys.Rev. D79, 124032 (2009))
 KSLy = [6.80110e-9, 1.06186e-6, 5.32697e1, 3.99874e-8] #Scaling constants
 GSLy = [1.58425, 1.28733, 0.62223, 1.35692] #polytropic indices
 RSLy = [1.e4, 2.44034e7, 3.78358e11, 2.62780e12 ] #transition depths
