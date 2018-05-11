@@ -141,7 +141,7 @@ class structure:
     def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
         t = tov(self.eos)
 
-        assert instance(l, int)
+        assert isinstance(l, int)
 
         if m1 < 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho = t.mass_radius()

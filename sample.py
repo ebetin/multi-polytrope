@@ -229,7 +229,7 @@ def myloglike(cube):
         logl = -linf
 
     # strict tidal deformablity constrain
-    if struc.TD >= 1000.0
+    if struc.TD >= 1000.0:
         logl = -linf
 
 
