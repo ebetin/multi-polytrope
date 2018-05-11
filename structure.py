@@ -21,7 +21,7 @@ class structure:
         alpha = lowDensity[1]
         b = lowDensity[2]
         beta = lowDensity[3]
-        S = 16.0e6 * cgs.eV + a + b 
+        S = Enuc + a + b 
         L = 3.0 * (a * alpha + b * beta)
 
         # Low-density dominated monotrope
@@ -194,7 +194,7 @@ def test_tov():
     alpha = cube[1]                      # untiless
     b     = cube[2] * 1.0e6 * cgs.eV     # (erg)
     beta  = cube[3]                      # unitless
-    S     = 16.0e6 * cgs.eV + a + b      # (erg)
+    S     = cgs.Enuc + a + b      # (erg)
     L     = 3.0 * (a * alpha + b * beta) # (erg)
     lowDensity = [a, alpha, b, beta]
 
