@@ -178,7 +178,7 @@ def myloglike(cube):
     alpha = cube[1]                      # untiless
     b     = cube[2] * 1.0e6 * cgs.eV     # (erg)
     beta  = cube[3]                      # unitless
-    S     = Enuc + a + b      # (erg)
+    S     = cgs.Enuc + a + b      # (erg)
     L     = 3.0 * (a * alpha + b * beta) # (erg)
     lowDensity = [a, alpha, b, beta]
 

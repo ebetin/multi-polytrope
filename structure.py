@@ -21,7 +21,7 @@ class structure:
         alpha = lowDensity[1]
         b = lowDensity[2]
         beta = lowDensity[3]
-        S = Enuc + a + b 
+        S = cgs.Enuc + a + b 
         L = 3.0 * (a * alpha + b * beta)
 
         # Low-density dominated monotrope
