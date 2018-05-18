@@ -1,5 +1,6 @@
 import numpy as np
 from math import pi
+from scipy import interpolate
 
 
 import units as cgs
@@ -160,8 +161,17 @@ class structure:
         self.maxmass = np.max( self.mass )
 
 
+    # interpolate radius given a mass
+    # note: structure must be solved beforehand
+    def radius_at(self, mass):
 
+        # linear interpolant (fast)
+        #return np.interp(mass, self.mass, self.rad)
 
+        #higher order from scipy
+        intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
+        return intp(mass)
+        
 
 
 # test TOV solver with various setups
@@ -207,6 +217,7 @@ def test_tov():
     struc = structure(gammas, trans, lowDensity, highDensity)
     print(struc.realistic)
     struc.tov()
+    #struc.tov(m1 = 1.4 * cgs.Msun) #with love numbers
 
 
 
@@ -235,6 +246,13 @@ def test_tov():
     print struc.mass
     print struc.rad
     ax.plot(struc.rad, struc.mass)
+
+    mass = np.linspace(0.5, 1.0, 10)
+    rad  = [struc.radius_at(m) for m in mass]
+    ax.plot(rad, mass, "r-")
+
+    print mass
+    print rad
 
 
     plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)

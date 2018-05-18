@@ -7,6 +7,8 @@ from polytropes import monotrope, polytrope
 from crust import SLyCrust
 from eoslib import get_eos, glue_crust_and_core, eosLib
 from scipy.integrate import odeint
+#from scipy.integrate import solve_ivp
+
 from label_line import label_line
 from scipy.special import hyp2f1
 from scipy.misc import factorial2
@@ -40,6 +42,11 @@ class tov:
         m = 4.0*pi*r[0]**3*eden
 
         psol = odeint(self.tov, [P, m], r, rtol=1.0e-4, atol=1.0e-4)
+
+        #sol = solve_ivp(
+        #        self.tov,
+
+
         return r, psol[:,0], psol[:,1]
 
 
@@ -105,7 +112,16 @@ class tov:
         m = 4.0*pi*r[0]**3*eden
         eta = 1.0 * l
 
-        psol = odeint(self.tovLove, [P, m, eta], r, args=(1.0 * l,), rtol=1.0e-7, atol=1.0e-7)
+        #print("odeint..")
+        psol = odeint(
+                self.tovLove, 
+                [P, m, eta], 
+                r, 
+                args=(1.0 * l, ), 
+                rtol=1.0e-7, 
+                atol=1.0e-7
+                )
+        #print("exiting odeint..")
 
         return r, psol[:,0], psol[:,1], psol[:,2]
 
@@ -190,7 +206,7 @@ class tov:
         love = 0.5 * ( DA1 - (eta - 1.0*l - coeff) * A1 ) / ( (eta + 1.0*l + 1.0 - coeff) * B1 - DB1 )
         
         if tdFlag:
-            return 2.0 * love * pow(0.5 * compactness,-2.0*l-1.0) / factorial2(2*l-1)
+            return 2.0 * love * pow(0.5 * compactness, -2.0*l-1.0) / factorial2(2*l-1)
 
         else:
             return love

@@ -6,11 +6,16 @@ import os
 from pymultinest.solve import solve as pymlsolve
 
 from priors import transform_uniform
-
-
 from structure import structure
 import units as cgs
 from pQCD import nQCD
+
+
+from measurements import gaussian_MR
+from measurements import NSK17 #1702 measurement
+
+
+
 
 
 if not os.path.exists("chains"): os.mkdir("chains")
@@ -42,7 +47,7 @@ debug = True  #flag for additional debug printing
 #QMC + pQCD parameters
 parameters = ["a", "alpha", "b", "beta", "X"]
 
-#append gammas (start from 3 since two first one are given by QMC)
+#append gammas (start from 3 since two first ones are given by QMC)
 for itrope in range(eos_Ntrope-2):
     parameters.append("gamma"+str(3+itrope))
 
@@ -50,8 +55,13 @@ for itrope in range(eos_Ntrope-2):
 for itrope in range(eos_Ntrope-1):
     parameters.append("trans_delta"+str(1+itrope))
 
+#finally add individual object masses (needed for measurements)
+parameters.append("mass_1702")
+
+
 print("Parameters to be sampled are:")
 print(parameters)
+
 
 
 
@@ -102,6 +112,10 @@ def myprior(cube):
         cube[ci] = transform_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
         ci += 1
 
+    # M-R measurements
+    cube[ci] = transform_uniform(cube[ci], 1.0, 2.5)  #M_1702 [Msun]
+
+
 
     return cube
 
@@ -119,18 +133,21 @@ def myloglike(cube):
         Parameters from 0:nDim are sampled, everything beyond that are just 
         carried along for analysis purposes.
 
-        ## QMC parameters
+        ## QMC parameters:
         0 a
         1 alpha
         2 b
         3 beta
 
-        #pQCD parameters
+        #pQCD parameters:
         4 X
 
-        #nuclear EoS parameters
+        #nuclear EoS parameters:
         gammas
         transition points
+
+        # Measurement parameters:
+        mass of individual objects
 
 
     """
@@ -217,7 +234,8 @@ def myloglike(cube):
     # solve structure 
     if debug:
         print("TOV...")
-    struc.tov(m1 = 1.4 * cgs.Msun)
+    #struc.tov(m1 = 1.4 * cgs.Msun)
+    struc.tov()
 
 
 
@@ -229,15 +247,18 @@ def myloglike(cube):
         logl = -linf
 
     # strict tidal deformablity constrain
-    if struc.TD >= 1000.0:
-        logl = -linf
+    # TODO: implement correct likelihood distribution instead
+    #if struc.TD >= 1000.0:
+    #    logl = -linf
 
 
-
+    # 4U 1702-429 from Nattila et al 2017
+    #mass_1702 = cube[ci] # first measurement
+    #rad_1702 = struc.radius_at(mass_1702)
+    #logl = gaussian_MR(mass_1702, rad_1702, NSK17)
 
 
     return logl
-
 
 
 
