@@ -126,7 +126,7 @@ class tov:
         return r, psol[:,0], psol[:,1], psol[:,2]
 
     
-    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 800):
+    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 80):
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
         etaCurve = np.zeros(N)

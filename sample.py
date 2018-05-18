@@ -234,8 +234,8 @@ def myloglike(cube):
     # solve structure 
     if debug:
         print("TOV...")
-    #struc.tov(m1 = 1.4 * cgs.Msun)
-    struc.tov()
+    struc.tov(m1 = 1.4 * cgs.Msun)
+    #struc.tov()
 
 
 

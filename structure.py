@@ -216,8 +216,8 @@ def test_tov():
     # solve
     struc = structure(gammas, trans, lowDensity, highDensity)
     print(struc.realistic)
-    struc.tov()
-    #struc.tov(m1 = 1.4 * cgs.Msun) #with love numbers
+    #struc.tov()
+    struc.tov(m1 = 1.4 * cgs.Msun) #with love numbers
 
 
 
