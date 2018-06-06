@@ -165,6 +165,9 @@ class structure:
     # note: structure must be solved beforehand
     def radius_at(self, mass):
 
+        if mass >= self.maxmass:
+            return 0.0
+
         # linear interpolant (fast)
         #return np.interp(mass, self.mass, self.rad)
 

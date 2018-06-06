@@ -64,18 +64,33 @@ print(parameters)
 
 
 
-
-
-##################################################
-
 n_params = len(parameters)
 prefix = "chains/20-"
 
+
+##################################################
 # next follows the parameters that we save but do not sample
 # NOTE: For convenience, the correct index is stored in the dictionary,
 #       this way they can be easily changed or expanded later on.
 
+Ngrid = 20
+param_indices = {
+        'mass_grid': np.linspace(0.5, 2.8,   Ngrid),
+        'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
+               }
 
+#add M-R grid
+ci = n_params #current running index of the parameters list
+for im, mass  in enumerate(param_indices['mass_grid']):
+    parameters.append('rad_'+str(im))
+    param_indices['rad_'+str(im)] = ci
+    ci += 1
+
+#add rho-P grid
+for ir, rho  in enumerate(param_indices['rho_grid']):
+    parameters.append('P_'+str(ir))
+    param_indices['P_'+str(ir)] = ci
+    ci += 1
 
 
 
@@ -203,7 +218,7 @@ def myloglike(cube):
     ################################################## 
     # high-density pQCD EoS
 
-    # Perturbative QCD parameters, see Frage et al. (2014, arXiv:1311.5154) for details
+    # Perturbative QCD parameters, see Fraga et al. (2014, arXiv:1311.5154) for details
     X = cube[4]
     muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
     highDensity = [muQCD, X]
@@ -242,7 +257,7 @@ def myloglike(cube):
     ################################################## 
     # measurements & constraints
 
-    # strict two-solar-mass constrain
+    # strict two-solar-mass constraint
     if struc.maxmass < 1.97:
         logl = -linf
 
@@ -258,6 +273,34 @@ def myloglike(cube):
     #logl = gaussian_MR(mass_1702, rad_1702, NSK17)
 
 
+    
+    #build M-R curve
+    if debug:
+        ic = param_indices['rad_0'] #starting index
+        print("building M-R curve from EoS... (starts from ic = {}".format(ic))
+
+    for im, mass in enumerate(param_indices['mass_grid']):
+        ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
+        cube[ic] = struc.radius_at(mass)
+
+        if debug:
+            print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube[ic], ic))
+
+
+    #build rho-P curve
+    if debug:
+        ic = param_indices['P_0'] #starting index
+        print("building rho-P curve from EoS... (starts from ic = {}".format(ic))
+
+    for ir, rho in enumerate(param_indices['rho_grid']):
+        ic = param_indices['P_'+str(ir)] #this is the index pointing to correct position in cube
+        cube[ic] = struc.eos.pressure(rho)
+
+        if debug:
+            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, cube[ic], ic))
+
+
+
     return logl
 
 
@@ -268,7 +311,8 @@ def myloglike(cube):
 result = pymlsolve( 
             LogLikelihood=myloglike, 
             Prior=myprior, 
-	    n_dims=n_params,  
+	    n_params=n_params,  
+	    n_dims=len(parameters),
             n_live_points=50,
             log_zero = linf,
             outputfiles_basename=prefix,
