@@ -7,6 +7,82 @@ from scipy.interpolate import interp1d
 from numpy.polynomial.chebyshev import chebval, chebder
 
 
+class polytropicSpectral:
+
+    def __init__(self, spectralCoefficients, lowDensity, pressureHigh):
+        self.pressureLow = lowDensity[0]
+        self.energyDensityLow = lowDensity[1]
+        self.densityLow = lowDensity[2]
+        self.pressureHigh = pressureHigh
+        self.coeff = spectralCoefficients
+
+    # Spectral function as a function of the pressure (Ba) 
+    # The base functions are chosen to be Chebyshev polynomials
+    def spectralRepresentation(self, pressure):
+        # Scaled pressure so that the possible values are at interval [-1, 1]
+        pressureScaled = 2.0 * (pressure - self.pressureHigh) / (self.pressureHigh - self.pressureLow) + 1.0
+
+        # Argument of the exponent (see eq. 17 and the output)
+        # In this case a Chebyshev series
+        argument = chebval(pressureScaled, self.coeff)
+
+        # Due to computational reasons there is a cutoff
+        if argument > 700.0:
+            return -1.0
+
+        return exp(argument)
+
+    def integrandMu(self, pressure):
+        gamma = self.spectralRepresentation(pressure)
+
+        return 1.0 / (gamma * pressure)
+
+    def integralEnergyDensity(self, pressure):
+        gamma = self.spectralRepresentation(pressure)
+
+        return self.mu(pressure) / gamma
+
+    def mu(self, pressure):
+        integral = quad(self.integralMu, self.pressureLow, pressure)[0]
+
+        return exp(-integral)
+
+    ################################################
+    # Pressure (Ba) as a function of the mass density (g/cm)
+    def pressure(self, rho):
+        press = fsolve(self.rho, self.pressureLow, args = rho)
+
+        return press[0]
+
+    #vectorized version
+    def pressures(self, rhos):
+        press = []
+        for rho in rhos:
+            pr = self.pressure(rho)
+            press.append( pr )
+        return press
+
+    # Energy density (g/cm^3) as a function of the pressure (Ba)
+    def edens_inv(self, pressure):
+        integral = quad(self.integralEnergyDensity, self.pressureLow, pressure)[0]
+
+        return ( self.energyDensityLow + integral / cgs.c**2 ) / self.mu(pressure)
+
+    # Mass density (g/cm^3) as a function of the pressure (Ba)
+    def rho(self, pressure, rho0 = 0.0):
+        return self.densityLow / self.mu(pressure) - rho0
+
+    # Speed of sound square devided by the speed of light square as a function of the pressure (Ba)
+    def speed2(self, pressure):
+        gamma = self.spectralRepresentation(pressure)
+
+        if gamma < 0.0:
+            return -1.0
+
+        return ( gamma * pressure ) / ( pressure + self.edens_inv(pressure) * cgs.c**2 )
+        
+
+
 # Causal spectral representation of the EOS
 # See arXiv:1804.04072 for details
 class causalSpectral:
@@ -69,7 +145,7 @@ class causalSpectral:
 
         return self.densityLow * exp(integral) - rho0
 
-    # Speed of sound square devided by the speed of light as a function of the pressure (Ba)
+    # Speed of sound square devided by the speed of light square as a function of the pressure (Ba)
     # (see eq. 10)    
     def speed2(self, pressure):
         gamma = self.spectralRepresentation(pressure)
@@ -99,9 +175,9 @@ class causalSpectral:
         return -sumDerivative * ( gamma / (gamma + 1.0)**2 )
 
 
-# Interpolated causal spectral representation of the EOS
+# Interpolated spectral representation of the EOS
 # NB Linear interpolation is used
-class causalSpectralInterpolated:
+class spectralInterpolated:
 
     def __init__(self, spectralEOS, pressureLimits, densityHigh, N=1000, flagEnergyDensity = True, flagSpeed2 = True, flagRho = True, flagRhoInv = True):
         eos = spectralEOS
@@ -152,6 +228,85 @@ class causalSpectralInterpolated:
 
     def speed2(self, pressure):
         return self.speedInterpolated(pressure)
+
+
+# Calculates the unknown coefficients of the Chebyshev series
+class matchPolytropicSpectralWithLimits:
+
+    def __init__(self, coeffKnown, lowDensity, highDensity):
+        self.coeffKnown = coeffKnown
+
+        self.pressureLow = lowDensity[0]
+        self.lowDensity = lowDensity[0:3]
+
+        self.pressureHigh = highDensity[0]
+        self.energyDensityHigh = highDensity[1]
+        self.densityHigh = highDensity[2]
+
+        if len(lowDensity) == 4:
+            self.speed2Low = lowDensity[3]
+        else:
+            self.speed2Low = -1.0
+
+        if len(highDensity) == 4:
+            self.speed2High = highDensity[3]
+        else:
+            self.speed2High = -1.0
+
+    # Determinates the difference between the boundary conditions and the given spectral EOS
+    # coeffUnkown: nonpredetermined coefficients
+    def solveCoeff(self, coeffUnknown):
+        # All coefficients in the right order
+        coeff1 = self.coeffKnown[:]
+        coeff1.insert(0, coeffUnknown[0])
+        coeff1.insert(1, coeffUnknown[1])
+
+        if self.speed2Low > 0.0 or self.speed2High > 0.0:
+            coeff1.insert(2, coeffUnknown[2])
+
+        if self.speed2Low > 0.0 and self.speed2High > 0.0:
+            coeff1.insert(3, coeffUnknown[3])
+
+        # Spectral EOS based on the given coefficients
+        spectralEOS = polytropicSpectral(coeff1, self.lowDensity, self.pressureHigh)
+
+        # Energy density at the upper bound
+        eHigh = spectralEOS.edens_inv(self.pressureHigh)
+
+        # Mass density at the upper bound
+        rhoHigh = spectralEOS.rho(self.pressureHigh)
+
+        # Speed of sound at the lower bound
+        if self.speed2Low > 0.0:
+            c2Low = spectralEOS.speed2(self.pressureLow)
+
+        # Speed of sound at the upper bound
+        if self.speed2High > 0.0:
+            c2High = spectralEOS.speed2(self.pressureHigh)
+
+        # Output list
+        out = [eHigh / self.energyDensityHigh - 1.0]
+        out.append(rhoHigh / self.densityHigh - 1.0)
+        
+        if self.speed2Low > 0.0:
+            out.append(c2Low - self.speed2Low)
+
+        if self.speed2High > 0.0:
+            out.append(c2High - self.speed2High)
+
+        return out
+
+    # Determines all coefficients of the Chebyshev series
+    def coeffValues(self, coeffGuess=[0.1,1.0]):
+        [coeffs, infoC, flagC, mesgC] = fsolve(self.solveCoeff, coeffGuess, full_output=1, xtol = 1.0e-9)
+
+        # Did not work out
+        if flagC != 1:
+            coeffs = np.array([-1.0, -1.0])
+
+        coeffAll = coeffs.tolist() + self.coeffKnown
+            
+        return coeffAll
 
 
 # Calculates the unknown coefficients of the Chebyshev series
