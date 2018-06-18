@@ -115,9 +115,9 @@ class polytrope:
         if pm.G == 1.0 and m.G == 1.0:
             return pm.a
         elif pm.G == 1.0 and m.G != 1.0:
-            return pm.a + pm.K * ( log(tr / cgs.mB) - 1.0 / (p.G - 1.0) ) 
+            return pm.a + pm.K * ( log(tr / cgs.mB) - 1.0 / (pm.G - 1.0) ) 
         elif pm.G != 1.0 and m.G == 1.0:
-            return pm.a - p.K * (log(tr / cgs.mB) - 1.0 / (pm.G - 1.0))
+            return pm.a - pm.K * (log(tr / cgs.mB) - 1.0 / (pm.G - 1.0))
         else:
             return pm.a + (pm.K / (pm.G - 1.0)) * tr**(pm.G - 1.0) - (m.K / (m.G - 1.0)) * tr**(m.G - 1.0)
 
@@ -176,6 +176,8 @@ class polytrope:
 
 
 class doubleMonotrope:
+
+    G = 1.0
     
     # This class clues together double monotropic EoSs (Gandolfy type)
     # Inputs:
