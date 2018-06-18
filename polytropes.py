@@ -41,7 +41,7 @@ class monotrope:
     def pressure(self, rho):
         return self.cgsunits * self.K * rho**self.G
 
-    #energy density mu(rho) (NB g/cm^3, not erg/(cm s^2)!)
+    #energy density eps(rho) (NB g/cm^3, not erg/(cm s^2)!)
     #  edens: energy density (g/cm^3)
     #  rho: mass density (g/cm^3)
     def edens(self, rho):
@@ -49,6 +49,19 @@ class monotrope:
             return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
         else:
             return (1.0 + self.a) * rho + (self.K / (self.G - 1.0)) * rho**self.G
+
+
+    #energy density eps(P) (NB g/cm^3, not erg/(cm s^2)!)
+    #  edens: energy density (g/cm^3)
+    #  pressure (Ba)
+    def edens_inv(self, pressure):
+        rho = self.rho(pressure)
+
+        if self.G == 1.0:
+            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
+        else:
+            return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits )
+
 
     #for inverse functions lets define rho(P)
     #  press: pressure (Ba)
@@ -161,8 +174,7 @@ class polytrope:
 
     def edens_inv(self, press):
         trope = self._find_interval_given_pressure(press)
-        rho = trope.rho(press)
-        return trope.edens(rho)
+        return trope.edens_inv(press)
 
     def rho(self, press):
         trope = self._find_interval_given_pressure(press)
@@ -171,7 +183,7 @@ class polytrope:
     # Square of the speed of sound (unitless)
     def speed2(self, press):
         trope = self._find_interval_given_pressure(press)
-        return trope.G * press / (press + self.edens_inv(press) * cgs.c**2) 
+        return trope.G * press / (press + trope.edens_inv(press) * cgs.c**2) 
 
 
 
