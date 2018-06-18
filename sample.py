@@ -23,7 +23,7 @@ if not os.path.exists("chains"): os.mkdir("chains")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 3 #polytrope order
+eos_Ntrope = 4 #polytrope order
 debug = True  #flag for additional debug printing
 
 
@@ -65,7 +65,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/20-"
+prefix = "chains/21-"
 
 
 ##################################################
@@ -75,8 +75,9 @@ prefix = "chains/20-"
 
 Ngrid = 20
 param_indices = {
-        'mass_grid': np.linspace(0.5, 2.8,   Ngrid),
+        'mass_grid' :np.linspace(0.5, 2.8,   Ngrid),
         'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
+        'nsat_grid': np.linspace(1.0, 20.0, Ngrid),
                }
 
 #add M-R grid
@@ -90,6 +91,12 @@ for im, mass  in enumerate(param_indices['mass_grid']):
 for ir, rho  in enumerate(param_indices['rho_grid']):
     parameters.append('P_'+str(ir))
     param_indices['P_'+str(ir)] = ci
+    ci += 1
+
+#add nsat - gamma grid
+for ir, nsat  in enumerate(param_indices['nsat_grid']):
+    parameters.append('nsat_'+str(ir))
+    param_indices['nsat_'+str(ir)] = ci
     ci += 1
 
 
@@ -298,6 +305,23 @@ def myloglike(cube):
 
         if debug:
             print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, cube[ic], ic))
+
+
+    #build nsat-gamma curve
+    if debug:
+        ic = param_indices['nsat_0'] #starting index
+        print("building nsat-gamma curve from EoS... (starts from ic = {}".format(ic))
+
+    for ir, nsat in enumerate(param_indices['nsat_grid']):
+        ic = param_indices['nsat_'+str(ir)] #this is the index pointing to correct position in cube
+        try:
+            cube[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat ).G
+        except:
+            cube[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).G
+
+
+        if debug:
+            print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube[ic], ic))
 
 
 
