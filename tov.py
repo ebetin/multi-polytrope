@@ -9,7 +9,6 @@ from eoslib import get_eos, glue_crust_and_core, eosLib
 from scipy.integrate import odeint
 #from scipy.integrate import solve_ivp
 
-from label_line import label_line
 from scipy.special import hyp2f1
 from scipy.misc import factorial2
 
@@ -221,6 +220,7 @@ def main(argv):
 
     import matplotlib
     import matplotlib.pyplot as plt
+    from label_line import label_line
 
     #from matplotlib import cm
     import palettable as pal
