@@ -60,7 +60,7 @@ class monotrope:
         if self.G == 1.0:
             return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
         else:
-            return (1.0 + self.a) * rho + p / ( (self.G - 1.0) * cgsunits)
+            return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * cgsunits )
 
 
     #for inverse functions lets define rho(P)
