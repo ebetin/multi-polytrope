@@ -100,3 +100,7 @@ rhoS = 0.16e39 * mB
 
 #nuclear binding energy at the saturation density
 Enuc = 16.0e6 * eV
+
+#computational constants
+##################################################
+epsilonGamma = 1.0e-4

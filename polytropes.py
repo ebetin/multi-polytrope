@@ -45,7 +45,7 @@ class monotrope:
     #  edens: energy density (g/cm^3)
     #  rho: mass density (g/cm^3)
     def edens(self, rho):
-        if self.G == 1.0:
+        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
             return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
         else:
             return (1.0 + self.a) * rho + (self.K / (self.G - 1.0)) * rho**self.G
@@ -57,7 +57,7 @@ class monotrope:
     def edens_inv(self, pressure):
         rho = self.rho(pressure)
 
-        if self.G == 1.0:
+        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
             return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
         else:
             return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits )
@@ -77,7 +77,7 @@ class monotrope:
 
     # First derivative of the energy density with respect to the (baryon) number density (1/cm^3) multiplied by c^2
     def Dedens(self, rho):
-        if self.G == 1.0:
+        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
             return (self.K * (log(rho / cgs.mB) + 1.0) + 1.0 + self.a) * cgs.mB * self.cgsunits
         else:
             return ( 1.0 + self.a + self.G / (self.G - 1.0) * self.K * rho**(self.G-1.0) ) * cgs.mB * self.cgsunits
@@ -125,12 +125,15 @@ class polytrope:
     #  m: monotrope after the matching point
     #  tr: transtion mass density (g/cm^3)
     def _ai(self, pm, m, tr):
-        if pm.G == 1.0 and m.G == 1.0:
+        pmG1 = 1.0 - cgs.epsilonGamma < pm.G < 1.0 + cgs.epsilonGamma
+        mG1 = 1.0 - cgs.epsilonGamma < m.G < 1.0 + cgs.epsilonGamma
+
+        if pmG1 and mG1:
             return pm.a
-        elif pm.G == 1.0 and m.G != 1.0:
-            return pm.a + pm.K * ( log(tr / cgs.mB) - 1.0 / (pm.G - 1.0) ) 
-        elif pm.G != 1.0 and m.G == 1.0:
-            return pm.a - pm.K * (log(tr / cgs.mB) - 1.0 / (pm.G - 1.0))
+        elif pmG1 and not mG1:
+            return pm.a + pm.K * ( log(tr / cgs.mB) - 1.0 / (m.G - 1.0) )
+        elif mG1 and not pmG1:
+            return pm.a - m.K * ( log(tr / cgs.mB) - 1.0 / (pm.G - 1.0) )
         else:
             return pm.a + (pm.K / (pm.G - 1.0)) * tr**(pm.G - 1.0) - (m.K / (m.G - 1.0)) * tr**(m.G - 1.0)
 

@@ -28,7 +28,7 @@ def causalityPolytropes(gammas, transitions, lowDensity):
 
 
         # Matching ("transition") energy densities
-        if gammas[k-1] == 1:
+        if 1.0 - cgs.epsilonGamma < gammas[k-1] < 1.0 + cgs.epsilonGamma:
             e.append(p[k] * log(rhoo[k] / rhoo[k-1]) + e[k-1] * rhoo[k] / rhoo[k-1] )
 
         else:
