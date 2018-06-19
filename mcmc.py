@@ -5,7 +5,7 @@ import os
 
 from pymultinest.solve import solve as pymlsolve
 
-from priors import transform_uniform
+from priors import check_uniform
 from structure import structure
 import units as cgs
 from pQCD import nQCD
@@ -14,31 +14,20 @@ from pQCD import nQCD
 from measurements import gaussian_MR
 from measurements import NSK17 #1702 measurement
 
+# emcee stuff
+import sys
+import emcee
 
+np.random.seed(1) #for reproducibility
 
+if not os.path.exists("chains2"): os.mkdir("chains2")
 
-
-if not os.path.exists("chains"): os.mkdir("chains")
 
 
 ##################################################
 # global flags for different run modes
 eos_Ntrope = 4 #polytrope order
-debug = True  #flag for additional debug printing
-
-
-##################################################
-#parameter names
-
-#4-trope
-#parameters = ["a", "alpha", "b", "beta", "X", "gamma3", "gamma4", "trans_delta1", "trans_delta2", "trans_delta3"]
-
-#3-trope
-#parameters = ["a", "alpha", "b", "beta", "X", "gamma3", "trans_delta1", "trans_delta2"]
-
-#2-trope
-#parameters = ["a", "alpha", "b", "beta", "X", "trans_delta1"]
-
+debug = False  #flag for additional debug printing
 
 
 ##################################################
@@ -63,7 +52,6 @@ print("Parameters to be sampled are:")
 print(parameters)
 
 
-
 n_params = len(parameters)
 prefix = "chains/1-"
 
@@ -73,6 +61,8 @@ prefix = "chains/1-"
 # NOTE: For convenience, the correct index is stored in the dictionary,
 #       this way they can be easily changed or expanded later on.
 
+parameters2 = []
+
 Ngrid = 20
 param_indices = {
         'mass_grid' :np.linspace(0.5, 2.8,   Ngrid),
@@ -81,23 +71,27 @@ param_indices = {
                }
 
 #add M-R grid
-ci = n_params #current running index of the parameters list
+#ci = n_params #current running index of the parameters list
+ci = 0
 for im, mass  in enumerate(param_indices['mass_grid']):
-    parameters.append('rad_'+str(im))
+    parameters2.append('rad_'+str(im))
     param_indices['rad_'+str(im)] = ci
     ci += 1
 
 #add rho-P grid
 for ir, rho  in enumerate(param_indices['rho_grid']):
-    parameters.append('P_'+str(ir))
+    parameters2.append('P_'+str(ir))
     param_indices['P_'+str(ir)] = ci
     ci += 1
 
 #add nsat - gamma grid
 for ir, nsat  in enumerate(param_indices['nsat_grid']):
-    parameters.append('nsat_'+str(ir))
+    parameters2.append('nsat_'+str(ir))
     param_indices['nsat_'+str(ir)] = ci
     ci += 1
+
+print("Parameters to be only stored:")
+print(len(parameters2))
 
 
 
@@ -106,16 +100,19 @@ for ir, nsat  in enumerate(param_indices['nsat_grid']):
 # Prior function; changes from [0,1] to whatever physical lims
 #def myprior(cube, ndim, nparams):
 def myprior(cube):
-    # TODO check these!
+
+    print(cube)
+
     # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
-    cube[0] = transform_uniform(cube[0], 10.0, 14.0 ) #a [Mev]
-    cube[1] = transform_uniform(cube[1],  0.4,  0.55) #alpha [unitless]
-    cube[2] = transform_uniform(cube[2],  1.5,  7.5 ) #b [MeV]
-    cube[3] = transform_uniform(cube[3],  1.8,  2.7 ) #beta [unitless]
+    lps = np.empty_like(cube)
+    lps[0] = check_uniform(cube[0], 10.0, 14.0 ) #a [Mev]
+    lps[1] = check_uniform(cube[1],  0.4,  0.55) #alpha [unitless]
+    lps[2] = check_uniform(cube[2],  1.5,  7.5 ) #b [MeV]
+    lps[3] = check_uniform(cube[3],  1.8,  2.7 ) #beta [unitless]
 
     # Scale parameter of the perturbative QCD, see Fraga et al. (2014, arXiv:1311.5154) 
     # for details
-    cube[4] = transform_uniform(cube[4],  1.0,  4.0 ) #X [unitless]
+    lps[4] = check_uniform(cube[4],  1.0,  4.0 ) #X [unitless]
 
 
     # Polytropic exponents excluding the first two ones
@@ -123,7 +120,7 @@ def myprior(cube):
     for itrope in range(eos_Ntrope-2):
         if debug:
             print("prior for gamma from cube #{}".format(ci))
-        cube[ci] = transform_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless]
+        lps[ci] = check_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless]
         ci += 1
 
 
@@ -131,20 +128,21 @@ def myprior(cube):
     for itrope in range(eos_Ntrope-1):
         if debug:
             print("prior for trans from cube #{}".format(ci))
-        cube[ci] = transform_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
+        lps[ci] = check_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
         ci += 1
 
     # M-R measurements
-    cube[ci] = transform_uniform(cube[ci], 1.0, 2.5)  #M_1702 [Msun]
+    lps[ci] = check_uniform(cube[ci], 1.0, 2.5)  #M_1702 [Msun]
+
+    return np.sum(lps)
 
 
-
-    return cube
 
 
 
 # probability function
 linf = 100.0
+
 
 icalls = 0
 def myloglike(cube):
@@ -173,6 +171,7 @@ def myloglike(cube):
 
 
     """
+    print(cube)
 
     if debug:
         global icalls
@@ -280,6 +279,8 @@ def myloglike(cube):
     #logl = gaussian_MR(mass_1702, rad_1702, NSK17)
 
 
+    ic = 0
+    cube2 = []
     
     #build M-R curve
     if debug:
@@ -288,10 +289,10 @@ def myloglike(cube):
 
     for im, mass in enumerate(param_indices['mass_grid']):
         ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
-        cube[ic] = struc.radius_at(mass)
+        cube2.append( struc.radius_at(mass) )
 
         if debug:
-            print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube[ic], ic))
+            print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube2[ic], ic))
 
 
     #build rho-P curve
@@ -301,10 +302,10 @@ def myloglike(cube):
 
     for ir, rho in enumerate(param_indices['rho_grid']):
         ic = param_indices['P_'+str(ir)] #this is the index pointing to correct position in cube
-        cube[ic] = struc.eos.pressure(rho)
+        cube2.append( struc.eos.pressure(rho) )
 
         if debug:
-            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, cube[ic], ic))
+            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, cube2[ic], ic))
 
 
     #build nsat-gamma curve
@@ -315,45 +316,125 @@ def myloglike(cube):
     for ir, nsat in enumerate(param_indices['nsat_grid']):
         ic = param_indices['nsat_'+str(ir)] #this is the index pointing to correct position in cube
         try:
-            cube[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat ).G
+            cube2.append( struc.eos._find_interval_given_density( cgs.rhoS*nsat ).G )
         except:
-            cube[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).G
+            cube2.append( struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).G )
 
 
         if debug:
-            print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube[ic], ic))
+            print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube2[ic], ic))
+
+    return logl, cube2
 
 
 
-    return logl
+def lnprob(cube):
+    lp = myprior(cube)
 
+    if not np.isfinite(lp):
+        return -np.inf, []
+    else:
+        ll, cube2 = myloglike(cube)
+        return lp + ll
 
 
 ##################################################
-# run MultiNest
-
-result = pymlsolve( 
-            LogLikelihood=myloglike, 
-            Prior=myprior, 
-	    n_params=n_params,  
-	    n_dims=len(parameters),
-            n_live_points=50,
-            log_zero = linf,
-            outputfiles_basename=prefix,
-            resume=False,
-            verbose=True,
-                 )
+##################################################
+##################################################
+# MCMC sample
 
 
-print()
-print('evidence: %(logZ).1f +- %(logZerr).1f' % result)
-print()
-print('parameter values:')
+ndim = len(parameters)
+nwalkers = 30
+
+#initial guess (trope = 4)
+
+if eos_Ntrope == 4:
+    pinit = [1.30010135e+01, 4.09984639e-01, 2.39018583e+00, 2.61439725e+00,
+             3.13400608e+00, 1.78222716e+00, 9.40358043e-01, 5.34923160e+00,
+             2.13772426e+01, 6.69159502e+00, 1.34026217e+00 ]
+
+#initialize small Gaussian ball around the initial point
+p0 = [pinit + 0.01*np.random.rand(ndim) for i in range(nwalkers)]
+
+##################################################
+#serial v3.0-dev
+if True:
+    
+    #output
+    filename = "chain.h5"
+    backend = emcee.backends.HDFBackend(filename)
+    backend.reset(nwalkers, ndim) #no restart
+    
+    # initialize sampler
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
+
+    result = sampler.run_mcmc(p0, 200)
+
+    #print(result)
+    #position = result[0]
+    #print(position)
+    #loop & sample
+    #for result in sampler.sample(p0, iterations=1, storechain=False):
+    #    print(result)
+    #    position = result[0]
+    #    print(position)
+    
 
 
-for name, col in zip(parameters, result['samples'].transpose()):
-	print('%15s : %.3f +- %.3f' % (name, col.mean(), col.std()))
 
-import json
-with open('%sparams.json' % prefix, 'w') as f:
-    json.dump(parameters, f, indent=2)
+# serial version emcee v2.2
+if False:
+
+    # initialize sampler
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob) #, pool=pool)
+    
+    #output
+    f = open("chains2/chain.dat", "w")
+    f.close()
+    
+    
+    result = sampler.run_mcmc(p0, 20)
+    print(result)
+    position = result[0]
+    print(position)
+    
+    
+    #loop & sample
+    for result in sampler.sample(p0, iterations=1, storechain=False):
+        print(result)
+        position = result[0]
+        print(position)
+    
+        f = open("chain.dat", "a")
+        for k in range(position.shape[0]):
+           f.write("{0:4d} {1:s}\n".format(k, " ".join(position[k])))
+        f.close()
+
+
+##################################################
+# parallel version emcee v2.2
+if False:
+    from emcee.utils import MPIPool
+
+    pool = MPIPool()
+    if not pool.is_master():
+        pool.wait()
+        sys.exit(0)
+    
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
+    #sampler.run_mcmc(p0, 20)
+
+    for result in sampler.sample(p0, iterations=2, storechain=False):
+        if pool.is_master():
+            #print(result) #pos, lnprob, rstate, [blobs]
+            position = result[0]
+            print("position:")
+            print(position)
+
+            f = open("chain.dat", "a")
+            for k in range(position.shape[0]):
+               f.write("{0:4d} {1:s}\n".format(k, " ".join(str(position[k]))))
+            f.close()
+
+    pool.close()

@@ -23,4 +23,9 @@ def transform_truncated_normal(x,mu,sigma,a=0.,b=1.):
     return truncnorm.ppf(x,ar,br,loc=mu,scale=sigma)
 
 
-
+# for MCMC sampler
+def check_uniform(x,a,b):
+    if a < x < b:
+        return 0.0
+    else:
+        return -np.inf

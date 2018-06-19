@@ -1,9 +1,9 @@
 import units as cgs
 from scipy.optimize import fsolve
 from numpy import sqrt
-from numpy import log, exp
 from math import pi
 from math import isnan
+from math import log
 
 
 class Error(Exception):
