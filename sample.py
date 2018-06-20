@@ -24,7 +24,7 @@ if not os.path.exists("chains"): os.mkdir("chains")
 ##################################################
 # global flags for different run modes
 eos_Ntrope = 4 #polytrope order
-debug = True  #flag for additional debug printing
+debug = False  #flag for additional debug printing
 
 
 ##################################################
@@ -99,7 +99,7 @@ for ir, nsat  in enumerate(param_indices['nsat_grid']):
     param_indices['nsat_'+str(ir)] = ci
     ci += 1
 
-
+print(param_indices)
 
 
 ##################################################
@@ -324,6 +324,9 @@ def myloglike(cube):
             print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube[ic], ic))
 
 
+    
+    print(cube[0:12])
+    print(cube[ param_indices['rad_8'] ])
 
     return logl
 

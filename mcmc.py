@@ -90,9 +90,9 @@ for ir, nsat  in enumerate(param_indices['nsat_grid']):
     param_indices['nsat_'+str(ir)] = ci
     ci += 1
 
-print("Parameters to be only stored:")
+print("Parameters to be only stored (blobs):")
 print(len(parameters2))
-
+n_blobs = len(parameters2)
 
 
 
@@ -101,7 +101,7 @@ print(len(parameters2))
 #def myprior(cube, ndim, nparams):
 def myprior(cube):
 
-    print(cube)
+    #print(cube)
 
     # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
     lps = np.empty_like(cube)
@@ -141,7 +141,7 @@ def myprior(cube):
 
 
 # probability function
-linf = 100.0
+linf = np.inf
 
 
 icalls = 0
@@ -171,7 +171,8 @@ def myloglike(cube):
 
 
     """
-    print(cube)
+    #print(cube)
+    blobs = np.zeros(n_blobs)
 
     if debug:
         global icalls
@@ -235,7 +236,7 @@ def myloglike(cube):
         print("Checking nQCD")
     if nQCD(muQCD, X) * cgs.mB <= trans[-1]:
         logl = -linf
-        return logl
+        return logl, blobs
 
     ##################################################
     # build neutron star structure 
@@ -249,7 +250,7 @@ def myloglike(cube):
     if not struc.realistic:
         logl = -linf
 
-        return logl
+        return logl, blobs
 
 
     # solve structure 
@@ -274,13 +275,12 @@ def myloglike(cube):
 
 
     # 4U 1702-429 from Nattila et al 2017
-    #mass_1702 = cube[ci] # first measurement
-    #rad_1702 = struc.radius_at(mass_1702)
-    #logl = gaussian_MR(mass_1702, rad_1702, NSK17)
+    mass_1702 = cube[ci] # first measurement
+    rad_1702 = struc.radius_at(mass_1702)
+    logl = gaussian_MR(mass_1702, rad_1702, NSK17)
 
 
     ic = 0
-    cube2 = []
     
     #build M-R curve
     if debug:
@@ -289,10 +289,10 @@ def myloglike(cube):
 
     for im, mass in enumerate(param_indices['mass_grid']):
         ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
-        cube2.append( struc.radius_at(mass) )
+        blobs[ic] = struc.radius_at(mass) 
 
         if debug:
-            print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube2[ic], ic))
+            print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, blobs[ic], ic))
 
 
     #build rho-P curve
@@ -302,10 +302,10 @@ def myloglike(cube):
 
     for ir, rho in enumerate(param_indices['rho_grid']):
         ic = param_indices['P_'+str(ir)] #this is the index pointing to correct position in cube
-        cube2.append( struc.eos.pressure(rho) )
+        blobs[ic] = struc.eos.pressure(rho) 
 
         if debug:
-            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, cube2[ic], ic))
+            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, blobs[ic], ic))
 
 
     #build nsat-gamma curve
@@ -316,26 +316,27 @@ def myloglike(cube):
     for ir, nsat in enumerate(param_indices['nsat_grid']):
         ic = param_indices['nsat_'+str(ir)] #this is the index pointing to correct position in cube
         try:
-            cube2.append( struc.eos._find_interval_given_density( cgs.rhoS*nsat ).G )
+            blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat ).G
         except:
-            cube2.append( struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).G )
+            blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).G 
 
 
         if debug:
-            print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube2[ic], ic))
+            print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, blobs[ic], ic))
 
-    return logl, cube2
+    return logl, blobs
 
 
 
+# combine likelihood and prior
 def lnprob(cube):
     lp = myprior(cube)
 
     if not np.isfinite(lp):
-        return -np.inf, []
+        return -np.inf, np.zeros(n_blobs)
     else:
-        ll, cube2 = myloglike(cube)
-        return lp + ll
+        ll, blobs = myloglike(cube)
+        return lp + ll, blobs
 
 
 ##################################################
@@ -350,17 +351,19 @@ nwalkers = 30
 #initial guess (trope = 4)
 
 if eos_Ntrope == 4:
-    pinit = [1.30010135e+01, 4.09984639e-01, 2.39018583e+00, 2.61439725e+00,
-             3.13400608e+00, 1.78222716e+00, 9.40358043e-01, 5.34923160e+00,
-             2.13772426e+01, 6.69159502e+00, 1.34026217e+00 ]
+    #pinit = [1.30010135e+01, 4.09984639e-01, 2.39018583e+00, 2.61439725e+00,
+    #         3.13400608e+00, 1.78222716e+00, 9.40358043e-01, 5.34923160e+00,
+    #         2.13772426e+01, 6.69159502e+00, 1.34026217e+00 ]
+    pinit = [11.09019685,    0.51512932,     2.98627603,     2.32939703,
+             2.8060472,      2.10362911,     0.66582859,     0.70016283,
+             25.95583397,    2.50928181,     1.07738423]
 
 #initialize small Gaussian ball around the initial point
 p0 = [pinit + 0.01*np.random.rand(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
-if True:
-    
+if False:
     #output
     filename = "chain.h5"
     backend = emcee.backends.HDFBackend(filename)
@@ -369,7 +372,7 @@ if True:
     # initialize sampler
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
 
-    result = sampler.run_mcmc(p0, 200)
+    result = sampler.run_mcmc(p0, 20)
 
     #print(result)
     #position = result[0]
@@ -381,6 +384,27 @@ if True:
     #    print(position)
     
 
+#parallel v3.0-dev
+if True:
+    import os
+    os.environ["OMP_NUM_THREADS"] = "1"    
+    from schwimmbad import MPIPool
+
+    #even out all workers
+    with MPIPool() as pool:
+        if not pool.is_master():
+            pool.wait()
+            sys.exit(0)
+
+        #output
+        filename = "chains2/chain2.h5"
+        backend = emcee.backends.HDFBackend(filename)
+        backend.reset(nwalkers, ndim) #no restart
+        
+        # initialize sampler
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
+
+        result = sampler.run_mcmc(p0, 40, progress=True)
 
 
 # serial version emcee v2.2
