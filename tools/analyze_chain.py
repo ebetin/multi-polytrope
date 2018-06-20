@@ -6,22 +6,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 
-# trick to make nice colorbars
-# see http://joseph-long.com/writing/colorbars/
-def colorbar(mappable, 
-        loc="right", 
-        orientation="vertical", 
-        size="5%", 
-        pad=0.05, 
-        ticklocation='auto'):
-    ax = mappable.axes
-    fig = ax.figure
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes(loc, size=size, pad=pad)
-    return fig.colorbar(mappable, cax=cax, orientation=orientation, ticklocation=ticklocation)
-
-
-
 ##################################################
 #metadata of the run
 eos_Ntrope = 4
@@ -122,6 +106,21 @@ if False:
 ##################################################
 # ensemble histograms
 
+# trick to make nice colorbars
+# see http://joseph-long.com/writing/colorbars/
+def colorbar(mappable, 
+        loc="right", 
+        orientation="vertical", 
+        size="5%", 
+        pad=0.05, 
+        ticklocation='auto'):
+    ax = mappable.axes
+    fig = ax.figure
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(loc, size=size, pad=pad)
+    return fig.colorbar(mappable, cax=cax, orientation=orientation, ticklocation=ticklocation)
+
+
 #--------------------------------------------------
 #set up figure
 plt.rc('font', family='serif')
@@ -213,7 +212,7 @@ if False:
 
 ##################################################
 # rho - P
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
     Nr = 50 #number of radius histogram bins
 
@@ -256,10 +255,7 @@ if True:
 
     im = axs[0].pcolormesh(
             X,Y,
-            #rho_grid,
-            #press_grid,
             hdata_masked,
-            #interpolation='nearest',
             cmap="Reds",
             vmin=0.0,
             vmax=1.0,
@@ -268,4 +264,53 @@ if True:
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
     plt.savefig("rho_P.pdf")
+
+
+##################################################
+# n - gamma
+if True:
+    nsamples, nblobs = blob_samples.shape
+    Ng = 50
+
+    nsat_grid = param_indices["nsat_grid"]
+    gamma = np.zeros((nsamples, Ngrid))
+    gamma_grid = np.linspace(0.0, 10.0, Ng)
+
+    #get gamma from blobs
+    for ir, nsat  in enumerate(param_indices['nsat_grid']):
+        ci = param_indices['nsat_'+str(ir)]
+        gamma[:, ir] = blob_samples[:, ci]
+
+    gamma_hist = np.zeros((Ng-1, Ngrid))
+    for ir, nsat  in enumerate(param_indices['nsat_grid']):
+        gammaslice = gamma[:,ir]
+        gammas = gammaslice[ gammaslice > 0.0 ]
+        gammam = np.mean( gammas )
+        print("n= {} G= {}".format(nsat, gammam))
+
+        hist, bin_edges = np.histogram(gammas, bins=gamma_grid)
+        gamma_hist[:,ir] = hist[:]/hist.max()
+
+
+    hdata_masked = np.ma.masked_where(gamma_hist <= 0.0, gamma_hist)
+
+    axs[0].set_xlim((1.0, 20.0))
+    axs[0].set_ylim((0.0, 10.0))
+    axs[0].set_ylabel(r"$\Gamma$")
+    axs[0].set_xlabel(r"Density $n$ ($n_{\mathrm{sat}})$")
+
+    gamma_grid = gamma_grid[0:-1] #scale grids because histogram does not save last bin
+    X,Y=np.meshgrid(nsat_grid, gamma_grid)
+
+    im = axs[0].pcolormesh(
+            X,Y,
+            hdata_masked,
+            cmap="Reds",
+            vmin=0.0,
+            vmax=1.0,
+            )
+
+    cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
+
+    plt.savefig("n_gamma.pdf")
 
