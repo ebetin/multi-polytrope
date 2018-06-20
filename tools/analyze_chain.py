@@ -141,7 +141,7 @@ for ax in axs:
 
 
 #M-R
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
     Nr = 50 #number of radius histogram bins
 
@@ -169,8 +169,7 @@ if True:
 
     #print(rad.shape)
     #print(blob_samples[:,0])
-
-    print(rad_hist)
+    #print(rad_hist)
 
     hdata_masked = np.ma.masked_where(rad_hist <= 0.0, rad_hist)
 
@@ -212,7 +211,61 @@ if True:
 
 
 
+##################################################
+# rho - P
+if True:
+    nsamples, nblobs = blob_samples.shape
+    Nr = 50 #number of radius histogram bins
+
+    rho_grid = param_indices["rho_grid"]
+    press = np.zeros((nsamples, Ngrid))
+    press_grid = np.logspace(32.0, 37.0, Nr)
+
+    #get P from blobs
+    for ir, rho  in enumerate(param_indices['rho_grid']):
+        ci = param_indices['P_'+str(ir)]
+        press[:, ir] = blob_samples[:, ci]
+
+    press_hist = np.zeros((Nr-1, Ngrid))
+    for ir, rho  in enumerate(param_indices['rho_grid']):
+        pressslice = press[:,ir]
+        press_s = pressslice[ pressslice > 0.0 ]
+        pressm = np.mean(press_s)
+        print("rho= {} P= {}".format(rho,pressm))
+
+        hist, bin_edges = np.histogram(press_s, bins=press_grid)
+        press_hist[:,ir] = hist[:]/hist.max()
 
 
+    #print(rad.shape)
+    #print(blob_samples[:,0])
+    #print(press_hist)
 
+    hdata_masked = np.ma.masked_where(press_hist <= 0.0, press_hist)
+
+    axs[0].set_xlim((1.0e14, 1.0e16))
+    #axs[0].set_ylim((0.5,  2.5))
+    axs[0].set_ylabel(r"Pressure $P$ (MeV/fm^3)")
+    axs[0].set_xlabel(r"Density $\rho$ (g/cm^3)")
+    axs[0].set_xscale('log')
+    axs[0].set_yscale('log')
+
+    press_grid = press_grid[0:-1] #scale grids because histogram does not save last bin
+    X,Y=np.meshgrid(rho_grid, press_grid)
+
+
+    im = axs[0].pcolormesh(
+            X,Y,
+            #rho_grid,
+            #press_grid,
+            hdata_masked,
+            #interpolation='nearest',
+            cmap="Reds",
+            vmin=0.0,
+            vmax=1.0,
+            )
+
+    cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
+
+    plt.savefig("rho_P.pdf")
 
