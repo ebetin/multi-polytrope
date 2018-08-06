@@ -65,7 +65,7 @@ parameters2 = []
 
 Ngrid = 20
 param_indices = {
-        'mass_grid' :np.linspace(0.5, 2.8,   Ngrid),
+        'mass_grid' :np.linspace(0.5, 3.1,   Ngrid),
         'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
         'nsat_grid': np.linspace(1.0, 20.0, Ngrid),
                }
@@ -145,7 +145,7 @@ linf = np.inf
 
 
 icalls = 0
-def myloglike(cube):
+def myloglike(cube, m2=False):
     """
         General likelihood function that builds the EoS and solves TOV-structure
         equations for it.
@@ -258,6 +258,7 @@ def myloglike(cube):
         print("TOV...")
     #struc.tov(m1 = 1.4 * cgs.Msun)
     struc.tov()
+    #print("params ", cube)
 
 
 
@@ -265,14 +266,15 @@ def myloglike(cube):
     # measurements & constraints
 
     # strict two-solar-mass constraint
-    if struc.maxmass < 1.97:
+    if struc.maxmass < 1.97 and m2:
         logl = -linf
+
+        return logl, blobs
 
     # strict tidal deformablity constrain
     # TODO: implement correct likelihood distribution instead
     #if struc.TD >= 1000.0:
     #    logl = -linf
-
 
     # 4U 1702-429 from Nattila et al 2017
     mass_1702 = cube[ci] # first measurement
@@ -338,6 +340,15 @@ def lnprob(cube):
         ll, blobs = myloglike(cube)
         return lp + ll, blobs
 
+def lnprob2M(cube):
+    lp = myprior(cube)
+
+    if not np.isfinite(lp):
+        return -np.inf, np.zeros(n_blobs)
+    else:
+        ll, blobs = myloglike(cube,m2=True)
+        return lp + ll, blobs
+
 
 ##################################################
 ##################################################
@@ -354,9 +365,14 @@ if eos_Ntrope == 4:
     #pinit = [1.30010135e+01, 4.09984639e-01, 2.39018583e+00, 2.61439725e+00,
     #         3.13400608e+00, 1.78222716e+00, 9.40358043e-01, 5.34923160e+00,
     #         2.13772426e+01, 6.69159502e+00, 1.34026217e+00 ]
-    pinit = [11.09019685,    0.51512932,     2.98627603,     2.32939703,
-             2.8060472,      2.10362911,     0.66582859,     0.70016283,
-             25.95583397,    2.50928181,     1.07738423]
+    #pinit = [11.09019685,    0.51512932,     2.98627603,     2.32939703,
+    #         2.8060472,      2.10362911,     0.66582859,     0.70016283,
+    #         25.95583397,    2.50928181,     1.07738423] #~1.68M_sun
+
+    pinit = [11.58537289, 0.44584499, 3.3476275,  2.52521747,
+             2.29671933,  2.19735491, 1.31372968, 1.02766687,       
+             25.51001808, 2.36631282, 1.63793851] # ~2.1M_sun
+
 
 #initialize small Gaussian ball around the initial point
 p0 = [pinit + 0.01*np.random.rand(ndim) for i in range(nwalkers)]
@@ -397,14 +413,14 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain2.h5"
+        filename = "chains2/chain180803+.h5"
         backend = emcee.backends.HDFBackend(filename)
-        backend.reset(nwalkers, ndim) #no restart
+        #backend.reset(nwalkers, ndim) #no restart
         
         # initialize sampler
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(p0, 40, progress=True)
+        result = sampler.run_mcmc(None, 100, progress=True)
 
 
 # serial version emcee v2.2
