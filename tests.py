@@ -1,6 +1,8 @@
 from scipy.optimize import fmin
 from pQCD import pQCD
+from math import log
 import units as cgs
+
 
 
 # Checks that the polytropes are causal
