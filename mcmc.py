@@ -28,6 +28,10 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 # global flags for different run modes
 eos_Ntrope = 4 #polytrope order
 debug = False  #flag for additional debug printing
+phaseTransition = 1; #position of the 1st order transition
+#after first two monotropes, 0: no phase transition
+#in other words, the first two monotrope do not behave
+#like a latent heat (ie. gamma != 0)
 
 
 ##################################################
@@ -38,7 +42,8 @@ parameters = ["a", "alpha", "b", "beta", "X"]
 
 #append gammas (start from 3 since two first ones are given by QMC)
 for itrope in range(eos_Ntrope-2):
-    parameters.append("gamma"+str(3+itrope))
+    if itrope + 1 != phaseTransition:
+        parameters.append("gamma"+str(3+itrope))
 
 #append transition depths
 for itrope in range(eos_Ntrope-1):
@@ -65,7 +70,7 @@ parameters2 = []
 
 Ngrid = 20
 param_indices = {
-        'mass_grid' :np.linspace(0.5, 3.1,   Ngrid),
+        'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
         'nsat_grid': np.linspace(1.0, 20.0, Ngrid),
                }
@@ -118,10 +123,11 @@ def myprior(cube):
     # Polytropic exponents excluding the first two ones
     ci = 5
     for itrope in range(eos_Ntrope-2):
-        if debug:
-            print("prior for gamma from cube #{}".format(ci))
-        lps[ci] = check_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless]
-        ci += 1
+        if itrope + 1 != phaseTransition:
+            if debug:
+                print("prior for gamma from cube #{}".format(ci))
+            lps[ci] = check_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless]
+            ci += 1
 
 
     # Lengths of the first N-1 monotropes (N = # of polytropes)
@@ -194,10 +200,13 @@ def myloglike(cube, m2=False):
     # Polytropic exponents excluding the first two ones
     gammas = []  
     for itrope in range(eos_Ntrope-2):
-        if debug:
-            print("loading gamma from cube #{}".format(ci))
-        gammas.append(cube[ci])
-        ci += 1
+        if itrope + 1 != phaseTransition:
+            if debug:
+                print("loading gamma from cube #{}".format(ci))
+            gammas.append(cube[ci])
+            ci += 1
+        else:
+            gammas.append(0.0)
 
 
     # Transition ("matching") densities (g/cm^3)
@@ -256,8 +265,8 @@ def myloglike(cube, m2=False):
     # solve structure 
     if debug:
         print("TOV...")
-    #struc.tov(m1 = 1.4 * cgs.Msun)
     struc.tov()
+    #struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
     #print("params ", cube)
 
 
@@ -367,11 +376,15 @@ if eos_Ntrope == 4:
     #         2.13772426e+01, 6.69159502e+00, 1.34026217e+00 ]
     #pinit = [11.09019685,    0.51512932,     2.98627603,     2.32939703,
     #         2.8060472,      2.10362911,     0.66582859,     0.70016283,
-    #         25.95583397,    2.50928181,     1.07738423] #~1.68M_sun
+    #         25.95583397,    2.50928181,     1.07738423] #~1.68M_sun, no PT
 
-    pinit = [11.58537289, 0.44584499, 3.3476275,  2.52521747,
-             2.29671933,  2.19735491, 1.31372968, 1.02766687,       
-             25.51001808, 2.36631282, 1.63793851] # ~2.1M_sun
+    #pinit = [11.58537289, 0.44584499, 3.3476275,  2.52521747,
+    #         2.29671933,  2.19735491, 1.31372968, 1.02766687,       
+    #         25.51001808, 2.36631282, 1.63793851] # ~2.1M_sun, no PT
+
+    pinit = [11.48966963, 0.46585886, 3.47196986, 2.52049493, 
+             2.53044447,  1.64854617, 1.08091482, 25.55306822,
+             2.21414,     2.03089242] # ~2 M_sun, PT1
 
 
 #initialize small Gaussian ball around the initial point
@@ -413,14 +426,16 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain180803+.h5"
+        filename = "chains2/chain180806+.h5"
         backend = emcee.backends.HDFBackend(filename)
-        #backend.reset(nwalkers, ndim) #no restart
+        backend.reset(nwalkers, ndim) #no restart
         
         # initialize sampler
+        #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(None, 100, progress=True)
+        result = sampler.run_mcmc(p0, 1, progress=True)
+        #result = sampler.run_mcmc(None, 1, progress=True)
 
 
 # serial version emcee v2.2
