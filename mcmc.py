@@ -210,7 +210,7 @@ def myloglike(cube, m2=False):
 
 
     # Transition ("matching") densities (g/cm^3)
-    trans  = [1.0e14, 1.1 * cgs.rhoS] #starting point #TODO QMC-polytrope boundary (1-1.3(-2) * rhoS)? BTW 1.0e14 ~ 0.4*rhoS
+    trans  = [1.0e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS
     for itrope in range(eos_Ntrope-1):
         if debug:
             print("loading trans from cube #{}".format(ci))
@@ -265,8 +265,8 @@ def myloglike(cube, m2=False):
     # solve structure 
     if debug:
         print("TOV...")
-    struc.tov()
-    #struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
+    #struc.tov()
+    struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
     #print("params ", cube)
 
 
@@ -281,9 +281,11 @@ def myloglike(cube, m2=False):
         return logl, blobs
 
     # strict tidal deformablity constrain
-    # TODO: implement correct likelihood distribution instead
-    #if struc.TD >= 1000.0:
-    #    logl = -linf
+    # LIGO/Virgo Lambda(1.4 M_sun) 90 % credibility limits
+    if 70.0 > struc.TD or struc.TD > 580.0:
+        logl = -linf
+
+        return logl, blobs
 
     # 4U 1702-429 from Nattila et al 2017
     mass_1702 = cube[ci] # first measurement
