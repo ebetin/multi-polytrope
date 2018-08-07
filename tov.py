@@ -34,7 +34,7 @@ class tov:
 
     def tovsolve(self, rhoc):
 
-        N = 800 # XXX correct value?
+        N = 800 
         r = np.linspace(1e0, 25e5, N)
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
@@ -50,10 +50,10 @@ class tov:
 
 
     def mass_radius(self):
-        N = 100 # XXX correct value?
+        N = 100
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        rhocs = np.logspace(14.3, 16.0, N)
+        rhocs = np.logspace(14.3, 15.8, N)
         mass_max = 0.0
         j = 0
 
@@ -67,8 +67,11 @@ class tov:
             rstar = rad[-1]
             for i, p in enumerate(press):
                 if p > 0.0:
-                    mstar = mass[i]
-                    rstar = rad[i]
+                    #mstar = mass[i]
+                    #rstar = rad[i]
+                    tmp = p / (press[i-1]- p)
+                    mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
+                    rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
             mcurve[j] = mstar
             rcurve[j] = rstar
 
@@ -104,8 +107,8 @@ class tov:
 
         return [dPdr, dmdr, detadr]
 
-    def tovLoveSolve(self, rhoc, l, N = 1000):
-        r = np.linspace(1e0, 25e5, N)
+    def tovLoveSolve(self, rhoc, l, N = 800):
+        r = np.linspace(1e0, 17e5, N)
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r[0]**3*eden
@@ -117,19 +120,20 @@ class tov:
                 [P, m, eta], 
                 r, 
                 args=(1.0 * l, ), 
-                rtol=1.0e-7, 
-                atol=1.0e-7
+                rtol=1.0e-4, 
+                atol=1.0e-4,
+                mxstep=1000
                 )
         #print("exiting odeint..")
 
         return r, psol[:,0], psol[:,1], psol[:,2]
 
     
-    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 800):
+    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 200):
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
         etaCurve = np.zeros(N)
-        rhocs = np.logspace(14.3, 15.8, N)# XXX oikeat rajat?
+        rhocs = np.logspace(14.3, 15.8, N)
         mass_max = 0.0
         j = 0
         jRef1 = 0
@@ -143,9 +147,13 @@ class tov:
             etaStar = eta[-1]
             for i, p in enumerate(press):
                 if p > 0.0:
-                    mstar = mass[i]
-                    rstar = rad[i]
-                    etaStar = eta[i]
+                    #mstar = mass[i]
+                    #rstar = rad[i]
+                    #etaStar = eta[i]
+                    tmp = p / (press[i-1]- p)
+                    mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
+                    rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
+                    etaStar = eta[i] - (eta[i-1] - eta[i]) * tmp
             mcurve[j] = mstar
             rcurve[j] = rstar
             etaCurve[j] = etaStar
