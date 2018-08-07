@@ -110,10 +110,10 @@ def myprior(cube):
 
     # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
     lps = np.empty_like(cube)
-    lps[0] = check_uniform(cube[0], 10.0, 14.0 ) #a [Mev]
-    lps[1] = check_uniform(cube[1],  0.4,  0.55) #alpha [unitless]
-    lps[2] = check_uniform(cube[2],  1.5,  7.5 ) #b [MeV]
-    lps[3] = check_uniform(cube[3],  1.8,  2.7 ) #beta [unitless]
+    lps[0] = check_uniform(cube[0], 12.4, 13.6 ) #a [Mev]
+    lps[1] = check_uniform(cube[1],  0.46,  0.53) #alpha [unitless]
+    lps[2] = check_uniform(cube[2],  1.6,  5.8 ) #b [MeV]
+    lps[3] = check_uniform(cube[3],  2.0,  2.7 ) #beta [unitless]
 
     # Scale parameter of the perturbative QCD, see Fraga et al. (2014, arXiv:1311.5154) 
     # for details
