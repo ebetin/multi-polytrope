@@ -26,9 +26,9 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 4 #polytrope order
+eos_Ntrope = 2 #polytrope order
 debug = False  #flag for additional debug printing
-phaseTransition = 1; #position of the 1st order transition
+phaseTransition = 0 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
 #in other words, the first two monotrope do not behave
 #like a latent heat (ie. gamma != 0)
@@ -111,7 +111,7 @@ def myprior(cube):
     # Parameters of the QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
     lps = np.empty_like(cube)
     lps[0] = check_uniform(cube[0], 12.4, 13.6 ) #a [Mev]
-    lps[1] = check_uniform(cube[1],  0.46,  0.53) #alpha [unitless]
+    lps[1] = check_uniform(cube[1], 0.46,  0.53) #alpha [unitless]
     lps[2] = check_uniform(cube[2],  1.6,  5.8 ) #b [MeV]
     lps[3] = check_uniform(cube[3],  2.0,  2.7 ) #beta [unitless]
 
@@ -210,7 +210,7 @@ def myloglike(cube, m2=False):
 
 
     # Transition ("matching") densities (g/cm^3)
-    trans  = [1.0e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS
+    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS
     for itrope in range(eos_Ntrope-1):
         if debug:
             print("loading trans from cube #{}".format(ci))
@@ -267,8 +267,7 @@ def myloglike(cube, m2=False):
         print("TOV...")
     #struc.tov()
     struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
-    #print("params ", cube)
-
+    print("params", cube)
 
 
     ################################################## 
@@ -370,23 +369,43 @@ def lnprob2M(cube):
 ndim = len(parameters)
 nwalkers = 30
 
-#initial guess (trope = 4)
+#initial guess
 
-if eos_Ntrope == 4:
-    #pinit = [1.30010135e+01, 4.09984639e-01, 2.39018583e+00, 2.61439725e+00,
-    #         3.13400608e+00, 1.78222716e+00, 9.40358043e-01, 5.34923160e+00,
-    #         2.13772426e+01, 6.69159502e+00, 1.34026217e+00 ]
-    #pinit = [11.09019685,    0.51512932,     2.98627603,     2.32939703,
-    #         2.8060472,      2.10362911,     0.66582859,     0.70016283,
-    #         25.95583397,    2.50928181,     1.07738423] #~1.68M_sun, no PT
+if eos_Ntrope == 2: #(trope = 2)
+    if phaseTransition == 0:
+        pinit = [12.7,  0.475,  3.2,  2.49,  1.2,
+        5.0, 1.49127976]
+        # ~2M_sun, no PT, Lambda_1.4 ~ 250
 
-    #pinit = [11.58537289, 0.44584499, 3.3476275,  2.52521747,
-    #         2.29671933,  2.19735491, 1.31372968, 1.02766687,       
-    #         25.51001808, 2.36631282, 1.63793851] # ~2.1M_sun, no PT
+elif eos_Ntrope == 3: #(trope = 3)
+    if phaseTransition == 0:
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
+        2.095,   3.57470224, 26.0, 1.49127976]
+        # ~2M_sun, no PT, Lambda_1.4 ~ 300
+    elif phaseTransition == 1:
+        pinit = [12.7,  0.475,  3.2,  2.49,  1.16,
+        3.57470224, 26.0, 1.49127976]
+        # ~2M_sun, PT1, Lambda_1.4 ~ 300
 
-    pinit = [11.48966963, 0.46585886, 3.47196986, 2.52049493, 
-             2.53044447,  1.64854617, 1.08091482, 25.55306822,
-             2.21414,     2.03089242] # ~2 M_sun, PT1
+elif eos_Ntrope == 4: #(trope = 4)
+    if phaseTransition == 0:
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
+        2.0493058,   3.57470224, 26.40907385,  1.31246422,  1.49127976]
+        # ~2M_sun, no PT, Lambda_1.4 ~ 300
+    elif phaseTransition == 1:
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
+        2.41,   3.57470224, 26.40907385,  1.31246422,  1.49127976]
+        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+    elif phaseTransition == 2:
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
+        2.4,   3.57470224, 8.30907385,  19.41246422,  1.49127976]
+        # ~2M_sun, PT2, Lambda_1.4 ~ 300
+
+elif eos_Ntrope == 5: #(trope = 5)
+    if phaseTransition == 1:
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
+        2.2, 3.57470224, 25.00907385, 1.4, 1.31246422,  1.49127976]
+        # ~2M_sun, PT1, Lambda_1.4 ~ 300
 
 
 #initialize small Gaussian ball around the initial point
@@ -428,7 +447,7 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain180806+.h5"
+        filename = "chains2/chain180806++.h5"
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         
@@ -436,7 +455,7 @@ if True:
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(p0, 1, progress=True)
+        result = sampler.run_mcmc(p0, 1000, progress=True)
         #result = sampler.run_mcmc(None, 1, progress=True)
 
 
