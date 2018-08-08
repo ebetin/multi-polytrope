@@ -32,10 +32,8 @@ class tov:
 
         return [dPdr, dmdr]
 
-    def tovsolve(self, rhoc):
-
-        N = 800 
-        r = np.linspace(1e0, 25e5, N)
+    def tovsolve(self, rhoc, N = 800):
+        r = np.linspace(1e0, 18e5, N)
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r[0]**3*eden
@@ -49,8 +47,7 @@ class tov:
         return r, psol[:,0], psol[:,1]
 
 
-    def mass_radius(self):
-        N = 100
+    def mass_radius(self, N = 200):
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
         rhocs = np.logspace(14.3, 15.8, N)
@@ -67,8 +64,6 @@ class tov:
             rstar = rad[-1]
             for i, p in enumerate(press):
                 if p > 0.0:
-                    #mstar = mass[i]
-                    #rstar = rad[i]
                     tmp = p / (press[i-1]- p)
                     mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
                     rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
@@ -147,9 +142,6 @@ class tov:
             etaStar = eta[-1]
             for i, p in enumerate(press):
                 if p > 0.0:
-                    #mstar = mass[i]
-                    #rstar = rad[i]
-                    #etaStar = eta[i]
                     tmp = p / (press[i-1]- p)
                     mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
                     rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
