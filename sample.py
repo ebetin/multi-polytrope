@@ -6,7 +6,7 @@ import os
 from pymultinest.solve import solve as pymlsolve
 
 from priors import transform_uniform
-from structure import structure
+from structure import structurePolytrope as structure
 import units as cgs
 from pQCD import nQCD
 

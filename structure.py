@@ -11,7 +11,7 @@ from pQCD import qcd, matchPolytopesWithLimits, pQCD, eQCD, nQCD
 from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope
 
 
-class structure:
+class structurePolytrope:
 
     def __init__(self, gammasKnown, transitions, lowDensity, QCD):
         # Equation of state of the crust
@@ -172,6 +172,13 @@ class structure:
         #return np.interp(mass, self.mass, self.rad)
 
         #higher order from scipy
+        #print("mass: ", mass)
+        #print("mass_max: ", self.maxmass, self.mass[-1])
+        #print("max_radius: ", np.max( self.rad ) )
+        #print("massMatrix: ", self.mass)
+        #print("radMatrix: ", self.rad)
+        #intp = interpolate.interp1d(self.mass, self.rad, kind='quadratic')
+        #print("interpolation: ", intp(mass))
         intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
         return intp(mass)
         
@@ -185,9 +192,11 @@ def test_tov():
 
 
 
-    eos_Ntrope = 3 #polytrope order
+    eos_Ntrope = 4 #polytrope order
     #cube = [10.35546398,  0.46968896,  6.90197682,  1.8698988,   3.63685125,  9.24444854, 0.18240452, 20.5893892 ]
-    cube = [13.72713733,  0.41359602,  1.75415611,  2.54708464,  2.9140442,   3.05818737, 16.93841636, 18.90894771]
+    #cube = [13.72713733,  0.41359602,  1.75415611,  2.54708464,  2.9140442,   3.05818737, 16.93841636, 18.90894771]
+    cube = [12.5,  0.46307764,  3.06898968,  2.69243094,  2.98691193,  2.75428241,
+  3.6493058,   3.87470224, 26.40907385,  1.31246422,  1.49127976]
 
 
     ##################################################
@@ -217,7 +226,7 @@ def test_tov():
 
     ################################################## 
     # solve
-    struc = structure(gammas, trans, lowDensity, highDensity)
+    struc = structurePolytrope(gammas, trans, lowDensity, highDensity)
     print(struc.realistic)
     struc.tov()
     #struc.tov(m1 = 1.4 * cgs.Msun) #with love numbers
@@ -259,7 +268,7 @@ def test_tov():
 
 
     plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)
-    plt.savefig('mr.pdf')
+    plt.savefig('mr_test.pdf')
 
 
 
