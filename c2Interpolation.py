@@ -327,7 +327,19 @@ class matchC2AGKNV:
             if stopLooping:
                 break
 
-        return coeffs
+        # Original chemical potential and speed of sound square lists
+        muList = self.muKnown[:]
+        c2List = self.c2Known[:]
+
+        # Including the last, just solved, 
+        muList.append(coeffs[0])
+        c2List.append(coeffs[1])
+
+        # High density data point
+        muList.append(self.muHigh)
+        c2List.append(self.c2High)
+
+        return muList, c2List
 
 
     # Checking if the obtained coefficients are useable
@@ -336,15 +348,19 @@ class matchC2AGKNV:
     #         [0]: chemical potential (GeV)
     #         [1]: speed of sound square (unitless) 
     #     tol: numerical tolerance 
-    def coeffValuesOkTest(self, coeffs, tol = 1.0e-5):
+    def coeffValuesOkTest(self, muList, c2List, tol = 1.0e-5):
+        coeffMu = muList[-2]
+        coeffC2 = c2List[-2]
+
         # Checking the causality etc.
-        if coeffs[1] > 1.0 or coeffs[1] < 0.0:
+        if coeffC2 > 1.0 or coeffC2 < 0.0:
             return False
 
         # Is the mathcing chemical potential in the right place?
-        if coeffs[0] > self.muHigh or coeffs[0] < self.muKnown[-1]:
+        if coeffMu > self.muHigh or coeffMu < self.muKnown[-1]:
             return False
 
+        coeffs = [coeffMu, coeffC2]
         testTol = self.solveCoeff(coeffs)
 
         # Are the gotten coefficients accurate enough?
