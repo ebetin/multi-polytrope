@@ -72,7 +72,7 @@ Ngrid = 20
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
-        'nsat_grid': np.linspace(1.0, 20.0, Ngrid),
+        'nsat_grid': np.linspace(1.1, 20.0, Ngrid),
                }
 
 #add M-R grid
@@ -447,7 +447,7 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain180806++.h5"
+        filename = "chains2/chain190515.h5"
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         

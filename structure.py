@@ -9,6 +9,7 @@ from crust import SLyCrust
 from tov import tov
 from pQCD import qcd, matchPolytopesWithLimits, pQCD, eQCD, nQCD
 from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope
+from c2Interpolation import matchC2AGKNV, c2AGKNV
 
 
 class structurePolytrope:
@@ -39,7 +40,7 @@ class structurePolytrope:
         tropesBeta = [mBeta]
 
         # Form the bimonotropic EoS
-        gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=True, flagSymmetryEnergyModel=2, flagBetaEQ = True)
+        gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=False, flagSymmetryEnergyModel=2, flagBetaEQ = True)
 
         # Causality test
         testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[1])
@@ -168,19 +169,160 @@ class structurePolytrope:
         if mass >= self.maxmass:
             return 0.0
 
-        # linear interpolant (fast)
-        #return np.interp(mass, self.mass, self.rad)
+        try:
+            intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
+            return intp(mass)
+        except:
+            # linear interpolant (faster, backup)
+            return np.interp(mass, self.mass, self.rad)
 
-        #higher order from scipy
-        #print("mass: ", mass)
-        #print("mass_max: ", self.maxmass, self.mass[-1])
-        #print("max_radius: ", np.max( self.rad ) )
-        #print("massMatrix: ", self.mass)
-        #print("radMatrix: ", self.rad)
-        #intp = interpolate.interp1d(self.mass, self.rad, kind='quadratic')
-        #print("interpolation: ", intp(mass))
-        intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
-        return intp(mass)
+class structureC2AGKNV:
+
+    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD):
+        # Equation of state of the crust
+        crustEoS = SLyCrust
+
+        # QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
+        a = lowDensity[0]
+        alpha = lowDensity[1]
+        b = lowDensity[2]
+        beta = lowDensity[3]
+        S = cgs.Enuc + a + b 
+        L = 3.0 * (a * alpha + b * beta)
+
+        # Low-density dominated monotrope
+        mAlpha = monotrope(a * alpha / (cgs.mB * cgs.rhoS**alpha), alpha + 1.0)
+        # High-density dominated monotrope
+        mBeta = monotrope(b * beta / (cgs.mB * cgs.rhoS**beta), beta + 1.0)
+
+        # Transition continuity constants (unitless)
+        mAlpha.a = -0.5
+        mBeta.a = -0.5
+
+        # Turn monotrope class objects into polytrope ones
+        tropesAlpha = [mAlpha]
+        tropesBeta = [mBeta]
+
+        # Form the bimonotropic EoS
+        gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=False, flagSymmetryEnergyModel=2, flagBetaEQ = True)
+
+        # Causality test
+        testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[1])
+
+        if testCausalityGandolfi:
+            # Pressure (Ba), energy density (g/cm^3), mass density (g/cm^3), and
+            # speed of sound squared (unitless) at the end of the QMC EoS
+            gandolfiPressureHigh = gandolfiEoS.pressure(transitions[1])
+            gandolfiEnergyDensityHigh = gandolfiEoS.edens(transitions[1])
+            gandolfiDensityHigh = transitions[1]
+            gandolfiSpeed2High = gandolfiEoS.speed2(gandolfiPressureHigh)
+            gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh, gandolfiDensityHigh, gandolfiSpeed2High]
+
+            # Determining matching chemical potentials
+            mu0 = cgs.mB * ( gandolfiEnergyDensityHigh * cgs.c**2 + gandolfiPressureHigh )      
+            mu0 = mu0 / ( gandolfiDensityHigh * cgs.eV ) * 1.0e-9
+            muKnown = []
+            for mu in muDeltaKnown:
+                if len( muKnown ) == 0:
+                    muKnown.append( mu0 + mu )
+                else:
+                    muKnown.append( muKnown[-1] + mu )
+
+            # Perturbative QCD EoS
+            muQCD = QCD[0]
+            X = QCD[1]
+            qcdEoS = qcd(X)
+
+            # Pressure, energy density, and speed of sound squared at the beginning of the pQCD EoS
+            qcdPressureLow = pQCD(muQCD, X)
+            qcdDensityLow = nQCD(muQCD, X) * cgs.mB
+            qcdSpeed2Low = qcdEoS.speed2(qcdPressureLow)
+            qcdMathing = [qcdPressureLow, qcdDensityLow, muQCD, qcdSpeed2Low]
+
+            # Transition (matching) densities of the polytrypic EoS 
+            transitionsPoly = transitions[1:] # mass density
+            transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
+            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
+
+            # Check that the last known chemical potential is small enough
+            if muQCD > muKnown[-1]:
+                # Determine unknown coefficients (chem.pot. and c2)
+                c2Conditions = matchC2AGKNV( muKnown, c2Known, gandolfiMatchingHigh, qcdMathing )
+            
+                muAll, c2All = c2Conditions.coeffValues()
+        
+                # Checking that the gotten coefficients are suitable
+                testC2Ok = c2Conditions.coeffValuesOkTest( muAll, c2All )
+            else:
+                muAll = None
+                c2All = None
+                testC2Ok = False
+
+        # Do not proceed if tested failed
+        if muAll == None or c2All == None or not testC2Ok:
+            self.tropes = None
+            self.trans  = None
+            self.eos = None
+            self.realistic = False
+
+        else:
+            # Create c2 EoS
+            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh )
+
+            # Combining EoSs
+            combinedEoS = [crustEoS, gandolfiEoS, c2EoS, qcdEoS]
+            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+
+            self.eos = combiningEos(combinedEoS, transitionPieces)
+
+            # Is the pQCD EoS causal?
+            test2 = causalityPerturbativeQCD(qcdEoS, muQCD)
+
+            # Is the latent heat between EoS pieces positive?
+            test3 = positiveLatentHeat(combinedEoS, transitionPieces)
+
+            if not test2: #or not test3:
+                self.realistic = False
+            else:
+                self.realistic = True
+
+
+    #solve TOV equations
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
+        t = tov(self.eos)
+
+        assert isinstance(l, int)
+
+        if m1 < 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho = t.mass_radius()
+            self.TD = 1.0e10
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 > 0.0:
+            self.mass, self.rad, self.rho, self.TD, TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, TD2)
+        else:
+            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef2 = m2)
+            self.TDtilde = 1.0e10
+        
+        self.maxmass = np.max( self.mass )
+
+
+    # interpolate radius given a mass
+    # note: structure must be solved beforehand
+    def radius_at(self, mass):
+
+        if mass >= self.maxmass:
+            return 0.0
+
+        try:
+            intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
+            return intp(mass)
+        except:
+            # linear interpolant (faster, backup)
+            return np.interp(mass, self.mass, self.rad)
         
 
 
