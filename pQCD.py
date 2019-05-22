@@ -425,3 +425,13 @@ class qcd:
 
         except NonpositivePressure:
             print("Pressure is nonpositive!")
+
+    def gammaFunction(self, rho, flag = 1):
+        press = self.pressure(rho)
+        edens = self.edens_inv(press) * cgs.c**2.0
+        speed2 = self.speed2(press)
+
+        if flag == 1: # d(ln p)/d(ln n)
+            return ( edens + press ) * speed2 / press
+        else: # d(ln p)/d(ln eps)
+            return edens * speed2 / press
