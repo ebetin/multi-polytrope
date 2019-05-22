@@ -98,9 +98,12 @@ class c2AGKNV:
     def indexRho(self, rho):
         listInUse = self.rhoListing()
         
-        index = [listInUse.index(x) for x in listInUse if x > rho][0]  
+        try:
+            index = [listInUse.index(x) for x in listInUse if x > rho][0]  
 
-        return index
+            return index
+        except:
+            return len(listInUse)-1
 
 
     # Calculates the chemical potential (GeV) from given mass density (rho; g/cm^3)
@@ -192,6 +195,24 @@ class c2AGKNV:
 
         return np.prod(rhoMuVector)
 
+    # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
+    def edens_inv_rho(self, rho):
+        pressure = self.pressure(rho) # pressure (Ba)
+        mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
+
+        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0    
+
+    # Speed of sound squared (unitless) as a function of the mass density (g/cm^3)
+    def speed2_rho(self, rho):
+        mu = self.chemicalPotential(rho) # chem.pot. (GeV)
+        index = self.indexRho(rho)
+
+        numerator = self.c2List[index - 1] * ( self.muList[index] - mu ) 
+        numerator = numerator + self.c2List[index] * ( mu -self.muList[index - 1] )
+        denominator = self.muList[index] - self.muList[index - 1]
+
+        return 1.0 * numerator / denominator
+
     ################################################
     ################################################
 
@@ -224,7 +245,7 @@ class c2AGKNV:
 
     # Mass density (g/cm^3) as a function of the pressure (Ba)
     def rho(self, pressure):
-        rho = fsolve(self.pressure, 3.0e14, args = pressure, xtol = 1.0e-9)[0]
+        rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
 
         return rho
 
@@ -240,6 +261,16 @@ class c2AGKNV:
         denominator = self.muList[index] - self.muList[index - 1]
 
         return 1.0 * numerator / denominator
+
+    def gammaFunction(self, rho, flag = 1):
+        press = self.pressure(rho)
+        edens = self.edens_inv_rho(rho) * cgs.c**2.0
+        speed2 = self.speed2_rho(rho)
+
+        if flag == 1: # d(ln p)/d(ln n)
+            return ( edens / press + 1.0 ) * speed2
+        else: # d(ln p)/d(ln eps)
+            return edens / press * speed2
 
 
 
@@ -303,9 +334,8 @@ class matchC2AGKNV:
         stopLooping = False
         coeffGuess = [0.0, 0.0]
 
-
-        for i in range(100):
-            for j in range(len(self.muKnown)+2):
+        for j in range(len(self.muKnown)+2):
+            for i in range(11):
                 # Determinating the starting value of the search
                 if j == len(self.muKnown):
                     coeffGuess[0] = self.muHigh + 0.01
@@ -314,7 +344,7 @@ class matchC2AGKNV:
                 else:
                     coeffGuess[0] = self.muKnown[-j-1] + 0.01
 
-                coeffGuess[1] = 0.01 + 0.01 * i
+                coeffGuess[1] = 0.01 + 0.1 * i
 
                 [coeffs, infoC, flagC, mesgC] = fsolve(self.solveCoeff, coeffGuess, full_output=1, xtol = tole)
 
@@ -326,6 +356,33 @@ class matchC2AGKNV:
                     break
             if stopLooping:
                 break
+
+        if not stopLooping:
+            for i in range(100):
+                for j in range(len(self.muKnown)+2):
+                    if i%10 == 0:
+                        continue
+
+                    # Determinating the starting value of the search
+                    if j == len(self.muKnown):
+                        coeffGuess[0] = self.muHigh + 0.01
+                    elif j > len(self.muKnown):
+                        coeffGuess[0] = 5.0
+                    else:
+                        coeffGuess[0] = self.muKnown[-j-1] + 0.01
+
+                    coeffGuess[1] = 0.01 + 0.01 * i
+
+                    [coeffs, infoC, flagC, mesgC] = fsolve(self.solveCoeff, coeffGuess, full_output=1, xtol = tole)
+
+                    testTol = self.solveCoeff(coeffs)
+
+                    # Checking is the correct results found
+                    if flagC == 1 and testTol[0] < tole and testTol[1] < tole:
+                        stopLooping = True
+                        break
+                if stopLooping:
+                    break        
 
         # Original chemical potential and speed of sound square lists
         muList = self.muKnown[:]
