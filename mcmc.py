@@ -26,9 +26,9 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 2 #polytrope order
+eos_Ntrope = 5 #polytrope order
 debug = False  #flag for additional debug printing
-phaseTransition = 0 #position of the 1st order transition
+phaseTransition = 1 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
 #in other words, the first two monotrope do not behave
 #like a latent heat (ie. gamma != 0)
@@ -314,7 +314,7 @@ def myloglike(cube, m2=False):
 
     for ir, rho in enumerate(param_indices['rho_grid']):
         ic = param_indices['P_'+str(ir)] #this is the index pointing to correct position in cube
-        blobs[ic] = struc.eos.pressure(rho) 
+        blobs[ic] = struc.eos.pressure(rho) * 1000.0 / cgs.GeVfm_per_dynecm
 
         if debug:
             print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, blobs[ic], ic))
@@ -409,7 +409,7 @@ elif eos_Ntrope == 5: #(trope = 5)
 
 
 #initialize small Gaussian ball around the initial point
-p0 = [pinit + 0.01*np.random.rand(ndim) for i in range(nwalkers)]
+p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
@@ -447,7 +447,7 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain190515.h5"
+        filename = "chains2/chain190523P5PT1.h5"
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         
@@ -455,7 +455,7 @@ if True:
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(p0, 1000, progress=True)
+        result = sampler.run_mcmc(p0, 10, progress=True)
         #result = sampler.run_mcmc(None, 1, progress=True)
 
 

@@ -36,11 +36,11 @@ debug = True  #flag for additional debug printing
 #QMC + pQCD parameters
 parameters = ["a", "alpha", "b", "beta", "X"]
 
-#append chemical potential depths (NB last one will be determined)#XXX
+#append chemical potential depths (NB last one will be determined)
 for itrope in range(eos_Nsegment-2):
     parameters.append("mu_delta"+str(1+itrope))
 
-#append speed of sound squared (NB last one will be determined)#XXX
+#append speed of sound squared (NB last one will be determined)
 for itrope in range(eos_Nsegment-2):
     parameters.append("speed"+str(1+itrope))
 
@@ -84,7 +84,7 @@ for ir, rho  in enumerate(param_indices['rho_grid']):
     param_indices['P_'+str(ir)] = ci
     ci += 1
 
-#add nsat - gamma grid #XXX what to do with this?!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#add nsat - gamma grid
 for ir, nsat  in enumerate(param_indices['nsat_grid']):
     parameters2.append('nsat_'+str(ir))
     param_indices['nsat_'+str(ir)] = ci
@@ -115,7 +115,7 @@ def myprior(cube):
     lps[4] = check_uniform(cube[4],  1.0,  4.0 ) #X [unitless]
 
 
-    # Chemical potential depths #XXX
+    # Chemical potential depths
     ci = 5
     for itrope in range(eos_Nsegment-2):
         if debug:
@@ -124,7 +124,7 @@ def myprior(cube):
         ci += 1
 
 
-    # Matching speed of sound squared excluding the last one#XXX
+    # Matching speed of sound squared excluding the last one
     for itrope in range(eos_Nsegment-2):
         if debug:
             print("prior for c^2 from cube #{}".format(ci))
@@ -194,7 +194,7 @@ def myloglike(cube, m2=False):
     # Transition ("matching") densities (g/cm^3)
     trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS
  
-    # Matching chemical potentials (GeV)#XXX
+    # Matching chemical potentials (GeV)
     mu_deltas = []  
     for itrope in range(eos_Nsegment-2):
         if debug:
@@ -203,7 +203,7 @@ def myloglike(cube, m2=False):
         ci += 1
 
     speed2 = []
-    # Speed of sound squareds (unitless)#XXX
+    # Speed of sound squareds (unitless)
     for itrope in range(eos_Nsegment-2):
         if debug:
             print("loading speed2 from cube #{}".format(ci))
@@ -246,7 +246,7 @@ def myloglike(cube, m2=False):
     # Construct the EoS
     if debug:
         print("Structure...")
-    struc = structure(mu_deltas, speed2, trans, lowDensity, highDensity)#XXX
+    struc = structure(mu_deltas, speed2, trans, lowDensity, highDensity)
 
     # Is the obtained EoS realistic, e.g. causal?
     if not struc.realistic:
@@ -307,25 +307,21 @@ def myloglike(cube, m2=False):
 
     for ir, rho in enumerate(param_indices['rho_grid']):
         ic = param_indices['P_'+str(ir)] #this is the index pointing to correct position in cube
-        blobs[ic] = struc.eos.pressure(rho) 
+        blobs[ic] = struc.eos.pressure(rho) * 1000.0 / cgs.GeVfm_per_dynecm
 
         if debug:
             print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, blobs[ic], ic))
 
 
-    #build nsat-gamma curve#XXX what to do with this?!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #build nsat-gamma curve
     if debug:
         ic = param_indices['nsat_0'] #starting index
         print("building nsat-gamma curve from EoS... (starts from ic = {}".format(ic))
 
     for ir, nsat in enumerate(param_indices['nsat_grid']):
         ic = param_indices['nsat_'+str(ir)] #this is the index pointing to correct position in cube
-        #try:
-        print("KKKKKK", struc.eos._find_interval_given_density( cgs.rhoS*nsat ))
-        blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat ).gammaFunction( cgs.rhoS*nsat )
-        #except:
-        #    blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).gammaFunction( cgs.rhoS*nsat ) 
 
+        blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat ).gammaFunction( cgs.rhoS*nsat )
 
         if debug:
             print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, blobs[ic], ic))
@@ -372,7 +368,7 @@ if eos_Nsegment == 5: #(segments = 5)
 
 
 #initialize small Gaussian ball around the initial point
-p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]#XXX rand vs randn
+p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
