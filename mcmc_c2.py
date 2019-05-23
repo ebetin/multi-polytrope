@@ -367,8 +367,8 @@ nwalkers = 30
 
 if eos_Nsegment == 5: #(segments = 5)
     pinit = [12.7,  0.475,  3.2,  2.49,  1.6,
-    0.0794198894924294, 0.48, 0.36, 0.315, 0.36, 0.27, 1.49127976]
-    # ~1.97M_sun, Lambda_1.4 ~ 465
+    0.0069, 0.102, 0.193, 0.054, 0.32, 0.66, 1.49127976]
+    # ~2.1M_sun, Lambda_1.4 ~ 310
 
 
 #initialize small Gaussian ball around the initial point
