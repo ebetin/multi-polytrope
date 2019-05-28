@@ -267,7 +267,7 @@ class structureC2AGKNV:
 
         else:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh )
+            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh, approx = True )
 
             # Combining EoSs
             combinedEoS = [crustEoS, gandolfiEoS, c2EoS, qcdEoS]

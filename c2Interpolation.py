@@ -3,6 +3,7 @@ import numpy as np
 from mpmath import hyp2f1, re
 from scipy.optimize import fsolve
 from scipy.optimize import minimize
+from scipy.interpolate import interp1d
 
 # This file contains speed of sound square (c^2) interpolation related formulas etc.
 # The used interpolation method is from arXiv:1903.09121.
@@ -15,7 +16,7 @@ class c2AGKNV:
     #     muList: list of matching chemical potentials (GeV)
     #     c2List: list of matching speed of sound squares (unitless)
     #     lowDensity: physical quantities at the starting point of the interpolation
-    def __init__(self, muList, c2List, lowDensity):
+    def __init__(self, muList, c2List, lowDensity, approx = False):
         self.muList = muList
         self.c2List = c2List
 
@@ -31,6 +32,20 @@ class c2AGKNV:
         # Inserting the starting point into parameter lists
         self.muList.insert(0, self.mu0)
         self.c2List.insert(0, self.c20)
+
+        self.approx = approx
+
+        if approx:
+            N = 500 # If one wants to be very save, use N = 10,000
+            listRho = np.linspace(self.rho0, 15.0 * cgs.rhoS, N)
+            listP = np.zeros(N)
+            listP[0] = self.p0
+
+            for i in range(1, N):
+                listP[i] = self.pressure(listRho[i])
+
+            self.listRhoLong = listRho
+            self.listPLong = listP
 
 
     # Power used in the next function
@@ -237,22 +252,27 @@ class c2AGKNV:
 
     # Energy density (g/cm^3) as a function of the pressure (Ba)
     def edens_inv(self, pressure):
-        rho = self.rho(pressure) # mass density (g/cm^3)
+        rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
         mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
 
         return (rho * mu / cgs.mB - pressure) / cgs.c**2.0    
 
 
     # Mass density (g/cm^3) as a function of the pressure (Ba)
-    def rho(self, pressure):
-        rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
+    def rho(self, pressure, approx):
+        if approx:
+            fun = interp1d(self.listPLong, self.listRhoLong, kind = 'linear')
 
-        return rho
+            return fun(pressure)
+        else:
+            rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
+
+            return rho
 
 
     # Speed of sound squared (unitless) as a function of the pressure (Ba)
     def speed2(self, pressure):
-        rho = self.rho(pressure) # mass density (g/cm^3)
+        rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
         mu = self.chemicalPotential(rho) # chem.pot. (GeV)
         index = self.indexRho(rho)
 
