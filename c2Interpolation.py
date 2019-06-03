@@ -261,9 +261,12 @@ class c2AGKNV:
     # Mass density (g/cm^3) as a function of the pressure (Ba)
     def rho(self, pressure, approx):
         if approx:
-            fun = interp1d(self.listPLong, self.listRhoLong, kind = 'linear')
+            if pressure > self.p0:
+                fun = interp1d(self.listPLong, self.listRhoLong, kind = 'linear')
 
-            return fun(pressure)
+                return fun(pressure)
+            else:
+                return self.rho0
         else:
             rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
 
