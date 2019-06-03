@@ -260,8 +260,6 @@ class structureC2AGKNV:
 
         # Do not proceed if tested failed
         if muAll == None or c2All == None or not testC2Ok:
-            self.tropes = None
-            self.trans  = None
             self.eos = None
             self.realistic = False
 
@@ -281,7 +279,7 @@ class structureC2AGKNV:
             # Is the latent heat between EoS pieces positive?
             test3 = positiveLatentHeat(combinedEoS, transitionPieces)
 
-            if not test2: #or not test3:
+            if not test2 or not test3:
                 self.realistic = False
             else:
                 self.realistic = True
