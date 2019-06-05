@@ -435,3 +435,15 @@ class qcd:
             return ( edens + press ) * speed2 / press
         else: # d(ln p)/d(ln eps)
             return edens * speed2 / press
+
+    def pressure_edens(self, edens):
+        try:
+            if edens <= 0.0:
+                raise NonpositivePressure
+
+            mu = fsolve(eQCD, 2.6, args = (self.X, edens))[0]
+
+            return pQCD(mu, self.X)
+
+        except NonpositivePressure:
+            print("Pressure is nonpositive!")

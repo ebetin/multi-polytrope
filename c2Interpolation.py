@@ -251,20 +251,30 @@ class c2AGKNV:
 
 
     # Energy density (g/cm^3) as a function of the pressure (Ba)
-    def edens_inv(self, pressure):
-        rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
+    def edens_inv(self, pressure, e = 0, approx = 2):
+        if approx == 0:
+            rho = self.rho(pressure, False) # mass density (g/cm^3)
+        elif approx == 1:
+            rho = self.rho(pressure, True) # mass density (g/cm^3)
+        else:
+            rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
         mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
 
-        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0    
+        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0 - e   
 
 
     # Mass density (g/cm^3) as a function of the pressure (Ba)
     def rho(self, pressure, approx):
         if approx:
             if pressure > self.p0:
-                fun = interp1d(self.listPLong, self.listRhoLong, kind = 'linear')
+                try:
+                    fun = interp1d(self.listPLong, self.listRhoLong, kind = 'linear')
 
-                return fun(pressure)
+                    return fun(pressure)
+                except:
+                    rho = fsolve(self.pressure, 35.0*cgs.rhoS, args = pressure)[0]
+
+                    return rho
             else:
                 return self.rho0
         else:
@@ -285,6 +295,7 @@ class c2AGKNV:
 
         return 1.0 * numerator / denominator
 
+
     def gammaFunction(self, rho, flag = 1):
         press = self.pressure(rho)
         edens = self.edens_inv_rho(rho) * cgs.c**2.0
@@ -294,6 +305,28 @@ class c2AGKNV:
             return ( edens / press + 1.0 ) * speed2
         else: # d(ln p)/d(ln eps)
             return edens / press * speed2
+
+    # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
+    def edens_rho(self, rho, e = 0):
+        mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
+        pressure = self.pressure(rho)
+
+        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0 - e 
+
+
+    def pressure_edens(self, edens):
+        #rho = fsolve(self.edens_rho, 2.0 * cgs.rhoS, args = edens)[0]
+
+        edensMeV =  edens * 1000.0 * cgs.c**2 / cgs.GeVfm_per_dynecm
+
+        if edensMeV < 700.0:
+            rhoEstimate = 1.0e-3 * edensMeV + 0.05
+        else:
+            rhoEstimate = 4.0e-4 * edensMeV + 0.5
+
+        rho = fsolve(self.edens_rho, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
+
+        return self.pressure(rho)
 
 
 
