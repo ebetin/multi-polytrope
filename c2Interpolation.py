@@ -11,6 +11,15 @@ from scipy.interpolate import interp1d
 
 # This class determines the values of physical quantities, such as pressure and densities.
 class c2AGKNV:
+    #speed of sound squared (cm^2/s^2)
+    cgsunits = cgs.c**2
+    cgsunits_inv = 1.0 / cgsunits
+
+    #inverse baryon mass
+    mB_inv = 1.0 / cgs.mB
+
+    # giga electron volts in ergs
+    GeV = 1.0e9 * cgs.eV
 
     # Inputs:
     #     muList: list of matching chemical potentials (GeV)
@@ -27,7 +36,7 @@ class c2AGKNV:
         self.c20 = lowDensity[3]  # speed of sound square (unitless)
 
         # Chemical potential at the starting point
-        self.mu0 = cgs.mB * (self.e0 * cgs.c**2 + self.p0) / self.rho0 / cgs.eV * 1.0e-9
+        self.mu0 = cgs.mB * (self.e0 * self.cgsunits + self.p0) / ( self.rho0 * self.GeV )
 
         # Inserting the starting point into parameter lists
         self.muList.insert(0, self.mu0)
@@ -101,10 +110,12 @@ class c2AGKNV:
 
     # Listing of mass densities in the matching points (cf. c2List or muList)
     def rhoListing(self):
-        listRho = [self.rho0]
+        N = len(self.c2List)
+        listRho = N * [None]
+        listRho[0] = self.rho0
 
-        for i in range(1, len(self.c2List) ):
-            listRho.append( listRho[i-1] * self.rhoBar(self.muList[i], i) )
+        for i in range(1, N):
+            listRho[i] = listRho[i-1] * self.rhoBar(self.muList[i], i)
 
         return listRho
 
@@ -171,7 +182,7 @@ class c2AGKNV:
 
         low = rhoList[index - 1] * self.pressurePartial(self.muList[index - 1], index)
 
-        return 1.0e9 * cgs.eV * float(high - low) / cgs.mB
+        return self.GeV * float(high - low) * self.mB_inv
 
 
     # Term in the pressure sum
@@ -188,34 +199,38 @@ class c2AGKNV:
 
         low = self.rhoMu(self.muList[index - 1]) * self.pressurePartial(self.muList[index - 1], index)
 
-        return 1.0e9 * cgs.eV * float(high - low) / cgs.mB
+        return self.GeV * float(high - low) * self.mB_inv
 
 
     # Pressure (Ba) as a function of chemical potential (GeV)
     def pressureMu(self, mu):
-        pressureMuVector = [self.p0]
+        N = len(self.c2List)
+        pressureMuVector = N * [None]
+        pressureMuVector[0] = self.p0
 
-        for i in range(1, len(self.c2List) ):
-            pressureMuVector.append( self.pressureMuTerm(mu, i) )
+        for i in range(1, N):
+            pressureMuVector[i] = self.pressureMuTerm(mu, i)
 
         return sum(pressureMuVector)
 
 
     # Baryon mass density (g/cm^3) as a function of chemical potential (GeV)
     def rhoMu(self, mu):
-        rhoMuVector = [self.rho0]
+        N = len(self.c2List)
+        rhoMuVector = N * [None]
+        rhoMuVector[0] = self.rho0
 
-        for i in range(1, len(self.c2List) ):
-            rhoMuVector.append( self.rhoBar(mu, i) )
+        for i in range(1, N):
+            rhoMuVector[i] = self.rhoBar(mu, i)
 
         return np.prod(rhoMuVector)
 
     # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
     def edens_inv_rho(self, rho):
         pressure = self.pressure(rho) # pressure (Ba)
-        mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
+        mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
 
-        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0    
+        return (rho * mu * self.mB_inv - pressure) * self.cgsunits_inv
 
     # Speed of sound squared (unitless) as a function of the mass density (g/cm^3)
     def speed2_rho(self, rho):
@@ -233,10 +248,12 @@ class c2AGKNV:
 
     # Pressure (Ba) as a function of the mass density (g/cm)
     def pressure(self, rho, p = 0.0):
-        pressureVector = [self.p0]
+        N = len(self.c2List)
+        pressureVector = N * [None]
+        pressureVector[0] = self.p0
 
-        for i in range(1, len(self.c2List) ):
-            pressureVector.append( self.pressureTerm(rho, i) )
+        for i in range(1, N):
+            pressureVector[i] = self.pressureTerm(rho, i)
 
         return sum(pressureVector) - p
 
@@ -258,9 +275,9 @@ class c2AGKNV:
             rho = self.rho(pressure, True) # mass density (g/cm^3)
         else:
             rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
-        mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
+        mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
 
-        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0 - e   
+        return (rho * mu * self.mB_inv - pressure) * self.cgsunits_inv - e
 
 
     # Mass density (g/cm^3) as a function of the pressure (Ba)
@@ -298,7 +315,7 @@ class c2AGKNV:
 
     def gammaFunction(self, rho, flag = 1):
         press = self.pressure(rho)
-        edens = self.edens_inv_rho(rho) * cgs.c**2.0
+        edens = self.edens_inv_rho(rho) * self.cgsunits
         speed2 = self.speed2_rho(rho)
 
         if flag == 1: # d(ln p)/d(ln n)
@@ -308,21 +325,19 @@ class c2AGKNV:
 
     # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
     def edens_rho(self, rho, e = 0):
-        mu = self.chemicalPotential(rho) * cgs.eV * 1.0e9 # chem.pot. (ergs)
+        mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
         pressure = self.pressure(rho)
 
-        return (rho * mu / cgs.mB - pressure) / cgs.c**2.0 - e 
+        return (rho * mu * self.mB_inv - pressure) * self.cgsunits_inv - e 
 
 
     def pressure_edens(self, edens):
-        #rho = fsolve(self.edens_rho, 2.0 * cgs.rhoS, args = edens)[0]
+        edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
 
-        edensMeV =  edens * 1000.0 * cgs.c**2 / cgs.GeVfm_per_dynecm
-
-        if edensMeV < 700.0:
-            rhoEstimate = 1.0e-3 * edensMeV + 0.05
+        if edensGeV < 0.7:
+            rhoEstimate = edensGeV + 0.05
         else:
-            rhoEstimate = 4.0e-4 * edensMeV + 0.5
+            rhoEstimate = 0.4 * edensGeV + 0.5
 
         rho = fsolve(self.edens_rho, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
 
