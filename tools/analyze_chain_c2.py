@@ -65,7 +65,7 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 ##################################################
 # read chain
 
-filename = '../chains2/chain190605C.h5'
+filename = '../chains2/chain190606C100.h5'
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
 
@@ -116,14 +116,14 @@ labels.append(r"$M_{1702}$")
 ##################################################
 # triangle/corner plot
 
-if False:
+if True:
     fig = corner.corner(all_samples, 
             #quantiles=[0.16, 0.5, 0.84],
             #show_titles=True, 
             #title_kwargs={"fontsize": 12})
             labels=labels)
     
-    plt.savefig("triangle_190531C1000B0T1.pdf")
+    plt.savefig("triangle_190606C100B0T1.pdf")
 
 
 ##################################################
@@ -229,7 +229,7 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("mass_radius_190531C1000B0T1.pdf")
+    plt.savefig("mass_radius_190606C100B0T1.pdf")
 
 
 
@@ -289,7 +289,7 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("rho_P_190603C340B0T1.pdf")
+    plt.savefig("rho_P_190606C100B0T1.pdf")
 
 
 ##################################################
@@ -346,7 +346,7 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("eps_P_190605C10B0T1.pdf")
+    plt.savefig("eps_P_190606C100B0T1.pdf")
 
 ##################################################
 # n - gamma
@@ -356,7 +356,7 @@ if False:
 
     nsat_grid = param_indices["nsat_gamma_grid"]
     gamma = np.zeros((nsamples, Ngrid))
-    gamma_grid = np.linspace(0.0, 5.0, Ng)
+    gamma_grid = np.linspace(0.0, 10.0, Ng)
 
     #get gamma from blobs
     for ir, nsat  in enumerate(param_indices['nsat_gamma_grid']):
@@ -377,7 +377,7 @@ if False:
     hdata_masked_ng = np.ma.masked_where(gamma_hist <= 0.0, gamma_hist)
 
     axs[0].set_xlim((1.0, 15.0))
-    axs[0].set_ylim((0.0, 5.0))
+    axs[0].set_ylim((0.0, 10.0))
     axs[0].set_ylabel(r"$\Gamma$")
     axs[0].set_xlabel(r"Density $n$ ($n_{\mathrm{sat}})$")
 
@@ -394,11 +394,11 @@ if False:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_gamma_190605C10B0T1.pdf")
+    plt.savefig("n_gamma_190606C100B0T1.pdf")
 
 ##################################################
 # n - c^2
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
     Ng = 100
 
@@ -442,5 +442,5 @@ if True:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_c2_190605C10B0T1.pdf")
+    plt.savefig("n_c2_190606C100B0T1.pdf")
 
