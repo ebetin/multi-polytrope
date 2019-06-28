@@ -16,9 +16,6 @@ parameters2 = []
 Ngrid = 200
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
-        #'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
-        'rho_grid':  np.logspace(-0.79588, 0.85, Ngrid),
-        #'P_grid':  np.logspace(0.0, 4.0, Ngrid)
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
         'nsat_gamma_grid': np.linspace(1.1, 15.0, Ngrid),
         'nsat_c2_grid': np.linspace(1.1, 15.0, Ngrid),
@@ -31,18 +28,6 @@ for im, mass  in enumerate(param_indices['mass_grid']):
     parameters2.append('rad_'+str(im))
     param_indices['rad_'+str(im)] = ci
     ci += 1
-
-#add rho-P grid
-for ir, rho  in enumerate(param_indices['rho_grid']):
-    parameters2.append('Prho_'+str(ir))
-    param_indices['Prho_'+str(ir)] = ci
-    ci += 1
-
-#add P-eps grid
-#for ir, press  in enumerate(param_indices['P_grid']):
-#    parameters2.append('eps_'+str(ir))
-#    param_indices['eps_'+str(ir)] = ci
-#    ci += 1
 
 #add eps-P grid
 for ir, eps  in enumerate(param_indices['eps_grid']):
@@ -231,65 +216,6 @@ if False:
 
     plt.savefig("mass_radius_190606C100B0T1.pdf")
 
-
-
-
-##################################################
-# rho - P
-if False:
-    nsamples, nblobs = blob_samples.shape
-    Nr = 50 #number of radius histogram bins
-
-    rho_grid = param_indices["rho_grid"]
-    press = np.zeros((nsamples, Ngrid))
-    press_grid = np.logspace(-0.3, 4.0, Nr)
-
-    #get P from blobs
-    for ir, rho  in enumerate(param_indices['rho_grid']):
-        ci = param_indices['Prho_'+str(ir)]
-        press[:, ir] = blob_samples[:, ci]
-
-    press_hist = np.zeros((Nr-1, Ngrid))
-    for ir, rho  in enumerate(param_indices['rho_grid']):
-        pressslice = press[:,ir]
-        press_s = pressslice[ pressslice > 0.0 ]
-        pressm = np.mean(press_s)
-        print("rho= {} P= {}".format(rho,pressm))
-
-        hist, bin_edges = np.histogram(press_s, bins=press_grid)
-        press_hist[:,ir] = (1.0*hist[:])/hist.max()
-
-
-    #print(rad.shape)
-    #print(blob_samples[:,0])
-    #print(press_hist)
-
-    hdata_masked = np.ma.masked_where(press_hist <= 0.0, press_hist)
-
-    #axs[0].set_xlim((1.0e14, 1.0e16))
-    axs[0].set_xlim((0.16, 7))
-    #axs[0].set_ylim((1.0e33,  1.0e37))
-    axs[0].set_ylim((0.5,  1.e4))
-    axs[0].set_ylabel(r"Pressure $P$ (MeV/fm$^3$)")
-    axs[0].set_xlabel(r"Density $\rho$ (1/fm$^3$)")
-    axs[0].set_xscale('log')
-    axs[0].set_yscale('log')
-
-    press_grid = press_grid[0:-1] #scale grids because histogram does not save last bin
-    X,Y=np.meshgrid(rho_grid, press_grid)
-
-
-    im = axs[0].pcolormesh(
-            X,Y,
-            hdata_masked,
-            cmap="Reds",
-            vmin=0.0,
-            vmax=1.0,
-            )
-
-    cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
-
-    plt.savefig("rho_P_190606C100B0T1.pdf")
 
 
 ##################################################

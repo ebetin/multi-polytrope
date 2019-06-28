@@ -63,11 +63,9 @@ prefix = "chains/C1-"
 
 parameters2 = []
 
-Ngrid = 200
+Ngrid = 20
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
-        #'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
-        'rho_grid':  np.logspace(-0.79588, 0.85, Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
         'nsat_gamma_grid': np.linspace(1.1, 15.0, Ngrid),
         'nsat_c2_grid': np.linspace(1.1, 15.0, Ngrid),
@@ -79,12 +77,6 @@ ci = 0
 for im, mass  in enumerate(param_indices['mass_grid']):
     parameters2.append('rad_'+str(im))
     param_indices['rad_'+str(im)] = ci
-    ci += 1
-
-#add rho-P grid
-for ir, rho  in enumerate(param_indices['rho_grid']):
-    parameters2.append('Prho_'+str(ir))
-    param_indices['Prho_'+str(ir)] = ci
     ci += 1
 
 #add eps-P grid
@@ -314,20 +306,6 @@ def myloglike(cube, m2=False):
         if debug:
             print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, blobs[ic], ic))
 
-
-    #build rho-P curve
-    if debug:
-        ic = param_indices['Prho_0'] #starting index
-        print("building rho-P curve from EoS... (starts from ic = {}".format(ic))
-
-    for ir, rho in enumerate(param_indices['rho_grid']):
-        ic = param_indices['Prho_'+str(ir)] #this is the index pointing to correct position in cube
-        #blobs[ic] = struc.eos.pressure(rho) * 1000.0 / cgs.GeVfm_per_dynecm
-        blobs[ic] = struc.eos.pressure(rho * cgs.mB * 1.0e39) * 1000.0 / cgs.GeVfm_per_dynecm
-
-        if debug:
-            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, blobs[ic], ic))
-
     #build eps-P curve
     if debug:
         ic = param_indices['Peps_0'] #starting index
@@ -446,7 +424,7 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain190605C.h5"
+        filename = "chains2/chain190627C100.h5"
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         
