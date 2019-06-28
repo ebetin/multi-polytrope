@@ -178,13 +178,13 @@ class polytrope:
 
     def _find_interval_given_energy_density(self, edens):
         if edens <= self.eds[0]:
-            return self.pieces[0]
+            return self.tropes[0]
 
         for q in range( len(self.eds) - 1):
             if self.eds[q] <= edens < self.eds[q+1]:
-                return self.pieces[q]
+                return self.tropes[q]
 
-        return self.pieces[-1]
+        return self.tropes[-1]
 
 
     ################################################## 

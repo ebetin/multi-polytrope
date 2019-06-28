@@ -26,9 +26,9 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 5 #polytrope order
+eos_Ntrope = 2 #polytrope order
 debug = False  #flag for additional debug printing
-phaseTransition = 1 #position of the 1st order transition
+phaseTransition = 0 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
 #in other words, the first two monotrope do not behave
 #like a latent heat (ie. gamma != 0)
@@ -71,8 +71,9 @@ parameters2 = []
 Ngrid = 20
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
-        'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
-        'nsat_grid': np.linspace(1.1, 20.0, Ngrid),
+        'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
+        'nsat_gamma_grid': np.linspace(1.1, 15.0, Ngrid),
+        'nsat_c2_grid': np.linspace(1.1, 15.0, Ngrid),
                }
 
 #add M-R grid
@@ -83,16 +84,22 @@ for im, mass  in enumerate(param_indices['mass_grid']):
     param_indices['rad_'+str(im)] = ci
     ci += 1
 
-#add rho-P grid
-for ir, rho  in enumerate(param_indices['rho_grid']):
-    parameters2.append('P_'+str(ir))
-    param_indices['P_'+str(ir)] = ci
+#add eps-P grid
+for ir, eps  in enumerate(param_indices['eps_grid']):
+    parameters2.append('Peps_'+str(ir))
+    param_indices['Peps_'+str(ir)] = ci
     ci += 1
 
 #add nsat - gamma grid
-for ir, nsat  in enumerate(param_indices['nsat_grid']):
-    parameters2.append('nsat_'+str(ir))
-    param_indices['nsat_'+str(ir)] = ci
+for ir, nsat  in enumerate(param_indices['nsat_gamma_grid']):
+    parameters2.append('nsat_gamma_'+str(ir))
+    param_indices['nsat_gamma_'+str(ir)] = ci
+    ci += 1
+
+#add nsat - c^2 grid
+for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
+    parameters2.append('nsat_c2_'+str(ir))
+    param_indices['nsat_c2_'+str(ir)] = ci
     ci += 1
 
 print("Parameters to be only stored (blobs):")
@@ -306,35 +313,43 @@ def myloglike(cube, m2=False):
         if debug:
             print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, blobs[ic], ic))
 
-
-    #build rho-P curve
+    #build eps-P curve
     if debug:
-        ic = param_indices['P_0'] #starting index
-        print("building rho-P curve from EoS... (starts from ic = {}".format(ic))
+        ic = param_indices['Peps_0'] #starting index
+        print("building eps-P curve from EoS... (starts from ic = {}".format(ic))
 
-    for ir, rho in enumerate(param_indices['rho_grid']):
-        ic = param_indices['P_'+str(ir)] #this is the index pointing to correct position in cube
-        blobs[ic] = struc.eos.pressure(rho) * 1000.0 / cgs.GeVfm_per_dynecm
+    for ir, eps in enumerate(param_indices['eps_grid']):
+        ic = param_indices['Peps_'+str(ir)] #this is the index pointing to correct position in cube
+        blobs[ic] = struc.eos.pressure_edens( eps * 0.001 * cgs.GeVfm_per_dynecm / (cgs.c**2) ) * 1000.0 / cgs.GeVfm_per_dynecm
 
         if debug:
-            print("ir = {}, rho = {}, P = {}, ic = {}".format(ir, rho, blobs[ic], ic))
-
+            print("ir = {}, eps = {}, P = {}, ic = {}".format(ir, eps, blobs[ic], ic))
 
     #build nsat-gamma curve
     if debug:
-        ic = param_indices['nsat_0'] #starting index
+        ic = param_indices['nsat_gamma_0'] #starting index
         print("building nsat-gamma curve from EoS... (starts from ic = {}".format(ic))
 
-    for ir, nsat in enumerate(param_indices['nsat_grid']):
-        ic = param_indices['nsat_'+str(ir)] #this is the index pointing to correct position in cube
-        try:
-            blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat ).G
-        except:
-            blobs[ic] = struc.eos._find_interval_given_density( cgs.rhoS*nsat )._find_interval_given_density( cgs.rhoS*nsat ).G 
+    for ir, nsat in enumerate(param_indices['nsat_gamma_grid']):
+        ic = param_indices['nsat_gamma_'+str(ir)] #this is the index pointing to correct position in cube
 
+        blobs[ic] = struc.eos.gammaFunction( cgs.rhoS*nsat, flag = 0 )
 
         if debug:
             print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, blobs[ic], ic))
+
+    #build nsat-c^2 curve
+    if debug:
+        ic = param_indices['nsat_c2_0'] #starting index
+        print("building nsat-c^2 curve from EoS... (starts from ic = {}".format(ic))
+
+    for ir, nsat in enumerate(param_indices['nsat_c2_grid']):
+        ic = param_indices['nsat_c2_'+str(ir)] #this is the index pointing to correct position in cube
+
+        blobs[ic] = struc.eos.speed2( struc.eos.pressure( cgs.rhoS * nsat ) )
+
+        if debug:
+            print("ir = {}, nsat = {}, c^2 = {}, ic = {}".format(ir, nsat, blobs[ic], ic))
 
     return logl, blobs
 
@@ -447,7 +462,7 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain190523P5PT1.h5"
+        filename = "chains2/chain190527P2PT0.h5"
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         

@@ -8,16 +8,18 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 ##################################################
 #metadata of the run
-eos_Ntrope = 4
+eos_Ntrope = 2
 Ngrid = 20
+phaseTransition = 0
 
 parameters2 = []
 
 Ngrid = 20
 param_indices = {
-        'mass_grid': np.linspace(0.5, 2.8,   Ngrid),
-        'rho_grid':  np.logspace(14.3, 16.0, Ngrid),
-        'nsat_grid': np.linspace(1.0, 20.0,  Ngrid),
+        'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
+        'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
+        'nsat_gamma_grid': np.linspace(1.1, 15.0, Ngrid),
+        'nsat_c2_grid': np.linspace(1.1, 15.0, Ngrid),
                }
 
 #add M-R grid
@@ -28,23 +30,29 @@ for im, mass  in enumerate(param_indices['mass_grid']):
     param_indices['rad_'+str(im)] = ci
     ci += 1
 
-#add rho-P grid
-for ir, rho  in enumerate(param_indices['rho_grid']):
-    parameters2.append('P_'+str(ir))
-    param_indices['P_'+str(ir)] = ci
+#add eps-P grid
+for ir, eps  in enumerate(param_indices['eps_grid']):
+    parameters2.append('Peps_'+str(ir))
+    param_indices['Peps_'+str(ir)] = ci
     ci += 1
 
 #add nsat - gamma grid
-for ir, nsat  in enumerate(param_indices['nsat_grid']):
-    parameters2.append('nsat_'+str(ir))
-    param_indices['nsat_'+str(ir)] = ci
+for ir, nsat  in enumerate(param_indices['nsat_gamma_grid']):
+    parameters2.append('nsat_gamma_'+str(ir))
+    param_indices['nsat_gamma_'+str(ir)] = ci
+    ci += 1
+
+#add nsat - c^2 grid
+for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
+    parameters2.append('nsat_c2_'+str(ir))
+    param_indices['nsat_c2_'+str(ir)] = ci
     ci += 1
 
 ##################################################
 # read chain
 
-filename = '../chains2/chain2.h5'
-reader = emcee.backends.HDFBackend(filename)
+filename = '../chains2/chain190527P2PT0.h5'
+reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
 
 #tau = reader.get_autocorr_time()
@@ -81,7 +89,8 @@ all_samples = samples
 labels = [r"$a$", r"$\alpha$", r"$b$", r"$\beta$", r"$X$"]
 
 for itrope in range(eos_Ntrope-2):
-    labels.append(r"$\gamma_{{{0}}}$".format((3+itrope)))
+    if itrope + 1 != phaseTransition:
+        labels.append(r"$\gamma_{{{0}}}$".format((3+itrope)))
 
 for itrope in range(eos_Ntrope-1):
     labels.append(r"$n_{{{0}}}$".format(1+itrope))
@@ -89,6 +98,7 @@ for itrope in range(eos_Ntrope-1):
 labels.append(r"$M_{1702}$")
 
 #labels.append(r"$\log L$")
+
 
 ##################################################
 # triangle/corner plot
@@ -100,7 +110,7 @@ if False:
             #title_kwargs={"fontsize": 12})
             labels=labels)
     
-    plt.savefig("triangle.pdf")
+    plt.savefig("triangle_190627P2PT0.pdf")
 
 
 ##################################################
@@ -147,7 +157,7 @@ if False:
     mass_grid = param_indices["mass_grid"]
     rad = np.zeros((nsamples, Ngrid))
 
-    rad_grid = np.linspace(10.0, 16.0, Nr)
+    rad_grid = np.linspace(9.0, 16.0, Nr)
 
     #get rad from blobs
     for im, mass  in enumerate(param_indices['mass_grid']):
@@ -164,7 +174,8 @@ if False:
         print("M= {} R= {}".format(mass,radm))
 
         hist, bin_edges = np.histogram(rads, bins=rad_grid)
-        rad_hist[:,im] = hist[:]/hist.max()
+
+        rad_hist[:,im] = (1.0*hist[:])/hist.max()
 
     #print(rad.shape)
     #print(blob_samples[:,0])
@@ -172,7 +183,7 @@ if False:
 
     hdata_masked = np.ma.masked_where(rad_hist <= 0.0, rad_hist)
 
-    axs[0].set_xlim((10.0, 16.0))
+    axs[0].set_xlim((9.0, 16.0))
     axs[0].set_ylim((0.5,  2.5))
     axs[0].set_ylabel("Mass $M$ (M$_{\odot}$)")
     axs[0].set_xlabel("Radius $R$ (km)")
@@ -205,35 +216,33 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("mass_radius.pdf")
-
-
+    plt.savefig("mass_radius_190523P5PT1.pdf")
 
 
 ##################################################
-# rho - P
+# eps - P
 if False:
     nsamples, nblobs = blob_samples.shape
     Nr = 50 #number of radius histogram bins
 
-    rho_grid = param_indices["rho_grid"]
+    rho_grid = param_indices["eps_grid"]
     press = np.zeros((nsamples, Ngrid))
-    press_grid = np.logspace(32.0, 37.0, Nr)
+    press_grid = np.logspace(-0.3, 4.0, Nr)
 
     #get P from blobs
-    for ir, rho  in enumerate(param_indices['rho_grid']):
-        ci = param_indices['P_'+str(ir)]
+    for ir, eps  in enumerate(param_indices['eps_grid']):
+        ci = param_indices['Peps_'+str(ir)]
         press[:, ir] = blob_samples[:, ci]
 
     press_hist = np.zeros((Nr-1, Ngrid))
-    for ir, rho  in enumerate(param_indices['rho_grid']):
+    for ir, eps  in enumerate(param_indices['eps_grid']):
         pressslice = press[:,ir]
         press_s = pressslice[ pressslice > 0.0 ]
         pressm = np.mean(press_s)
-        print("rho= {} P= {}".format(rho,pressm))
+        print("eps= {} P= {}".format(eps,pressm))
 
         hist, bin_edges = np.histogram(press_s, bins=press_grid)
-        press_hist[:,ir] = hist[:]/hist.max()
+        press_hist[:,ir] = (1.0*hist[:])/hist.max()
 
 
     #print(rad.shape)
@@ -242,10 +251,11 @@ if False:
 
     hdata_masked = np.ma.masked_where(press_hist <= 0.0, press_hist)
 
-    axs[0].set_xlim((1.0e14, 1.0e16))
-    #axs[0].set_ylim((0.5,  2.5))
-    axs[0].set_ylabel(r"Pressure $P$ (MeV/fm^3)")
-    axs[0].set_xlabel(r"Density $\rho$ (g/cm^3)")
+    axs[0].set_xlim((1.0e2, 2.0e4))
+    #axs[0].set_ylim((1.0e33,  1.0e37))
+    axs[0].set_ylim((0.5,  1.e4))
+    axs[0].set_ylabel(r"Pressure $P$ (MeV/fm$^3$)")
+    axs[0].set_xlabel(r"Energy density $\epsilon$ (MeV/fm$^3$)")
     axs[0].set_xscale('log')
     axs[0].set_yscale('log')
 
@@ -263,38 +273,38 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("rho_P.pdf")
+    plt.savefig("eps_P_190606C100B0T1.pdf")
 
 
 ##################################################
 # n - gamma
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
-    Ng = 50
+    Ng = 100
 
-    nsat_grid = param_indices["nsat_grid"]
+    nsat_grid = param_indices["nsat_gamma_grid"]
     gamma = np.zeros((nsamples, Ngrid))
     gamma_grid = np.linspace(0.0, 10.0, Ng)
 
     #get gamma from blobs
-    for ir, nsat  in enumerate(param_indices['nsat_grid']):
-        ci = param_indices['nsat_'+str(ir)]
+    for ir, nsat  in enumerate(param_indices['nsat_gamma_grid']):
+        ci = param_indices['nsat_gamma_'+str(ir)]
         gamma[:, ir] = blob_samples[:, ci]
 
     gamma_hist = np.zeros((Ng-1, Ngrid))
-    for ir, nsat  in enumerate(param_indices['nsat_grid']):
+    for ir, nsat  in enumerate(param_indices['nsat_gamma_grid']):
         gammaslice = gamma[:,ir]
         gammas = gammaslice[ gammaslice > 0.0 ]
         gammam = np.mean( gammas )
         print("n= {} G= {}".format(nsat, gammam))
 
-        hist, bin_edges = np.histogram(gammas, bins=gamma_grid)
-        gamma_hist[:,ir] = hist[:]/hist.max()
+        hist_ng, bin_edges = np.histogram(gammas, bins=gamma_grid)
+        gamma_hist[:,ir] = (1.0*hist_ng[:])/hist_ng.max()
 
 
-    hdata_masked = np.ma.masked_where(gamma_hist <= 0.0, gamma_hist)
+    hdata_masked_ng = np.ma.masked_where(gamma_hist <= 0.0, gamma_hist)
 
-    axs[0].set_xlim((1.0, 20.0))
+    axs[0].set_xlim((1.0, 15.0))
     axs[0].set_ylim((0.0, 10.0))
     axs[0].set_ylabel(r"$\Gamma$")
     axs[0].set_xlabel(r"Density $n$ ($n_{\mathrm{sat}})$")
@@ -302,15 +312,63 @@ if True:
     gamma_grid = gamma_grid[0:-1] #scale grids because histogram does not save last bin
     X,Y=np.meshgrid(nsat_grid, gamma_grid)
 
-    im = axs[0].pcolormesh(
+    im_ng = axs[0].pcolormesh(
             X,Y,
-            hdata_masked,
+            hdata_masked_ng,
             cmap="Reds",
             vmin=0.0,
             vmax=1.0,
             )
 
-    cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
+    cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_gamma.pdf")
+    plt.savefig("n_gamma_190627P2PT0.pdf")
+
+##################################################
+# n - c^2
+if True:
+    nsamples, nblobs = blob_samples.shape
+    Ng = 100
+
+    nsat_grid = param_indices["nsat_c2_grid"]
+    c2 = np.zeros((nsamples, Ngrid))
+    c2_grid = np.linspace(0.0, 1.0, Ng)
+
+    #get c2 from blobs
+    for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
+        ci = param_indices['nsat_c2_'+str(ir)]
+        c2[:, ir] = blob_samples[:, ci]
+
+    c2_hist = np.zeros((Ng-1, Ngrid))
+    for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
+        c2slice = c2[:,ir]
+        c2s = c2slice[ c2slice > 0.0 ]
+        c2m = np.mean( c2s )
+        print("n= {} G= {}".format(nsat, c2m))
+
+        hist_ng, bin_edges = np.histogram(c2s, bins=c2_grid)
+        c2_hist[:,ir] = (1.0*hist_ng[:])/hist_ng.max()
+
+
+    hdata_masked_ng = np.ma.masked_where(c2_hist <= 0.0, c2_hist)
+
+    axs[0].set_xlim((1.0, 15.0))
+    axs[0].set_ylim((0.0, 1.0))
+    axs[0].set_ylabel(r"$c^2$")
+    axs[0].set_xlabel(r"Density $n$ ($n_{\mathrm{sat}})$")
+
+    c2_grid = c2_grid[0:-1] #scale grids because histogram does not save last bin
+    X,Y=np.meshgrid(nsat_grid, c2_grid)
+
+    im_ng = axs[0].pcolormesh(
+            X,Y,
+            hdata_masked_ng,
+            cmap="Reds",
+            vmin=0.0,
+            vmax=1.0,
+            )
+
+    cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
+
+    plt.savefig("n_c2_190627P2PT0.pdf")
 
