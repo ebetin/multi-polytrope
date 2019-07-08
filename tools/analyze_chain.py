@@ -294,7 +294,7 @@ if True:
 
     hdata_masked = np.ma.masked_where(gamma_hist <= 0.0, gamma_hist)
 
-    axs[0].set_xlim((1.0, 20.0))
+    axs[0].set_xlim((0.0, 20.0))
     axs[0].set_ylim((0.0, 10.0))
     axs[0].set_ylabel(r"$\Gamma$")
     axs[0].set_xlabel(r"Density $n$ ($n_{\mathrm{sat}})$")
