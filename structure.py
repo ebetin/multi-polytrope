@@ -395,16 +395,16 @@ def test_tov():
 
 
     #mass, rad, rho = struc.t.mass_radius()
-    print struc.mass
-    print struc.rad
+    print(struc.mass)
+    print(struc.rad)
     ax.plot(struc.rad, struc.mass)
 
     mass = np.linspace(0.5, 1.0, 10)
     rad  = [struc.radius_at(m) for m in mass]
     ax.plot(rad, mass, "r-")
 
-    print mass
-    print rad
+    print(mass)
+    print(rad)
 
 
     plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)

@@ -1,15 +1,13 @@
-from __future__ import absolute_import, unicode_literals, print_function
-
+#from __future__ import absolute_import, unicode_literals, print_function
 import numpy as np
 import os
 
-from pymultinest.solve import solve as pymlsolve
+#from pymultinest.solve import solve as pymlsolve
 
 from priors import check_uniform
 from structure import structureC2AGKNV as structure
 import units as cgs
 from pQCD import nQCD
-
 
 from measurements import gaussian_MR
 from measurements import NSK17 #1702 measurement
@@ -20,8 +18,7 @@ import emcee
 
 np.random.seed(1) #for reproducibility
 
-if not os.path.exists("chains2"): os.mkdir("chains2")
-
+if not os.path.exists("chains"): os.mkdir("chains")
 
 
 ##################################################
@@ -424,7 +421,8 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain190627C100.h5"
+        filename = prefix+'run.h5'
+
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         

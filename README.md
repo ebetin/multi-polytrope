@@ -37,3 +37,29 @@
 
 - [ ] Include tidal diformability constrains (?)
     - How one should do this?
+
+
+## Tegner installation
+
+
+load modules and python
+```
+source emcee.sh
+python --version
+```
+
+install emcee
+```
+git clone https://github.com/dfm/emcee.git
+cd emcee/
+python setup.py install --prefix=$LUSTREDIR
+```
+
+
+install schwimmbad (mpi)
+```
+git clone https://github.com/adrn/schwimmbad.git
+cd schwimmbad/
+python setup.py install --prefix=$LUSTREDIR
+```
+

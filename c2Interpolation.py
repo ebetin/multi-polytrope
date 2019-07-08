@@ -1,6 +1,8 @@
 import units as cgs
 import numpy as np
-from mpmath import hyp2f1, re
+#from mpmath import hyp2f1, re
+from scipy.special import hyp2f1
+
 from scipy.optimize import fsolve
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d

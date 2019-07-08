@@ -260,8 +260,8 @@ def main(argv):
         t = tov(eos)
 
         mass, rad, rho = t.mass_radius()
-        print mass
-        print rad
+        print(mass)
+        print(rad)
         ax.plot(rad, mass)
 
 
@@ -269,7 +269,7 @@ def main(argv):
         i = 0
         for key, value in eosLib.iteritems():
 
-            print "Solving TOVs for:", key, "(",i, ")"
+            print("Solving TOVs for:", key, "(",i, ")")
 
             dense_eos = get_eos(key)
             eos = glue_crust_and_core( SLyCrust, dense_eos )
