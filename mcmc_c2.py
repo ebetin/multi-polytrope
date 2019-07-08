@@ -389,7 +389,8 @@ p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 #serial v3.0-dev
 if False:
     #output
-    filename = "chain.h5"
+    filename = prefix+'run.h5'
+
     backend = emcee.backends.HDFBackend(filename)
     backend.reset(nwalkers, ndim) #no restart
     
@@ -413,6 +414,7 @@ if True:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
+    #from emcee.utils import MPIPool
 
     #even out all workers
     with MPIPool() as pool:
