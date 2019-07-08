@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A 2018-2-41
-#SBATCH -J cs2
+#SBATCH -J poly
 #SBATCH --output=%J.out
 #SBATCH --error=%J.err
 #SBATCH -t 0-23:00:00
@@ -16,4 +16,4 @@ source $HOME/emcee.sh
 # go to working directory
 cd $MCMC
 
-srun -n 1 python mcmc_c2.py
+srun -n 1 python mcmc.py

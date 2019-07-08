@@ -24,7 +24,7 @@ if not os.path.exists("chains"): os.mkdir("chains")
 ##################################################
 # global flags for different run modes
 eos_Nsegment = 5 #polytrope order
-debug = False  #flag for additional debug printing
+debug = True  #flag for additional debug printing
 
 
 ##################################################
@@ -387,7 +387,8 @@ p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
-if False:
+if True:
+
     #output
     filename = prefix+'run.h5'
 
@@ -397,7 +398,7 @@ if False:
     # initialize sampler
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
 
-    result = sampler.run_mcmc(p0, 20)
+    result = sampler.run_mcmc(p0, 10000)
 
     #print(result)
     #position = result[0]
@@ -410,7 +411,7 @@ if False:
     
 
 #parallel v3.0-dev
-if True:
+if False:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
