@@ -54,13 +54,13 @@ class monotrope:
     #energy density eps(P) (NB g/cm^3, not erg/(cm s^2)!)
     #  edens: energy density (g/cm^3)
     #  pressure (Ba)
-    def edens_inv(self, pressure):
+    def edens_inv(self, pressure, e = 0):
         rho = self.rho(pressure)
 
         if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
-            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
+            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
         else:
-            return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits )
+            return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits ) - e
 
 
     #for inverse functions lets define rho(P)
@@ -81,6 +81,20 @@ class monotrope:
             return (self.K * (log(rho / cgs.mB) + 1.0) + 1.0 + self.a) * cgs.mB * self.cgsunits
         else:
             return ( 1.0 + self.a + self.G / (self.G - 1.0) * self.K * rho**(self.G-1.0) ) * cgs.mB * self.cgsunits
+
+    # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
+    def edens_rho(self, rho, e = 0):
+        pressure = self.pressure(rho)
+
+        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
+            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
+        else:
+            return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits ) - e
+
+    def pressure_edens(self, edens):
+        rho = fsolve(self.edens_rho, 2.0 * cgs.rhoS, args = edens)[0]
+
+        return self.pressure(rho)
 
 
 
@@ -162,6 +176,17 @@ class polytrope:
         return self.tropes[-1]
 
 
+    def _find_interval_given_energy_density(self, edens):
+        if edens <= self.eds[0]:
+            return self.tropes[0]
+
+        for q in range( len(self.eds) - 1):
+            if self.eds[q] <= edens < self.eds[q+1]:
+                return self.tropes[q]
+
+        return self.tropes[-1]
+
+
     ################################################## 
     def pressure(self, rho):
         trope = self._find_interval_given_density(rho)
@@ -187,6 +212,20 @@ class polytrope:
     def speed2(self, press):
         trope = self._find_interval_given_pressure(press)
         return trope.G * press / (press + trope.edens_inv(press) * cgs.c**2) 
+
+    def gammaFunction(self, rho, flag = 1):
+        press = self.pressure(rho)
+        edens = self.edens_inv(press) * cgs.c**2.0
+        speed2 = self.speed2(press)
+
+        if flag == 1: # d(ln p)/d(ln n)
+            return ( edens + press ) * speed2 / press
+        else: # d(ln p)/d(ln eps)
+            return edens * speed2 / press
+
+    def pressure_edens(self, edens):
+        trope = self._find_interval_given_energy_density(edens)
+        return trope.pressure_edens(edens)
 
 
 
@@ -409,7 +448,7 @@ class doubleMonotrope:
 
 
     # Energy density (g/cm^3) as a function of the mass density rho (g/cm^3)
-    def edens(self, rho):
+    def edens(self, rho, e = 0.0):
         try:
             # Electron and muon factors (xe = rho_e/rho_B)
             [xe, xm] = self.electronMuonFactors(rho)
@@ -474,7 +513,7 @@ class doubleMonotrope:
             # Total energy density
             energyDensity = energyDensity1 + energyDensity2 + energyDensityProton + energyDensityElectron + energyDensityMuon
 
-            return energyDensity
+            return energyDensity - e
 
         except IncorrectSymmetryEnergyModelError:
             print("Incorrect value of the symmetry energy model!")
@@ -482,10 +521,10 @@ class doubleMonotrope:
 
 
 
-    def edens_inv(self, press):
+    def edens_inv(self, press, e = 0):
         rho = self.rho(press)
         
-        return self.edens(rho)
+        return self.edens(rho) - e
 
     def rho(self, press):
         rho = fsolve(self.pressures, cgs.rhoS, args = press)
@@ -574,6 +613,21 @@ class doubleMonotrope:
             print("Incorrect value of the symmetry energy model!")
             print()
 
+    def gammaFunction(self, rho, flag = 1):
+        press = self.pressure(rho)
+        edens = self.edens_inv(press) * cgs.c**2.0
+        speed2 = self.speed2(press)
+
+        if flag == 1: # d(ln p)/d(ln n)
+            return ( edens + press ) * speed2 / press
+        else: # d(ln p)/d(ln eps)
+            return edens * speed2 / press
+
+    def pressure_edens(self, edens):
+        rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+
+        return self.pressure(rho)
+
 
 
 #Combines EoS parts together, SPECIAL CASE
@@ -645,6 +699,16 @@ class combiningEos:
 
         return self.pieces[-1]
 
+    def _find_interval_given_energy_density(self, edens):
+        if edens <= self.eds[0]:
+            return self.pieces[0]
+
+        for q in range( len(self.eds) - 1):
+            if self.eds[q] <= edens < self.eds[q+1]:
+                return self.pieces[q]
+
+        return self.pieces[-1]
+
 
     ################################################## 
     def pressure(self, rho):
@@ -671,3 +735,11 @@ class combiningEos:
     def speed2(self, press):
         trope = self._find_interval_given_pressure(press)
         return trope.speed2(press)
+
+    def gammaFunction(self, rho, flag = 1):
+        trope = self._find_interval_given_density(rho)
+        return trope.gammaFunction(rho, flag)
+
+    def pressure_edens(self, edens):
+        trope = self._find_interval_given_energy_density(edens)
+        return trope.pressure_edens(edens)

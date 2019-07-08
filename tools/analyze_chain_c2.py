@@ -8,13 +8,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 ##################################################
 #metadata of the run
-eos_Ntrope = 2
+eos_Nsegment = 5
 Ngrid = 20
-phaseTransition = 0
 
 parameters2 = []
 
-Ngrid = 20
+Ngrid = 200
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
@@ -51,7 +50,7 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 ##################################################
 # read chain
 
-filename = '../chains2/chain190527P2PT0.h5'
+filename = '../chains2/chain190606C100.h5'
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
 
@@ -88,12 +87,11 @@ all_samples = samples
 
 labels = [r"$a$", r"$\alpha$", r"$b$", r"$\beta$", r"$X$"]
 
-for itrope in range(eos_Ntrope-2):
-    if itrope + 1 != phaseTransition:
-        labels.append(r"$\gamma_{{{0}}}$".format((3+itrope)))
+for itrope in range(eos_Nsegment-2):
+    labels.append(r"$\Delta\mu_{{{0}}}$".format((1+itrope)))
 
-for itrope in range(eos_Ntrope-1):
-    labels.append(r"$n_{{{0}}}$".format(1+itrope))
+for itrope in range(eos_Nsegment-2):
+    labels.append(r"$c^2_{{{0}}}$".format(1+itrope))
 
 labels.append(r"$M_{1702}$")
 
@@ -103,14 +101,14 @@ labels.append(r"$M_{1702}$")
 ##################################################
 # triangle/corner plot
 
-if False:
+if True:
     fig = corner.corner(all_samples, 
             #quantiles=[0.16, 0.5, 0.84],
             #show_titles=True, 
             #title_kwargs={"fontsize": 12})
             labels=labels)
     
-    plt.savefig("triangle_190627P2PT0.pdf")
+    plt.savefig("triangle_190606C100B0T1.pdf")
 
 
 ##################################################
@@ -184,7 +182,7 @@ if False:
     hdata_masked = np.ma.masked_where(rad_hist <= 0.0, rad_hist)
 
     axs[0].set_xlim((9.0, 16.0))
-    axs[0].set_ylim((0.5,  2.5))
+    axs[0].set_ylim((0.5,  3.0))
     axs[0].set_ylabel("Mass $M$ (M$_{\odot}$)")
     axs[0].set_xlabel("Radius $R$ (km)")
 
@@ -216,14 +214,15 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("mass_radius_190523P5PT1.pdf")
+    plt.savefig("mass_radius_190606C100B0T1.pdf")
+
 
 
 ##################################################
 # eps - P
 if False:
     nsamples, nblobs = blob_samples.shape
-    Nr = 50 #number of radius histogram bins
+    Nr = 100 #number of radius histogram bins
 
     rho_grid = param_indices["eps_grid"]
     press = np.zeros((nsamples, Ngrid))
@@ -275,7 +274,6 @@ if False:
 
     plt.savefig("eps_P_190606C100B0T1.pdf")
 
-
 ##################################################
 # n - gamma
 if False:
@@ -304,7 +302,6 @@ if False:
 
     hdata_masked_ng = np.ma.masked_where(gamma_hist <= 0.0, gamma_hist)
 
-    #axs[0].set_xlim((0.0, 20.0))
     axs[0].set_xlim((1.0, 15.0))
     axs[0].set_ylim((0.0, 10.0))
     axs[0].set_ylabel(r"$\Gamma$")
@@ -323,11 +320,11 @@ if False:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_gamma_190627P2PT0.pdf")
+    plt.savefig("n_gamma_190606C100B0T1.pdf")
 
 ##################################################
 # n - c^2
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
     Ng = 100
 
@@ -371,5 +368,5 @@ if True:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_c2_190627P2PT0.pdf")
+    plt.savefig("n_c2_190606C100B0T1.pdf")
 

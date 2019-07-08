@@ -6,7 +6,7 @@ import os
 from pymultinest.solve import solve as pymlsolve
 
 from priors import check_uniform
-from structure import structurePolytrope as structure
+from structure import structureC2AGKNV as structure
 import units as cgs
 from pQCD import nQCD
 
@@ -26,28 +26,23 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 2 #polytrope order
+eos_Nsegment = 5 #polytrope order
 debug = False  #flag for additional debug printing
-phaseTransition = 0 #position of the 1st order transition
-#after first two monotropes, 0: no phase transition
-#in other words, the first two monotrope do not behave
-#like a latent heat (ie. gamma != 0)
 
 
 ##################################################
-#auto-generated parameter names for polytropes 
+#auto-generated parameter names for c2 interpolation
 
 #QMC + pQCD parameters
 parameters = ["a", "alpha", "b", "beta", "X"]
 
-#append gammas (start from 3 since two first ones are given by QMC)
-for itrope in range(eos_Ntrope-2):
-    if itrope + 1 != phaseTransition:
-        parameters.append("gamma"+str(3+itrope))
+#append chemical potential depths (NB last one will be determined)
+for itrope in range(eos_Nsegment-2):
+    parameters.append("mu_delta"+str(1+itrope))
 
-#append transition depths
-for itrope in range(eos_Ntrope-1):
-    parameters.append("trans_delta"+str(1+itrope))
+#append speed of sound squared (NB last one will be determined)
+for itrope in range(eos_Nsegment-2):
+    parameters.append("speed"+str(1+itrope))
 
 #finally add individual object masses (needed for measurements)
 parameters.append("mass_1702")
@@ -58,7 +53,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/1-"
+prefix = "chains/C1-"
 
 
 ##################################################
@@ -127,21 +122,20 @@ def myprior(cube):
     lps[4] = check_uniform(cube[4],  1.0,  4.0 ) #X [unitless]
 
 
-    # Polytropic exponents excluding the first two ones
+    # Chemical potential depths
     ci = 5
-    for itrope in range(eos_Ntrope-2):
-        if itrope + 1 != phaseTransition:
-            if debug:
-                print("prior for gamma from cube #{}".format(ci))
-            lps[ci] = check_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless]
-            ci += 1
-
-
-    # Lengths of the first N-1 monotropes (N = # of polytropes)
-    for itrope in range(eos_Ntrope-1):
+    for itrope in range(eos_Nsegment-2):
         if debug:
-            print("prior for trans from cube #{}".format(ci))
-        lps[ci] = check_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
+            print("prior for mu_delta from cube #{}".format(ci))
+        lps[ci] = check_uniform(cube[ci], 0.0, 1.8)  #delta_mui [GeV]
+        ci += 1
+
+
+    # Matching speed of sound squared excluding the last one
+    for itrope in range(eos_Nsegment-2):
+        if debug:
+            print("prior for c^2 from cube #{}".format(ci))
+        lps[ci] = check_uniform(cube[ci], 0.0, 1.0)  #c_i^2 [unitless]
         ci += 1
 
     # M-R measurements
@@ -175,9 +169,9 @@ def myloglike(cube, m2=False):
         #pQCD parameters:
         4 X
 
-        #nuclear EoS parameters:
-        gammas
-        transition points
+        #interpolation parameters:
+        matching chemical potentials
+        matching speed of sound squared
 
         # Measurement parameters:
         mass of individual objects
@@ -203,25 +197,24 @@ def myloglike(cube, m2=False):
 
     ################################################## 
     # nuclear EoS
- 
-    # Polytropic exponents excluding the first two ones
-    gammas = []  
-    for itrope in range(eos_Ntrope-2):
-        if itrope + 1 != phaseTransition:
-            if debug:
-                print("loading gamma from cube #{}".format(ci))
-            gammas.append(cube[ci])
-            ci += 1
-        else:
-            gammas.append(0.0)
-
 
     # Transition ("matching") densities (g/cm^3)
     trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS
-    for itrope in range(eos_Ntrope-1):
+ 
+    # Matching chemical potentials (GeV)
+    mu_deltas = []  
+    for itrope in range(eos_Nsegment-2):
         if debug:
-            print("loading trans from cube #{}".format(ci))
-        trans.append(trans[-1] + cgs.rhoS * cube[ci]) 
+            print("loading mu_deltas from cube #{}".format(ci))
+        mu_deltas.append(cube[ci])
+        ci += 1
+
+    speed2 = []
+    # Speed of sound squareds (unitless)
+    for itrope in range(eos_Nsegment-2):
+        if debug:
+            print("loading speed2 from cube #{}".format(ci))
+        speed2.append(cube[ci]) 
         ci += 1
 
 
@@ -260,7 +253,7 @@ def myloglike(cube, m2=False):
     # Construct the EoS
     if debug:
         print("Structure...")
-    struc = structure(gammas, trans, lowDensity, highDensity)
+    struc = structure(mu_deltas, speed2, trans, lowDensity, highDensity)
 
     # Is the obtained EoS realistic, e.g. causal?
     if not struc.realistic:
@@ -386,41 +379,10 @@ nwalkers = 30
 
 #initial guess
 
-if eos_Ntrope == 2: #(trope = 2)
-    if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  1.2,
-        5.0, 1.49127976]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 250
-
-elif eos_Ntrope == 3: #(trope = 3)
-    if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.095,   3.57470224, 26.0, 1.49127976]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 300
-    elif phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  1.16,
-        3.57470224, 26.0, 1.49127976]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
-
-elif eos_Ntrope == 4: #(trope = 4)
-    if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
-        2.0493058,   3.57470224, 26.40907385,  1.31246422,  1.49127976]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 300
-    elif phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.41,   3.57470224, 26.40907385,  1.31246422,  1.49127976]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
-    elif phaseTransition == 2:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.4,   3.57470224, 8.30907385,  19.41246422,  1.49127976]
-        # ~2M_sun, PT2, Lambda_1.4 ~ 300
-
-elif eos_Ntrope == 5: #(trope = 5)
-    if phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
-        2.2, 3.57470224, 25.00907385, 1.4, 1.31246422,  1.49127976]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+if eos_Nsegment == 5: #(segments = 5)
+    pinit = [12.7,  0.475,  3.2,  2.49,  1.6,
+    0.0069, 0.102, 0.193, 0.054, 0.32, 0.66, 1.49127976]
+    # ~2.1M_sun, Lambda_1.4 ~ 310
 
 
 #initialize small Gaussian ball around the initial point
@@ -462,7 +424,7 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain190527P2PT0.h5"
+        filename = "chains2/chain190627C100.h5"
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         
