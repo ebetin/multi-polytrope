@@ -63,3 +63,11 @@ cd schwimmbad/
 python setup.py install --prefix=$LUSTREDIR
 ```
 
+install hdf5
+```
+git clone https://github.com/h5py/h5py.git
+export CC=gcc
+python setup.py build
+python setup.py install --prefix=/cfs/klemming/nobackup/j/jnattila
+```
+

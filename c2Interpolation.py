@@ -164,7 +164,7 @@ class c2AGKNV:
         else:
             f = hyp2f1( aiNegative, 1.0, 2.0 + aiNegative, termZ / (termZ - 1.0) )
 
-            return re(1.0 * mu * f / (1.0 + aiNegative))
+            return (1.0 * mu * f / (1.0 + aiNegative)).real
 
 
     # Term in the pressure sum
