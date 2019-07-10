@@ -50,8 +50,8 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 
 ##################################################
 # read chain
-
-filename = '../chains2/chain190527P2PT0.h5'
+prefix='P1'
+filename = '../chains/'+prefix+'-run.h5'
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
 
@@ -110,7 +110,7 @@ if False:
             #title_kwargs={"fontsize": 12})
             labels=labels)
     
-    plt.savefig("triangle_190627P2PT0.pdf")
+    plt.savefig("triangle_"+prefix+".pdf")
 
 
 ##################################################
@@ -216,7 +216,7 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("mass_radius_190523P5PT1.pdf")
+    plt.savefig("mass_radius_"+prefix+".pdf")
 
 
 ##################################################
@@ -273,7 +273,7 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("eps_P_190606C100B0T1.pdf")
+    plt.savefig("eps_P_"+prefix+".pdf")
 
 
 ##################################################
@@ -323,7 +323,7 @@ if False:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_gamma_190627P2PT0.pdf")
+    plt.savefig("n_gamma_"+prefix+".pdf")
 
 ##################################################
 # n - c^2
@@ -371,5 +371,5 @@ if True:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_c2_190627P2PT0.pdf")
+    plt.savefig("n_c2_"+prefix+".pdf")
 

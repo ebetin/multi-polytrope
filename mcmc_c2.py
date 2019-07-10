@@ -63,7 +63,7 @@ prefix = "chains/C1-"
 
 parameters2 = []
 
-Ngrid = 20
+Ngrid = 200
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),

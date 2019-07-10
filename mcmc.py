@@ -26,7 +26,7 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 2 #polytrope order
+eos_Ntrope = 5 #polytrope order
 debug = False  #flag for additional debug printing
 phaseTransition = 0 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
@@ -68,7 +68,7 @@ prefix = "chains/1-"
 
 parameters2 = []
 
-Ngrid = 20
+Ngrid = 200
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),

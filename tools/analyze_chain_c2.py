@@ -12,8 +12,6 @@ eos_Nsegment = 5
 Ngrid = 20
 
 parameters2 = []
-
-Ngrid = 200
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
@@ -49,8 +47,9 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 
 ##################################################
 # read chain
+prefix='C1'
+filename = '../chains/'+prefix+'-run.h5'
 
-filename = '../chains2/chain190606C100.h5'
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
 
@@ -101,14 +100,14 @@ labels.append(r"$M_{1702}$")
 ##################################################
 # triangle/corner plot
 
-if True:
+if False:
     fig = corner.corner(all_samples, 
             #quantiles=[0.16, 0.5, 0.84],
             #show_titles=True, 
             #title_kwargs={"fontsize": 12})
             labels=labels)
     
-    plt.savefig("triangle_190606C100B0T1.pdf")
+    plt.savefig("triangle_"+prefix+".pdf")
 
 
 ##################################################
@@ -214,13 +213,13 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("mass_radius_190606C100B0T1.pdf")
+    plt.savefig("mass_radius_"+prefix+".pdf")
 
 
 
 ##################################################
 # eps - P
-if False:
+if True:
     nsamples, nblobs = blob_samples.shape
     Nr = 100 #number of radius histogram bins
 
@@ -272,7 +271,7 @@ if False:
 
     cb = colorbar(im, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("eps_P_190606C100B0T1.pdf")
+    plt.savefig("eps_P_"+prefix+".pdf")
 
 ##################################################
 # n - gamma
@@ -320,7 +319,7 @@ if False:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_gamma_190606C100B0T1.pdf")
+    plt.savefig("n_gamma_"+prefix+".pdf")
 
 ##################################################
 # n - c^2
@@ -368,5 +367,5 @@ if False:
 
     cb = colorbar(im_ng, loc="top", orientation="horizontal", size="3%", pad=0.03, ticklocation="top")
 
-    plt.savefig("n_c2_190606C100B0T1.pdf")
+    plt.savefig("n_c2_"+prefix+".pdf")
 
