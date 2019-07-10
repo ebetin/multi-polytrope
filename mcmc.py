@@ -24,7 +24,7 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 5 #polytrope order
+eos_Ntrope = 4 #polytrope order
 debug = False  #flag for additional debug printing
 phaseTransition = 0 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
@@ -56,7 +56,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/P5-"
+prefix = "chains/P4-"
 
 
 ##################################################
