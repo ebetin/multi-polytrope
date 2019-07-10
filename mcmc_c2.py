@@ -1,15 +1,13 @@
-from __future__ import absolute_import, unicode_literals, print_function
-
+#from __future__ import absolute_import, unicode_literals, print_function
 import numpy as np
 import os
 
-from pymultinest.solve import solve as pymlsolve
+#from pymultinest.solve import solve as pymlsolve
 
 from priors import check_uniform
 from structure import structureC2AGKNV as structure
 import units as cgs
 from pQCD import nQCD
-
 
 from measurements import gaussian_MR
 from measurements import NSK17 #1702 measurement
@@ -20,14 +18,13 @@ import emcee
 
 np.random.seed(1) #for reproducibility
 
-if not os.path.exists("chains2"): os.mkdir("chains2")
-
+if not os.path.exists("chains"): os.mkdir("chains")
 
 
 ##################################################
 # global flags for different run modes
 eos_Nsegment = 5 #polytrope order
-debug = False  #flag for additional debug printing
+debug = True  #flag for additional debug printing
 
 
 ##################################################
@@ -390,16 +387,18 @@ p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
-if False:
+if True:
+
     #output
-    filename = "chain.h5"
+    filename = prefix+'run.h5'
+
     backend = emcee.backends.HDFBackend(filename)
     backend.reset(nwalkers, ndim) #no restart
     
     # initialize sampler
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
 
-    result = sampler.run_mcmc(p0, 20)
+    result = sampler.run_mcmc(p0, 10000)
 
     #print(result)
     #position = result[0]
@@ -412,10 +411,11 @@ if False:
     
 
 #parallel v3.0-dev
-if True:
+if False:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
+    #from emcee.utils import MPIPool
 
     #even out all workers
     with MPIPool() as pool:
@@ -424,7 +424,8 @@ if True:
             sys.exit(0)
 
         #output
-        filename = "chains2/chain190627C100.h5"
+        filename = prefix+'run.h5'
+
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
         

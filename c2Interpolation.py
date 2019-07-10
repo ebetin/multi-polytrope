@@ -1,6 +1,8 @@
 import units as cgs
 import numpy as np
-from mpmath import hyp2f1, re
+#from mpmath import hyp2f1, re
+from scipy.special import hyp2f1
+
 from scipy.optimize import fsolve
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
@@ -162,7 +164,7 @@ class c2AGKNV:
         else:
             f = hyp2f1( aiNegative, 1.0, 2.0 + aiNegative, termZ / (termZ - 1.0) )
 
-            return re(1.0 * mu * f / (1.0 + aiNegative))
+            return (1.0 * mu * f / (1.0 + aiNegative)).real
 
 
     # Term in the pressure sum
