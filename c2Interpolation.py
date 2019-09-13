@@ -1,7 +1,7 @@
 import units as cgs
 import numpy as np
 #from mpmath import hyp2f1, re
-from scipy.special import hyp2f1
+from scipy.special import hyp2f1, gamma
 
 from scipy.optimize import fsolve
 from scipy.optimize import minimize
@@ -158,13 +158,28 @@ class c2AGKNV:
         termZ = termZ / ( self.c2List[index - 1] * self.muList[index] - self.c2List[index] * self.muList[index - 1] )
 
         if type(termZ) is np.ndarray:
-            f = hyp2f1( aiNegative, 1.0, 2.0 + aiNegative, termZ[0] / (termZ[0] - 1.0) )
+            if -1 <= termZ[0] <= 1.0: # the hypergeometric function, abs(z)<=1 
+                f = hyp2f1( 1.0, 1.0, 2.0 + aiNegative, termZ[0] )
+            elif termZ[0] < -1.0: # analytical continuation, z < -1
+                f = hyp2f1( 1.0, 1.0 + aiNegative, 2.0 + aiNegative, termZ[0] / (termZ[0] - 1.0) ) / (1.0 - termZ[0])
+            else: # analytical continuation, z > 1
+                f = gamma(aiNegative) * hyp2f1( 1.0, 1.0, 1.0 - aiNegative, 1.0 - termZ[0] ) / (gamma(1.0 + aiNegative))**2.0
+                f = f + gamma(-1.0 * aiNegative) * (1.0 - termZ[0] + 0j)**aiNegative * hyp2f1( 1.0 + aiNegative, 1.0 + aiNegative, 1.0 + aiNegative, 1.0 - termZ[0] )
+                f = gamma(2.0 + aiNegative) * f
 
-            return np.array( [ float(re((1.0 * mu * f / (1.0 + aiNegative))[0])) ])
+            return np.array( [ float(((1.0 * mu *  ( 1.0 - f * aiNegative / (1.0 + aiNegative) ) )[0]).real) ])
+
         else:
-            f = hyp2f1( aiNegative, 1.0, 2.0 + aiNegative, termZ / (termZ - 1.0) )
+            if -1 <= termZ <= 1.0: # the hypergeometric function, abs(z)<=1 
+                f = hyp2f1( 1.0, 1.0, 2.0 + aiNegative, termZ )
+            elif termZ < -1.0: # analytical continuation, z < -1
+                f = hyp2f1( 1.0, 1.0 + aiNegative, 2.0 + aiNegative, termZ / (termZ - 1.0) ) / (1.0 - termZ)
+            else: # analytical continuation, z > 1
+                f = gamma(aiNegative) * hyp2f1( 1.0, 1.0, 1.0 - aiNegative, 1.0 - termZ ) / (gamma(1.0 + aiNegative))**2.0
+                f = f + gamma(-aiNegative) * (1.0 - termZ + 0j)**aiNegative * hyp2f1( 1.0 + aiNegative, 1.0 + aiNegative, 1.0 + aiNegative, 1.0 - termZ )
+                f = gamma(2.0 + aiNegative) * f
 
-            return (1.0 * mu * f / (1.0 + aiNegative)).real
+            return ( 1.0 * mu * ( 1.0 - f * aiNegative / (1.0 + aiNegative) ) ).real
 
 
     # Term in the pressure sum
