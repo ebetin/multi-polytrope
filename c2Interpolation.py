@@ -166,7 +166,10 @@ class c2AGKNV:
                 f = hyp2f1( 1.0, 1.0 + aiNegative, 2.0 + aiNegative, termZ[0] / (termZ[0] - 1.0) ) / (1.0 - termZ[0]) / (1.0 + aiNegative)
             else: # analytical continuation, z > 1
                 f = hyp2f1( 1.0, 1.0, 1.0 - aiNegative, 1.0 - termZ[0] ) / aiNegative
-                f = f + (1.0 - termZ[0] + 0j)**aiNegative * hyp2f1( 1.0 + aiNegative, 1.0 + aiNegative, 1.0 + aiNegative, 1.0 - termZ[0] ) * pi / sin(-pi * aiNegative)
+                f1 = (1.0 - termZ[0] + 0j)**aiNegative
+                f2 = (termZ[0] + 0j)**(-1.0 - aiNegative)
+                f3 = pi / sin(-pi * aiNegative)
+                f = f + f1 * f2 * f3
 
             return np.array( [ float(((1.0 * mu *  ( 1.0 - f * aiNegative ) )[0]).real) ])
 
@@ -177,7 +180,10 @@ class c2AGKNV:
                 f = hyp2f1( 1.0, 1.0 + aiNegative, 2.0 + aiNegative, termZ / (termZ - 1.0) ) / (1.0 - termZ) / (1.0 + aiNegative)
             else: # analytical continuation, z > 1
                 f = hyp2f1( 1.0, 1.0, 1.0 - aiNegative, 1.0 - termZ ) / aiNegative
-                f = f + (1.0 - termZ + 0j)**aiNegative * hyp2f1( 1.0 + aiNegative, 1.0 + aiNegative, 1.0 + aiNegative, 1.0 - termZ ) * pi / sin(-pi * aiNegative)
+                f1 = (1.0 - termZ + 0j)**aiNegative
+                f2 = (termZ + 0j)**(-1.0 - aiNegative)
+                f3 = pi / sin(-pi * aiNegative)
+                f = f + f1 * f2 * f3
 
             return ( 1.0 * mu * ( 1.0 - f * aiNegative ) ).real
 
