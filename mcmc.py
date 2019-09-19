@@ -321,7 +321,7 @@ def myloglike(cube, m2=False):
     #struc.tov()
     struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
     print("params", cube)
-
+    print(struc.maxmass, struc.TD)
 
     ################################################## 
     # measurements & constraints
@@ -509,53 +509,53 @@ nwalkers = 2 * ndim # XXX This isn't ideal, I guess
 
 if eos_Ntrope == 2: #(trope = 2)
     if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  1.2,
-        5.0, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 
+        pinit = [12.7, 0.475, 3.2, 2.49, 1.2,
+        3.3, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 
         1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 250
+        # ~2.18M_sun, no PT, Lambda_1.4 ~ 365
 
 elif eos_Ntrope == 3: #(trope = 3)
     if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.095,   3.57470224, 26.0, 2.01, 2.14, 1.49127976,
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0,
+        2.7, 3.57470224, 26.0, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 300
+        # ~2.18M_sun, no PT, Lambda_1.4 ~ 360
     elif phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  1.16,
+        pinit = [12.7, 0.475, 3.2, 2.49, 1.16,
         3.57470224, 26.0, 2.01, 2.14, 1.49127976, 2.0, 1.6,
         1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+        # ~2.22M_sun, PT1, Lambda_1.4 ~ 365
 
 elif eos_Ntrope == 4: #(trope = 4)
     if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
-        2.0493058,   3.57470224, 26.40907385,  1.31246422, 2.01, 2.14,
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0, 5.0,
+        2.4, 3.57470224, 26.40907385, 1.31246422, 2.01, 2.14,
         1.49127976, 2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 300
+        # ~2.17M_sun, no PT, Lambda_1.4 ~ 355
     elif phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.41,   3.57470224, 26.40907385,  1.31246422, 2.01, 2.14, 1.49127976,
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.0,
+        3.2, 3.57470224, 26.40907385, 1.31246422, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+        # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
     elif phaseTransition == 2:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.4,   3.57470224, 8.30907385,  19.41246422, 2.01, 2.14, 1.49127976,
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0,
+        2.4, 3.57470224, 8.30907385, 19.41246422, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, PT2, Lambda_1.4 ~ 300
+        # ~2.22M_sun, PT2, Lambda_1.4 ~ 380
 
 elif eos_Ntrope == 5: #(trope = 5)
     if phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
-        2.2, 3.57470224, 25.00907385, 1.4, 1.31246422, 2.01, 2.14, 1.49127976,
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0, 5.0,
+        2.6, 3.57470224, 25.00907385, 1.4, 1.31246422, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+        # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
 
 
 #initialize small Gaussian ball around the initial point
@@ -563,7 +563,7 @@ p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
-if True:
+if False:
     #output
     filename = prefix+'run.h5'
 
@@ -586,7 +586,7 @@ if True:
     
 
 #parallel v3.0-dev
-if False:
+if True:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
@@ -608,7 +608,7 @@ if False:
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(p0, 10, progress=True)
+        result = sampler.run_mcmc(p0, 5, progress=True)
         #result = sampler.run_mcmc(None, 1, progress=True)
 
 
