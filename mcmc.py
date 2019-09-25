@@ -12,6 +12,23 @@ from pQCD import nQCD
 from measurements import gaussian_MR
 from measurements import NSK17 #1702 measurement
 
+from measurements import measurement_MR
+from measurements import SHB18_6304_He #6304 measurement
+from measurements import SHB18_6397_He #6397 measurement
+from measurements import SHB18_M28_He  #M28 measurement
+from measurements import SHB18_M30_H   #M30 measurement
+from measurements import SHB18_X7_H    #X7 measurement
+from measurements import SHB18_X5_H    #X5 measurement
+from measurements import SHB18_wCen_H  #wCen measurement
+from measurements import SHS18_M13_H   #M13 measurement
+from measurements import NKS15_1724    #1724 measurement
+from measurements import NKS15_1810    #1810 measurement
+
+
+from measurements import measurement_M
+from measurements import J0348
+from measurements import J0740
+
 # emcee stuff
 import sys
 import emcee
@@ -24,7 +41,7 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 5 #polytrope order
+eos_Ntrope = 4 #polytrope order
 debug = False  #flag for additional debug printing
 phaseTransition = 0 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
@@ -48,7 +65,21 @@ for itrope in range(eos_Ntrope-1):
     parameters.append("trans_delta"+str(1+itrope))
 
 #finally add individual object masses (needed for measurements)
+parameters.append("mass_0432")
+parameters.append("mass_6620")
+
 parameters.append("mass_1702")
+
+parameters.append("mass_6304")
+parameters.append("mass_6397")
+parameters.append("mass_M28")
+parameters.append("mass_M30")
+parameters.append("mass_X7")
+parameters.append("mass_X5")
+parameters.append("mass_wCen")
+parameters.append("mass_M13")
+parameters.append("mass_1724")
+parameters.append("mass_1810")
 
 
 print("Parameters to be sampled are:")
@@ -56,7 +87,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/P5-"
+prefix = "chains/P4-"
 
 
 ##################################################
@@ -142,8 +173,25 @@ def myprior(cube):
         lps[ci] = check_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
         ci += 1
 
+    # M measurements
+    lps[ci] = check_uniform(cube[ci], 1.0, 3.0) #m0432 [Msun]
+    lps[ci+1] = check_uniform(cube[ci+1], 1.0, 3.0) #m6620 [Msun]
+
+    ci += 2
+
     # M-R measurements
     lps[ci] = check_uniform(cube[ci], 1.0, 2.5)  #M_1702 [Msun]
+
+    lps[ci+1] = check_uniform(cube[ci+1], 0.5, 2.7)  #M_6304 [Msun]
+    lps[ci+2] = check_uniform(cube[ci+2], 0.5, 2.0)  #M_6397 [Msun]
+    lps[ci+3] = check_uniform(cube[ci+3], 0.5, 2.8)  #M_M28 [Msun]
+    lps[ci+4] = check_uniform(cube[ci+4], 0.5, 2.5)  #M_M30 [Msun]
+    lps[ci+5] = check_uniform(cube[ci+5], 0.5, 2.7)  #M_X7 [Msun]
+    lps[ci+6] = check_uniform(cube[ci+6], 0.5, 2.7)  #M_X5 [Msun]
+    lps[ci+7] = check_uniform(cube[ci+7], 0.5, 2.5)  #M_wCen [Msun]
+    lps[ci+8] = check_uniform(cube[ci+8], 0.8, 2.4)  #M_M13 [Msun]
+    lps[ci+9] = check_uniform(cube[ci+9], 0.8, 2.5)  #M_1724 [Msun]
+    lps[ci+10] = check_uniform(cube[ci+10], 0.8, 2.5)  #M_1810 [Msun]
 
     return np.sum(lps)
 
@@ -273,16 +321,96 @@ def myloglike(cube, m2=False):
     #struc.tov()
     struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
     print("params", cube)
-
+    print(struc.maxmass, struc.TD)
 
     ################################################## 
     # measurements & constraints
 
-    # strict two-solar-mass constraint
-    if struc.maxmass < 1.97 and m2:
+    # Mass measurement of PSR J0348+0432 from Antoniadis et al 2013 arXiv:1304.6875
+    # and PSR J0740+6620 from Cromartie et al 2019 arXiv:1904.06759
+    if m2:
+        mmax = struc.maxmass
+
+        m0432 = cube[ci]
+        m6620 = cube[ci+1]
+
+        if m0432 > mmax or m6620 > mmax:
+            logl = -linf
+
+            return logl, blobs
+        else:
+            logl = logl + measurement_M(m0432, J0348)
+            logl = logl + measurement_M(m6620, J0740)
+
+    ci += 2
+
+    # masses
+    mass_1702 = cube[ci]
+    mass_6304 = cube[ci+1]
+    mass_6397 = cube[ci+2]
+    mass_M28 = cube[ci+3]
+    mass_M30 = cube[ci+4]
+    mass_X7 = cube[ci+5]
+    mass_X5 = cube[ci+6]
+    mass_wCen = cube[ci+7]
+    mass_M13 = cube[ci+8]
+    mass_1724 = cube[ci+9]
+    mass_1810 = cube[ci+10]
+
+    masses = [ mass_1702, mass_6304, mass_6397, mass_M28,
+    mass_M30, mass_X7, mass_X5, mass_wCen, mass_M13,
+    mass_1724, mass_1810, ]
+
+    # All stars have to be lighter than the max mass limit
+    if any(m > struc.maxmass for m in masses):
         logl = -linf
 
         return logl, blobs
+
+    # 4U 1702-429 from Nattila et al 2017, arXiv:1709.09120
+    rad_1702 = struc.radius_at(mass_1702)
+    logl = logl + gaussian_MR(mass_1702, rad_1702, NSK17)
+
+    # NGC 6304 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_6304 = struc.radius_at(mass_6304)
+    logl = logl + measurement_MR(mass_6304, rad_6304, SHB18_6304_He)
+
+    # NGC 6397 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_6397 = struc.radius_at(mass_6397)
+    logl = logl + measurement_MR(mass_6397, rad_6397, SHB18_6397_He)
+
+    # M28 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_M28 = struc.radius_at(mass_M28)
+    logl = logl + measurement_MR(mass_M28, rad_M28, SHB18_M28_He)
+
+    # M30 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_M30 = struc.radius_at(mass_M30)
+    logl = logl + measurement_MR(mass_M30, rad_M30, SHB18_M30_H)
+
+    # X7 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_X7 = struc.radius_at(mass_X7)
+    logl = logl + measurement_MR(mass_X7, rad_X7, SHB18_X7_H)
+
+    # X5 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_X5 = struc.radius_at(mass_X5)
+    logl = logl + measurement_MR(mass_X5, rad_X5, SHB18_X5_H)
+
+    # wCen with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+    rad_wCen = struc.radius_at(mass_wCen)
+    logl = logl + measurement_MR(mass_wCen, rad_wCen, SHB18_wCen_H)
+
+    # M13 with H atmosphere from Shaw et al 2018, arXiv:1803.00029
+    rad_M13 = struc.radius_at(mass_M13)
+    logl = logl + measurement_MR(mass_M13, rad_M13, SHS18_M13_H)
+
+    # 4U 1724-307 from Natiila et al 2016, arXiv:1509.06561
+    rad_1724 = struc.radius_at(mass_1724)
+    logl = logl + measurement_MR(mass_1724, rad_1724, NKS15_1724)
+
+    # SAX J1810.8-260 from Natiila et al 2016, arXiv:1509.06561
+    rad_1810 = struc.radius_at(mass_1810)
+    logl = logl + measurement_MR(mass_1810, rad_1810, NKS15_1810)
+
 
     # strict tidal deformablity constrain
     # LIGO/Virgo Lambda(1.4 M_sun) 90 % credibility limits
@@ -290,11 +418,6 @@ def myloglike(cube, m2=False):
         logl = -linf
 
         return logl, blobs
-
-    # 4U 1702-429 from Nattila et al 2017
-    mass_1702 = cube[ci] # first measurement
-    rad_1702 = struc.radius_at(mass_1702)
-    logl = gaussian_MR(mass_1702, rad_1702, NSK17)
 
 
     ic = 0
@@ -380,45 +503,59 @@ def lnprob2M(cube):
 
 
 ndim = len(parameters)
-nwalkers = 30
+nwalkers = 2 * ndim # XXX This isn't ideal, I guess
 
 #initial guess
 
 if eos_Ntrope == 2: #(trope = 2)
     if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  1.2,
-        5.0, 1.49127976]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 250
+        pinit = [12.7, 0.475, 3.2, 2.49, 1.2,
+        3.3, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 
+        1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.18M_sun, no PT, Lambda_1.4 ~ 365
 
 elif eos_Ntrope == 3: #(trope = 3)
     if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.095,   3.57470224, 26.0, 1.49127976]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 300
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0,
+        2.7, 3.57470224, 26.0, 2.01, 2.14, 1.49127976,
+        2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.18M_sun, no PT, Lambda_1.4 ~ 360
     elif phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  1.16,
-        3.57470224, 26.0, 1.49127976]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+        pinit = [12.7, 0.475, 3.2, 2.49, 1.16,
+        3.57470224, 26.0, 2.01, 2.14, 1.49127976, 2.0, 1.6,
+        1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.22M_sun, PT1, Lambda_1.4 ~ 365
 
 elif eos_Ntrope == 4: #(trope = 4)
     if phaseTransition == 0:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
-        2.0493058,   3.57470224, 26.40907385,  1.31246422,  1.49127976]
-        # ~2M_sun, no PT, Lambda_1.4 ~ 300
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0, 5.0,
+        2.4, 3.57470224, 26.40907385, 1.31246422, 2.01, 2.14,
+        1.49127976, 2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.17M_sun, no PT, Lambda_1.4 ~ 355
     elif phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.41,   3.57470224, 26.40907385,  1.31246422,  1.49127976]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+        pinit = [12.7,  0.475,  3.2,  2.49,  2.0,
+        3.2, 3.57470224, 26.40907385, 1.31246422, 2.01, 2.14, 1.49127976,
+        2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
     elif phaseTransition == 2:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,
-        2.4,   3.57470224, 8.30907385,  19.41246422,  1.49127976]
-        # ~2M_sun, PT2, Lambda_1.4 ~ 300
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0,
+        2.4, 3.57470224, 8.30907385, 19.41246422, 2.01, 2.14, 1.49127976,
+        2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.22M_sun, PT2, Lambda_1.4 ~ 380
 
 elif eos_Ntrope == 5: #(trope = 5)
     if phaseTransition == 1:
-        pinit = [12.7,  0.475,  3.2,  2.49,  2.98691193,  2.75428241,
-        2.2, 3.57470224, 25.00907385, 1.4, 1.31246422,  1.49127976]
-        # ~2M_sun, PT1, Lambda_1.4 ~ 300
+        pinit = [12.7, 0.475, 3.2, 2.49, 2.0, 5.0,
+        2.6, 3.57470224, 25.00907385, 1.4, 1.31246422, 2.01, 2.14, 1.49127976,
+        2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
+        ,]
+        # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
 
 
 #initialize small Gaussian ball around the initial point
@@ -426,7 +563,7 @@ p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
 ##################################################
 #serial v3.0-dev
-if True:
+if False:
     #output
     filename = prefix+'run.h5'
 
@@ -449,7 +586,7 @@ if True:
     
 
 #parallel v3.0-dev
-if False:
+if True:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
@@ -471,7 +608,7 @@ if False:
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(p0, 10, progress=True)
+        result = sampler.run_mcmc(p0, 5, progress=True)
         #result = sampler.run_mcmc(None, 1, progress=True)
 
 
