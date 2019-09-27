@@ -1,18 +1,22 @@
 import h5py
+import numpy as np
 from math import log
 from copy import deepcopy
 from scipy.interpolate import interp2d
 from scipy.stats import skewnorm
 
 # read o2scl hist2d object
-def read_hist2d(f, dataset, path):
-    dset = f[dataset]
+def read_hist2d(f, dataset, path, xdir, ydir):
+    if dataset == False:
+        dset = f
+    else:
+        dset = f[dataset]
     data = dset[path].value
 
     data = data.T #need to transpose
 
-    xval = dset['xval'].value
-    yval = dset['yval'].value
+    xval = dset[xdir].value
+    yval = dset[ydir].value
 
     return data, xval, yval
 
@@ -84,7 +88,7 @@ def interp_MR(string):
         path = 'data/weights'
 
     f = h5py.File(fname,'r')
-    data, rval, mval = read_hist2d(f, dataset, path)
+    data, rval, mval = read_hist2d(f, dataset, path, 'xval', 'yval')
 
     return interp2d(rval, mval, data, kind='cubic')
 
@@ -124,3 +128,22 @@ J0740 = {    "loc": 2.0494842569774145,
            "shape": 1.7069401394167225,
            "scale": 0.13147902131189182,
         }
+
+# log likelihood function for TD measurements
+def measurement_TD(TD1, TD2, density):
+    res = density(TD1, TD2)
+
+    return log( res )
+
+# interpolating density function
+def interp_TD(string):
+    if string == "GW170817":
+        fname = 'LV/LV_prior.h5'
+        path = 'data'
+
+    f = h5py.File(fname,'r')
+    data, TD1val, TD2val = read_hist2d(f, False, path, 'x', 'y')
+
+    return interp2d(TD1val, TD2val, data, kind='cubic')
+
+GW170817 = deepcopy(interp_TD("GW170817"))

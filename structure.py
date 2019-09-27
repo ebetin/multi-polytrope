@@ -147,16 +147,19 @@ class structurePolytrope:
 
         if m1 < 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho = t.mass_radius()
+            self.TD2 = 1.0e10
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TD, TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
-            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, TD2)
+            self.mass, self.rad, self.rho, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.TD = 1.0e10
             self.TDtilde = 1.0e10
         
         self.maxmass = np.max( self.mass )
@@ -294,15 +297,18 @@ class structureC2AGKNV:
         if m1 < 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho = t.mass_radius()
             self.TD = 1.0e10
+            self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TD, TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
-            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, TD2)
+            self.mass, self.rad, self.rho, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.TD = 1.0e10
             self.TDtilde = 1.0e10
         
         self.maxmass = np.max( self.mass )

@@ -29,6 +29,11 @@ from measurements import measurement_M
 from measurements import J0348
 from measurements import J0740
 
+from measurements import measurement_TD
+from measurements import GW170817
+
+from scipy.stats import norm
+
 # emcee stuff
 import sys
 import emcee
@@ -41,7 +46,7 @@ if not os.path.exists("chains"): os.mkdir("chains")
 ##################################################
 # global flags for different run modes
 eos_Nsegment = 5 #polytrope order
-debug = False  #flag for additional debug printing
+debug = True  #flag for additional debug printing
 
 
 ##################################################
@@ -57,6 +62,10 @@ for itrope in range(eos_Nsegment-2):
 #append speed of sound squared (NB last one will be determined)
 for itrope in range(eos_Nsegment-2):
     parameters.append("speed"+str(1+itrope))
+
+#GW170817
+parameters.append("chrip_mass_GW170817")
+parameters.append("mass_ratio_GW170817")
 
 #finally add individual object masses (needed for measurements)
 parameters.append("mass_0432")
@@ -93,7 +102,7 @@ parameters2 = []
 
 Ngrid = 200
 param_indices = {
-        'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
+        'mass_grid' :np.linspace(0.5, 3.0, Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
         'nsat_gamma_grid': np.linspace(1.1, 15.0, Ngrid),
         'nsat_c2_grid': np.linspace(1.1, 15.0, Ngrid),
@@ -165,6 +174,12 @@ def myprior(cube):
             print("prior for c^2 from cube #{}".format(ci))
         lps[ci] = check_uniform(cube[ci], 0.0, 1.0)  #c_i^2 [unitless]
         ci += 1
+
+    # TD measurements
+    lps[ci] = norm.logpdf(cube[ci], 1.186, 0.0006079568319312625)  #Chirp mass (GW170817) [Msun]
+    lps[ci+1] = check_uniform(cube[ci+1], 0.0, 1.0)  #Mass ratio (GW170817) #XXX Is this ok?
+
+    ci += 2
 
     # M measurements
     lps[ci] = check_uniform(cube[ci], 1.0, 3.0) #m0432 [Msun]
@@ -306,12 +321,18 @@ def myloglike(cube, m2=False):
 
         return logl, blobs
 
+    # Masses GW170817
+    mass1_GW170817 = (1.0 + cube[ci+1])**0.2 / (cube[ci+1])**0.6 * cube[ci]
+    mass2_GW170817 = mass1_GW170817 * cube[ci+1]
+
+    ci += 2
 
     # solve structure 
     if debug:
         print("TOV...")
     #struc.tov()
-    struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
+    #struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
+    struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun) # tidal deformabilities
     print("params", cube)
 
     ################################################## 
@@ -400,16 +421,17 @@ def myloglike(cube, m2=False):
 
     # SAX J1810.8-260 from Natiila et al 2016, arXiv:1509.06561
     rad_1810 = struc.radius_at(mass_1810)
-    logl = logl + measurement_MR(mass_1810, rad_1810, NKS15_1810)
+    logl = logl + measurement_MR(mass_1810, rad_1810, NKS15_1810) 
 
 
-    # strict tidal deformablity constrain
-    # LIGO/Virgo Lambda(1.4 M_sun) 90 % credibility limits
-    if 70.0 > struc.TD or struc.TD > 580.0:
+    # GW170817, tidal deformability
+    if struc.TD > 1600.0 or struc.TD2 > 1600.0:
         logl = -linf
 
         return logl, blobs
-    
+
+    logl = logl + measurement_TD(struc.TD, struc.TD2, GW170817)   
+
     ic = 0
 
     #build M-R curve
@@ -507,8 +529,8 @@ if eos_Nsegment == 5: #(segments = 5)
     pinit = [12.6869347, 0.475763805, 3.20367232, 2.50232899,
     1.59577143, 0.00776464407, 0.0805753327, 0.184698311,
     0.0585161595, 0.331041743, 0.657182637,
-    2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6,
-    1.8, 1.4, 1.4
+    1.186, 0.85, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6,
+    1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
     ,]
     # ~2.2M_sun, Lambda_1.4 ~ 410
 
