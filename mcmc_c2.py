@@ -182,8 +182,8 @@ def myprior(cube):
     ci += 2
 
     # M measurements
-    lps[ci] = check_uniform(cube[ci], 1.0, 3.0) #m0432 [Msun]
-    lps[ci+1] = check_uniform(cube[ci+1], 1.0, 3.0) #m6620 [Msun]
+    lps[ci]   = measurement_M(cube[ci], J0348)   #m0432 [Msun]
+    lps[ci+1] = measurement_M(cube[ci+1], J0740) #m6620 [Msun]
 
     ci += 2
 
@@ -350,13 +350,10 @@ def myloglike(cube, m2=False):
             logl = -linf
 
             return logl, blobs
-        else:
-            logl = logl + measurement_M(m0432, J0348)
-            logl = logl + measurement_M(m6620, J0740)
 
     ci += 2
 
-    # masses
+    # masses, MR measurements
     mass_1702 = cube[ci]
     mass_6304 = cube[ci+1]
     mass_6397 = cube[ci+2]
