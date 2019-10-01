@@ -29,6 +29,11 @@ from measurements import measurement_M
 from measurements import J0348
 from measurements import J0740
 
+from measurements import measurement_TD
+from measurements import GW170817
+
+from scipy.stats import norm
+
 # emcee stuff
 import sys
 import emcee
@@ -63,6 +68,10 @@ for itrope in range(eos_Ntrope-2):
 #append transition depths
 for itrope in range(eos_Ntrope-1):
     parameters.append("trans_delta"+str(1+itrope))
+
+#GW170817
+parameters.append("chrip_mass_GW170817")
+parameters.append("mass_ratio_GW170817")
 
 #finally add individual object masses (needed for measurements)
 parameters.append("mass_0432")
@@ -173,9 +182,15 @@ def myprior(cube):
         lps[ci] = check_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
         ci += 1
 
+    # TD measurements
+    lps[ci] = norm.logpdf(cube[ci], 1.186, 0.0006079568319312625)  #Chirp mass (GW170817) [Msun]
+    lps[ci+1] = check_uniform(cube[ci+1], 0.0, 1.0)  #Mass ratio (GW170817) #XXX Is this ok?
+
+    ci += 2
+
     # M measurements
-    lps[ci] = check_uniform(cube[ci], 1.0, 3.0) #m0432 [Msun]
-    lps[ci+1] = check_uniform(cube[ci+1], 1.0, 3.0) #m6620 [Msun]
+    lps[ci]   = measurement_M(cube[ci], J0348)   #m0432 [Msun]
+    lps[ci+1] = measurement_M(cube[ci+1], J0740) #m6620 [Msun]
 
     ci += 2
 
@@ -314,14 +329,19 @@ def myloglike(cube, m2=False):
 
         return logl, blobs
 
+    # Masses GW170817
+    mass1_GW170817 = (1.0 + cube[ci+1])**0.2 / (cube[ci+1])**0.6 * cube[ci]
+    mass2_GW170817 = mass1_GW170817 * cube[ci+1]
+
+    ci += 2
 
     # solve structure 
     if debug:
         print("TOV...")
     #struc.tov()
-    struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
+    #struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
+    struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun) # tidal deformabilities
     print("params", cube)
-    print(struc.maxmass, struc.TD)
 
     ################################################## 
     # measurements & constraints
@@ -338,9 +358,6 @@ def myloglike(cube, m2=False):
             logl = -linf
 
             return logl, blobs
-        else:
-            logl = logl + measurement_M(m0432, J0348)
-            logl = logl + measurement_M(m6620, J0740)
 
     ci += 2
 
@@ -412,12 +429,13 @@ def myloglike(cube, m2=False):
     logl = logl + measurement_MR(mass_1810, rad_1810, NKS15_1810)
 
 
-    # strict tidal deformablity constrain
-    # LIGO/Virgo Lambda(1.4 M_sun) 90 % credibility limits
-    if 70.0 > struc.TD or struc.TD > 580.0:
+    # GW170817, tidal deformability
+    if struc.TD > 1600.0 or struc.TD2 > 1600.0:
         logl = -linf
 
         return logl, blobs
+
+    logl = logl + measurement_TD(struc.TD, struc.TD2, GW170817)
 
 
     ic = 0
@@ -510,7 +528,7 @@ nwalkers = 2 * ndim # XXX This isn't ideal, I guess
 if eos_Ntrope == 2: #(trope = 2)
     if phaseTransition == 0:
         pinit = [12.7, 0.475, 3.2, 2.49, 1.2,
-        3.3, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 
+        3.3, 1.186, 0.85, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 
         1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.18M_sun, no PT, Lambda_1.4 ~ 365
@@ -518,13 +536,13 @@ if eos_Ntrope == 2: #(trope = 2)
 elif eos_Ntrope == 3: #(trope = 3)
     if phaseTransition == 0:
         pinit = [12.7, 0.475, 3.2, 2.49, 2.0,
-        2.7, 3.57470224, 26.0, 2.01, 2.14, 1.49127976,
+        2.7, 3.57470224, 26.0, 1.186, 0.85, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.18M_sun, no PT, Lambda_1.4 ~ 360
     elif phaseTransition == 1:
         pinit = [12.7, 0.475, 3.2, 2.49, 1.16,
-        3.57470224, 26.0, 2.01, 2.14, 1.49127976, 2.0, 1.6,
+        3.57470224, 26.0, 1.186, 0.85, 2.01, 2.14, 1.49127976, 2.0, 1.6,
         1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.22M_sun, PT1, Lambda_1.4 ~ 365
@@ -532,19 +550,19 @@ elif eos_Ntrope == 3: #(trope = 3)
 elif eos_Ntrope == 4: #(trope = 4)
     if phaseTransition == 0:
         pinit = [12.7, 0.475, 3.2, 2.49, 2.0, 5.0,
-        2.4, 3.57470224, 26.40907385, 1.31246422, 2.01, 2.14,
+        2.4, 3.57470224, 26.40907385, 1.31246422, 1.186, 0.85, 2.01, 2.14,
         1.49127976, 2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.17M_sun, no PT, Lambda_1.4 ~ 355
     elif phaseTransition == 1:
         pinit = [12.7,  0.475,  3.2,  2.49,  2.0,
-        3.2, 3.57470224, 26.40907385, 1.31246422, 2.01, 2.14, 1.49127976,
+        3.2, 3.57470224, 26.40907385, 1.31246422, 1.186, 0.85, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
     elif phaseTransition == 2:
         pinit = [12.7, 0.475, 3.2, 2.49, 2.0,
-        2.4, 3.57470224, 8.30907385, 19.41246422, 2.01, 2.14, 1.49127976,
+        2.4, 3.57470224, 8.30907385, 19.41246422, 1.186, 0.85, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.22M_sun, PT2, Lambda_1.4 ~ 380
@@ -552,7 +570,7 @@ elif eos_Ntrope == 4: #(trope = 4)
 elif eos_Ntrope == 5: #(trope = 5)
     if phaseTransition == 1:
         pinit = [12.7, 0.475, 3.2, 2.49, 2.0, 5.0,
-        2.6, 3.57470224, 25.00907385, 1.4, 1.31246422, 2.01, 2.14, 1.49127976,
+        2.6, 3.57470224, 25.00907385, 1.4, 1.31246422, 1.186, 0.85, 2.01, 2.14, 1.49127976,
         2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4
         ,]
         # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
@@ -571,7 +589,7 @@ if False:
     backend.reset(nwalkers, ndim) #no restart
     
     # initialize sampler
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend)
 
     result = sampler.run_mcmc(p0, 10000)
 
