@@ -22,7 +22,8 @@ mn   = 1.6749286e-24    # mass of neutron
 mmu  = 1.8835327e-25    # mass of muon
 kB   = 1.380658e-16     # Boltzmann constant
 hP   = 6.6260755e-27    # Planck cosntant
-hbar = 1.05457266e-27   # reduced Planck constant
+#hbar = 1.05457266e-27   # reduced Planck constant
+hbar = 1.054571817e-27
 eC   = 4.8032068e-10    # elementary charge
 mH   = 1.6733e-24       # mass of hydrogen atom
 eV   = 1.602177e-12     # electron volt
@@ -93,10 +94,13 @@ Msun   = 1.988435e33
 #kg_per_Msun    = 1.988435e30
 
 #baryon mass
-mB = mn
+mB = (mp + mn) * 0.5
+
+#saturation density
+nS = 0.16e39
 
 #mass saturation density
-rhoS = 0.16e39 * mB
+rhoS = nS * mB
 
 #nuclear binding energy at the saturation density
 Enuc = 16.0e6 * eV

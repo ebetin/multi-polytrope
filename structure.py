@@ -8,7 +8,7 @@ from polytropes import monotrope, polytrope, doubleMonotrope, combiningEos
 from crust import SLyCrust
 from tov import tov
 from pQCD import qcd, matchPolytopesWithLimits, pQCD, eQCD, nQCD
-from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope
+from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope, cEFT
 from c2Interpolation import matchC2AGKNV, c2AGKNV
 
 
@@ -178,6 +178,158 @@ class structurePolytrope:
         except:
             # linear interpolant (faster, backup)
             return np.interp(mass, self.mass, self.rad)
+
+class structurePolytropeWithCEFT:
+
+    def __init__(self, gammasKnown, transitions, lowDensity, QCD):
+        # Equation of state of the crust
+        crustEoS = SLyCrust #TODO does this need updating?
+
+        # cEFT EoS
+        gamma = lowDensity[0]
+        alphaL = lowDensity[1]
+        etaL = lowDensity[2]
+
+        # Form the bimonotropic EoS
+        ceftEoS = cEFT(lowDensity)
+
+        # Causality test
+        testCausalityCEFT = True#XXX Squared speed of sound is small
+
+        if testCausalityCEFT:
+            # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
+            ceftPressureHigh = ceftEoS.pressure(transitions[1])
+            ceftEnergyDensityHigh = ceftEoS.edens(transitions[1])
+            ceftMatchingHigh = [ceftPressureHigh, ceftEnergyDensityHigh]
+
+            # Perturbative QCD EoS
+            muQCD = QCD[0]
+            X = QCD[1]
+            qcdEoS = qcd(X)
+
+            # Pressure and energy density at the beginning of the pQCD EoS
+            qcdPressureLow = pQCD(muQCD, X)
+            qcdEnergyDensityLow = eQCD(muQCD, X)
+            qcdMathing = [qcdPressureLow, qcdEnergyDensityLow * cgs.c**2]
+
+
+            # Transition (matching) densities of the polytrypic EoS 
+            transitionsPoly = transitions[1:] # mass density
+            transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
+            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
+
+            # Determine polytropic exponents
+            polyConditions = matchPolytopesWithLimits(ceftMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
+
+            gammasAll = polyConditions.GammaValues()
+
+        
+            # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
+            testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
+
+        else:
+            testHydro = False
+
+
+        if testHydro:
+            # Check that the polytropi EoS is also causal
+            testCausality = causalityPolytropes(gammasAll, transitionsSaturation, ceftMatchingHigh)
+
+        else:
+            testCausality = True
+
+        # Do not proceed if tested failed
+        if gammasAll == None or not testHydro or not testCausality:
+            self.tropes = None
+            self.trans  = None
+            self.eos = None
+            self.realistic = False
+
+        else:
+            # Polytropic constants
+            Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
+
+            for i in range(1, len(gammasAll)):
+                Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
+
+            # Create polytropic presentation 
+            assert len(gammasAll) == len(Ks) == len(transitionsPoly)
+
+            self.tropes = []
+            self.trans  = []
+
+            for i in range(len(gammasAll)):
+                self.tropes.append( monotrope(Ks[i], gammasAll[i]) )
+                self.trans.append( transitionsPoly[i] )
+
+            # Fix the first transition continuity constant (unitless)
+            if 1.0 - cgs.epsilonGamma < gammasAll[0] < 1.0 + cgs.epsilonGamma:
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
+            else:
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
+
+            # Create polytropic EoS
+            polytropicEoS = polytrope( self.tropes, self.trans )
+
+            # Combining EoSs
+            combinedEoS = [crustEoS, ceftEoS, polytropicEoS, qcdEoS]
+            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+
+            self.eos = combiningEos(combinedEoS, transitionPieces)
+
+
+            # Is the pQCD EoS causal?
+            test3 = causalityPerturbativeQCD(qcdEoS, muQCD)
+
+            # Is the latent heat between EoS pieces positive?
+            test4 = positiveLatentHeat(combinedEoS, transitionPieces)
+
+            if not test3 or not test4:
+                self.realistic = False
+            else:
+                self.realistic = True
+
+
+    #solve TOV equations
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
+        t = tov(self.eos)
+
+        assert isinstance(l, int)
+
+        if m1 < 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho = t.mass_radius()
+            self.TD2 = 1.0e10
+            self.TD = 1.0e10
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.TD2 = 1.0e10
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 > 0.0:
+            self.mass, self.rad, self.rho, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
+        else:
+            self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.TD = 1.0e10
+            self.TDtilde = 1.0e10
+        
+        self.maxmass = np.max( self.mass )
+
+
+    # interpolate radius given a mass
+    # note: structure must be solved beforehand
+    def radius_at(self, mass):
+
+        if mass >= self.maxmass:
+            return 0.0
+
+        try:
+            intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
+            return intp(mass)
+        except:
+            # linear interpolant (faster, backup)
+            return np.interp(mass, self.mass, self.rad)
+
 
 class structureC2AGKNV:
 

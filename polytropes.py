@@ -628,6 +628,135 @@ class doubleMonotrope:
 
         return self.pressure(rho)
 
+# Chiral effective field theory results by Hebeler et al. 2013
+class cEFT:
+    
+    def __init__(self, parameters):
+        self.gamma = parameters[0]
+        self.alphaL = parameters[1]
+        self.etaL = parameters[2]
+
+        self.p = 5.0 / 3.0
+        self.T0 = 0.5 * ( 1.5 * pi**2 * cgs.rhoS )**(self.p - 1.0) * cgs.hbar**2.0 / cgs.mB**self.p
+
+        self.eta = -2.0 * (cgs.Enuc / self.T0 + 0.2) / (1.0 - self.gamma)
+        self.alpha = 0.8 + self.gamma * self.eta
+
+
+    def termAlpha(self, x):
+        return (2.0 * self.alpha - 4.0 * self.alphaL) * x * (1.0 - x) + self.alphaL
+
+    def termEta(self, x):
+        return (2.0 * self.eta - 4.0 * self.etaL) * x * (1.0 - x) + self.etaL
+
+    def termX(self, x):
+        return x**self.p + (1.0 - x)**self.p
+
+    def protonFractionCondition(self, x, rho):
+        rhoBar = rho / cgs.rhoS
+
+        dedx = ( x**(self.p - 1.0) - (1.0 - x)**(self.p - 1.0) ) * (2.0 * rhoBar)**(self.p - 1.0)
+        dedx = dedx - (2.0 * self.alpha - 4.0 * self.alphaL) * (1.0 - 2.0 * x) * rhoBar
+        dedx = dedx + (2.0 * self.eta - 4.0 * self.etaL) * (1.0 - 2.0 * x) * rhoBar**self.gamma
+
+        chemPotEl = cgs.hbar * cgs.c * (3.0 * pi**2.0 * x * rho / cgs.mB)**(1.0 / 3.0)
+
+        return dedx * self.T0 + chemPotEl #- (cgs.mn - cgs.mp) * cgs.c**2.0
+
+    def protonFraction(self, rho):
+        xp = fsolve(self.protonFractionCondition, 0.05, args = rho, xtol=1.0e-9)
+
+        return xp[0]
+
+
+    ################################################## 
+    def pressure(self, rho, p=0):
+        rhoBar = rho / cgs.rhoS
+        xp = self.protonFraction(rho)
+
+        pN = 0.2 * self.termX(xp) * (2.0 * rhoBar)**self.p
+        pN = pN - self.termAlpha(xp) * rhoBar**2.0
+        pN = pN + self.termEta(xp) * self.gamma * rhoBar**(self.gamma + 1.0)
+
+        rhom = rho / cgs.mB
+        pe = 0.25 * cgs.hbar * cgs.c * xp * rhom * (3.0 * pi**2.0 * xp * rhom)**(1.0 / 3.0)
+
+        return pN * self.T0 * cgs.nS + pe - p
+
+    #vectorized version
+    def pressures(self, rhos, p=0):
+        press = []
+        for rho in rhos:
+            pr = self.pressure(rho, p)
+            press.append( pr )
+        return press
+
+    # Energy density (g/cm^3) as a function of the mass density rho (g/cm^3)
+    def edens(self, rho, e=0):
+        rhoBar = rho / cgs.rhoS
+        xp = self.protonFraction(rho)
+
+        eN = 0.6 * self.termX(xp) * (2.0 * rhoBar)**(self.p - 1.0)
+        eN = eN - self.termAlpha(xp) * rhoBar
+        eN = eN + self.termEta(xp) * rhoBar**self.gamma
+
+        ee = 0.75 * cgs.hbar * cgs.c * xp * (3.0 * pi**2.0 * xp * rho / cgs.mB)**(1.0 / 3.0)
+
+        return ( (eN * self.T0 + ee) / (cgs.mB * cgs.c**2.0) + 1.0) * rho - e
+
+    def edens_inv(self, press):
+        rhoB = self.rho(press)
+
+        return self.edens(rhoB)
+
+    def rho(self, press):
+        rho = fsolve(self.pressures, cgs.rhoS, args = press)
+
+        return rho[0]
+
+    # Square of the speed of sound (unitless)
+    def speed2_rho(self, rhoB):
+        rhoBar = rhoB / cgs.rhoS
+        xp = self.protonFraction(rhoB)
+
+        dpdn = (self.p - 1.0) * self.termX(xp) * (2.0 * rhoBar)**(self.p - 1.0)
+        dpdn = dpdn - 2.0 * self.termAlpha(xp) * rhoBar
+        dpdn = dpdn + self.termEta(xp) * self.gamma * (self.gamma + 1.0) * rhoBar**self.gamma
+
+        dnde = rhoB / ( ( self.pressure(rhoB) + self.edens(rhoB) * cgs.c**2.0 ) * cgs.mB )
+
+        return dpdn * self.T0 * dnde
+
+    # Square of the speed of sound (unitless)
+    def speed2(self, press):
+        rhoB = self.rho(press)
+        rhoBar = rhoB / cgs.rhoS
+        xp = self.protonFraction(rhoB)
+
+        dpdn = (self.p - 1.0) * self.termX(xp) * (2.0 * rhoBar)**(self.p - 1.0)
+        dpdn = dpdn - 2.0 * self.termAlpha(xp) * rhoBar
+        dpdn = dpdn + self.termEta(xp) * self.gamma * (self.gamma + 1.0) * rhoBar**self.gamma
+
+        dnde = rhoB / ( ( press + self.edens(rhoB) * cgs.c**2.0 ) * cgs.mB )
+
+        return dpdn * self.T0 * dnde
+
+    def gammaFunction(self, rho, flag = 1):
+        press = self.pressure(rho)
+        edens = self.edens_inv(press) * cgs.c**2.0
+        speed2 = self.speed2(press)
+
+        if flag == 1: # d(ln p)/d(ln n)
+            return ( edens + press ) * speed2 / press
+        else: # d(ln p)/d(ln eps)
+            return edens * speed2 / press
+
+    def pressure_edens(self, edens):
+        rhoB = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+
+        return self.pressure(rhoB)
+
+
 
 
 #Combines EoS parts together, SPECIAL CASE
