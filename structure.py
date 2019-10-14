@@ -4,11 +4,11 @@ from scipy import interpolate
 
 
 import units as cgs
-from polytropes import monotrope, polytrope, doubleMonotrope, combiningEos
+from polytropes import monotrope, polytrope, doubleMonotrope, combiningEos, cEFT
 from crust import SLyCrust
 from tov import tov
 from pQCD import qcd, matchPolytopesWithLimits, pQCD, eQCD, nQCD
-from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope, cEFT
+from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope
 from c2Interpolation import matchC2AGKNV, c2AGKNV
 
 

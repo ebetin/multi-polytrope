@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals, print_function
 import numpy as np
 import os
 
-from priors import check_uniform
+from priors import check_uniform, prior_cEFT
 from structure import structurePolytropeWithCEFT as structure
 import units as cgs
 from pQCD import nQCD
@@ -96,7 +96,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/P4-"
+prefix = "chains/PC4-"
 
 
 ##################################################
@@ -155,13 +155,14 @@ def myprior(cube):
 
     # Parameters of the cEFT EoS
     lps = np.empty_like(cube)
-    lps[0] = check_uniform(cube[1], 1.18,  1.59 ) #alphaL [unitless]
-    lps[1] = check_uniform(cube[2], 0.64,  1.11 ) #etaL [untiless]
+    #lps[0] = check_uniform(cube[1], 1.18,  1.59 ) #alphaL [unitless]
+    #lps[1] = check_uniform(cube[2], 0.64,  1.11 ) #etaL [untiless]
+    lps[0] = prior_cEFT(cube[0], cube[1])
+    lps[1] = 0.0
 
     # Scale parameter of the perturbative QCD, see Fraga et al. (2014, arXiv:1311.5154) 
     # for details
-    lps[2] = check_uniform(cube[4], 1.0,  4.0 ) #X [unitless]
-
+    lps[2] = check_uniform(cube[2], 1.0,  4.0 ) #X [unitless]
 
     # Polytropic exponents excluding the first two ones
     ci = 3

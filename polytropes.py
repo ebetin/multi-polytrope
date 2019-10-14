@@ -664,7 +664,7 @@ class cEFT:
         return dedx * self.T0 + chemPotEl #- (cgs.mn - cgs.mp) * cgs.c**2.0
 
     def protonFraction(self, rho):
-        xp = fsolve(self.protonFractionCondition, 0.05, args = rho, xtol=1.0e-9)
+        xp = fsolve(self.protonFractionCondition, 0.01, args = rho, xtol=1.0e-9)
 
         return xp[0]
 
