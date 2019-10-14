@@ -47,8 +47,6 @@ def prior_cEFT(x, y):
         a4 = 1.29349
         b4 = -0.948088
 
-        print(y, a1 * x + b1)
-
         if (x < 1.43656 and y <= a1 * x + b1) or (x >= 1.43656 and y <= a2 * x + b2):
             if (x < 1.30753 and y >= a3 * x + b3) or (x >= 1.30753 and y >= a4 * x + b4):
                 return 0.0
