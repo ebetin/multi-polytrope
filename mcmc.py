@@ -46,7 +46,7 @@ if not os.path.exists("chains2"): os.mkdir("chains2")
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 4 #polytrope order
+eos_Ntrope = 5 #polytrope order
 debug = False  #flag for additional debug printing
 phaseTransition = 0 #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
@@ -96,7 +96,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/P4-"
+prefix = "chains/P5-"
 
 
 ##################################################
@@ -197,16 +197,16 @@ def myprior(cube):
     # M-R measurements
     lps[ci] = check_uniform(cube[ci], 1.0, 2.5)  #M_1702 [Msun]
 
-    lps[ci+1] = check_uniform(cube[ci+1], 0.5, 2.7)  #M_6304 [Msun]
-    lps[ci+2] = check_uniform(cube[ci+2], 0.5, 2.0)  #M_6397 [Msun]
-    lps[ci+3] = check_uniform(cube[ci+3], 0.5, 2.8)  #M_M28 [Msun]
-    lps[ci+4] = check_uniform(cube[ci+4], 0.5, 2.5)  #M_M30 [Msun]
-    lps[ci+5] = check_uniform(cube[ci+5], 0.5, 2.7)  #M_X7 [Msun]
-    lps[ci+6] = check_uniform(cube[ci+6], 0.5, 2.7)  #M_X5 [Msun]
-    lps[ci+7] = check_uniform(cube[ci+7], 0.5, 2.5)  #M_wCen [Msun]
-    lps[ci+8] = check_uniform(cube[ci+8], 0.8, 2.4)  #M_M13 [Msun]
-    lps[ci+9] = check_uniform(cube[ci+9], 0.8, 2.5)  #M_1724 [Msun]
-    lps[ci+10] = check_uniform(cube[ci+10], 0.8, 2.5)  #M_1810 [Msun]
+    lps[ci+1] = check_uniform(cube[ci+1],   1.0, 2.7)  #M_6304 [Msun]
+    lps[ci+2] = check_uniform(cube[ci+2],   1.0, 2.0)  #M_6397 [Msun]
+    lps[ci+3] = check_uniform(cube[ci+3],   1.0, 2.8)  #M_M28 [Msun]
+    lps[ci+4] = check_uniform(cube[ci+4],   1.0, 2.5)  #M_M30 [Msun]
+    lps[ci+5] = check_uniform(cube[ci+5],   1.0, 2.7)  #M_X7 [Msun]
+    lps[ci+6] = check_uniform(cube[ci+6],   1.0, 2.7)  #M_X5 [Msun]
+    lps[ci+7] = check_uniform(cube[ci+7],   1.0, 2.5)  #M_wCen [Msun]
+    lps[ci+8] = check_uniform(cube[ci+8],   1.0, 2.4)  #M_M13 [Msun]
+    lps[ci+9] = check_uniform(cube[ci+9],   1.0, 2.5)  #M_1724 [Msun]
+    lps[ci+10] = check_uniform(cube[ci+10], 1.0, 2.5)  #M_1810 [Msun]
 
     return np.sum(lps)
 
@@ -616,7 +616,6 @@ if True:
             sys.exit(0)
 
         #output
-        #filename = "chains2/chain190527P2PT0.h5"
         filename = prefix+'run.h5'
 
         backend = emcee.backends.HDFBackend(filename)

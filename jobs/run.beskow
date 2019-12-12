@@ -1,0 +1,24 @@
+#!/bin/bash
+#SBATCH -A 2018-2-41
+#SBATCH -J eos
+#SBATCH --output=%J.out
+#SBATCH --error=%J.err
+#SBATCH -t 01-00:00:00
+#SBATCH -n 2
+
+
+source $HOME/modules_eos.sh
+
+# go to working directory
+cd /pfs/nobackup/home/n/natj/eos/multi-polytrope
+
+
+# print useful intro
+echo "Starting at `date`"
+echo "Running on hosts: $SLURM_NODELIST"
+echo "Running on $SLURM_NNODES nodes."
+echo "Running $SLURM_NTASKS tasks."
+echo "Current working directory is `pwd`"
+
+srun -n 1 python mcmc_poly_ceft.py &
+srun -n 1 python mcmc_c2.py &

@@ -96,7 +96,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/PC4-"
+prefix = "chains/PC{}_{}-".format(eos_Ntrope, phaseTransition)
 
 
 ##################################################
@@ -573,9 +573,11 @@ elif eos_Ntrope == 5: #(trope = 5)
 #initialize small Gaussian ball around the initial point
 p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
+Nsteps = 10000
+
 ##################################################
 #serial v3.0-dev
-if False:
+if True:
     #output
     filename = prefix+'run.h5'
 
@@ -585,7 +587,7 @@ if False:
     # initialize sampler
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend)
 
-    result = sampler.run_mcmc(p0, 10000)
+    result = sampler.run_mcmc(p0, Nsteps)
 
     #print(result)
     #position = result[0]
@@ -598,7 +600,7 @@ if False:
     
 
 #parallel v3.0-dev
-if True:
+if False:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
@@ -619,8 +621,7 @@ if True:
         # initialize sampler
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
-
-        result = sampler.run_mcmc(p0, 5, progress=True)
+        result = sampler.run_mcmc(p0, Nsteps, progress=True)
         #result = sampler.run_mcmc(None, 1, progress=True)
 
 

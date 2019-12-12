@@ -46,7 +46,7 @@ if not os.path.exists("chains"): os.mkdir("chains")
 ##################################################
 # global flags for different run modes
 eos_Nsegment = 5 #polytrope order
-debug = True  #flag for additional debug printing
+debug = False  #flag for additional debug printing
 
 
 ##################################################
@@ -90,7 +90,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/C1-"
+prefix = "chains/C{}-".format(eos_Nsegment)
 
 
 ##################################################
@@ -534,10 +534,11 @@ if eos_Nsegment == 5: #(segments = 5)
 
 #initialize small Gaussian ball around the initial point
 p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
+Nsteps = 10000
 
 ##################################################
 #serial v3.0-dev
-if False:
+if True:
 
     #output
     filename = prefix+'run.h5'
@@ -548,7 +549,7 @@ if False:
     # initialize sampler
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend)
 
-    result = sampler.run_mcmc(p0, 10000)
+    result = sampler.run_mcmc(p0, Nsteps)
 
     #print(result)
     #position = result[0]
@@ -561,7 +562,7 @@ if False:
     
 
 #parallel v3.0-dev
-if True:
+if False:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
@@ -583,7 +584,7 @@ if True:
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob2M, backend=backend, pool=pool)
 
-        result = sampler.run_mcmc(p0, 10, progress=True)
+        result = sampler.run_mcmc(p0, Nsteps, progress=True)
         #result = sampler.run_mcmc(None, 1, progress=True)
 
 
