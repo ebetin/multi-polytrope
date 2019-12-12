@@ -2,6 +2,8 @@ from __future__ import absolute_import, unicode_literals, print_function
 
 import numpy as np
 import os
+import argparse
+from input_parser import parse_cli
 
 from priors import check_uniform, prior_cEFT
 from structure import structurePolytropeWithCEFT as structure
@@ -38,17 +40,19 @@ from scipy.stats import norm
 import sys
 import emcee
 
-np.random.seed(1) #for reproducibility
+args = parse_cli()
 
-if not os.path.exists("chains2"): os.mkdir("chains2")
+np.random.seed(args.seed) #for reproducibility
+
+if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
 
 
 ##################################################
 # global flags for different run modes
-eos_Ntrope = 4 #polytrope order
-debug = False  #flag for additional debug printing
-phaseTransition = 0 #position of the 1st order transition
+eos_Ntrope = args.eos_nseg #polytrope order
+debug = args.debug  #flag for additional debug printing
+phaseTransition = args.ptrans #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
 #in other words, the first two monotrope do not behave
 #like a latent heat (ie. gamma != 0)
@@ -96,7 +100,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/PC{}_{}-".format(eos_Ntrope, phaseTransition)
+prefix = "chains/PC{}_{}-s{}".format(eos_Ntrope, phaseTransition, args.seed)
 
 
 ##################################################
@@ -106,7 +110,7 @@ prefix = "chains/PC{}_{}-".format(eos_Ntrope, phaseTransition)
 
 parameters2 = []
 
-Ngrid = 200
+Ngrid = args.ngrid
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
@@ -573,7 +577,8 @@ elif eos_Ntrope == 5: #(trope = 5)
 #initialize small Gaussian ball around the initial point
 p0 = [pinit + 0.01*np.random.randn(ndim) for i in range(nwalkers)]
 
-Nsteps = 10000
+Nsteps = args.nsteps
+
 
 ##################################################
 #serial v3.0-dev

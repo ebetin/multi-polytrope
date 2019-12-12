@@ -1,6 +1,9 @@
 #from __future__ import absolute_import, unicode_literals, print_function
 import numpy as np
 import os
+import argparse
+from input_parser import parse_cli
+
 
 #from pymultinest.solve import solve as pymlsolve
 
@@ -38,15 +41,18 @@ from scipy.stats import norm
 import sys
 import emcee
 
-np.random.seed(1) #for reproducibility
+args = parse_cli()
 
-if not os.path.exists("chains"): os.mkdir("chains")
+
+np.random.seed(args.seed) #for reproducibility
+
+if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
 
 ##################################################
 # global flags for different run modes
-eos_Nsegment = 5 #polytrope order
-debug = False  #flag for additional debug printing
+eos_Nsegment = args.eos_nseg #number of cs segments
+debug = args.debug  #flag for additional debug printing
 
 
 ##################################################
@@ -90,7 +96,7 @@ print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/C{}-".format(eos_Nsegment)
+prefix = "chains/C{}-s{}".format(eos_Nsegment, args.seed)
 
 
 ##################################################
@@ -100,7 +106,7 @@ prefix = "chains/C{}-".format(eos_Nsegment)
 
 parameters2 = []
 
-Ngrid = 200
+Ngrid = args.ngrid
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0, Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
@@ -534,7 +540,7 @@ if eos_Nsegment == 5: #(segments = 5)
 
 #initialize small Gaussian ball around the initial point
 p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
-Nsteps = 10000
+Nsteps = args.nsteps
 
 ##################################################
 #serial v3.0-dev

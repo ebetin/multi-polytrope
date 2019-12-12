@@ -20,5 +20,5 @@ echo "Running on $SLURM_NNODES nodes."
 echo "Running $SLURM_NTASKS tasks."
 echo "Current working directory is `pwd`"
 
-srun -n 1 python3 mcmc_poly_ceft.py -d chains --ngrid 200 --nsteps 10000 --nseg 4 --ptrans 0 --seed 1
+srun -n 1 python3 mcmc_poly_ceft -d chains --ngrid 200 --nsteps 10000 --nseg 4 --ptrans 0 --seed 1
 

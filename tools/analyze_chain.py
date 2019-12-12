@@ -8,13 +8,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 ##################################################
 #metadata of the run
-eos_Ntrope = 2
-Ngrid = 20
+eos_Ntrope = 5
+Ngrid = 200
 phaseTransition = 0
 
 parameters2 = []
 
-Ngrid = 20
 param_indices = {
         'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
@@ -50,7 +49,7 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 
 ##################################################
 # read chain
-prefix='P1'
+prefix='P4'
 filename = '../chains/'+prefix+'-run.h5'
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
@@ -152,7 +151,7 @@ for ax in axs:
 #M-R
 if False:
     nsamples, nblobs = blob_samples.shape
-    Nr = 50 #number of radius histogram bins
+    Nr = 200 #number of radius histogram bins
 
     mass_grid = param_indices["mass_grid"]
     rad = np.zeros((nsamples, Ngrid))
@@ -223,7 +222,7 @@ if False:
 # eps - P
 if False:
     nsamples, nblobs = blob_samples.shape
-    Nr = 50 #number of radius histogram bins
+    Nr = 200 #number of radius histogram bins
 
     rho_grid = param_indices["eps_grid"]
     press = np.zeros((nsamples, Ngrid))
@@ -280,7 +279,7 @@ if False:
 # n - gamma
 if False:
     nsamples, nblobs = blob_samples.shape
-    Ng = 100
+    Ng = 200
 
     nsat_grid = param_indices["nsat_gamma_grid"]
     gamma = np.zeros((nsamples, Ngrid))
@@ -327,9 +326,9 @@ if False:
 
 ##################################################
 # n - c^2
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
-    Ng = 100
+    Ng = 200
 
     nsat_grid = param_indices["nsat_c2_grid"]
     c2 = np.zeros((nsamples, Ngrid))

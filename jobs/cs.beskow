@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A 2018-2-41
-#SBATCH -J eosP
+#SBATCH -J eosC
 #SBATCH --output=%J.out
 #SBATCH --error=%J.err
 #SBATCH -t 01-00:00:00
@@ -20,5 +20,5 @@ echo "Running on $SLURM_NNODES nodes."
 echo "Running $SLURM_NTASKS tasks."
 echo "Current working directory is `pwd`"
 
-srun -n 1 python3 mcmc_poly_ceft.py -d chains --ngrid 200 --nsteps 10000 --nseg 4 --ptrans 0 --seed 1
+srun -n 1 python3 mcmc_c2.py -d chains --ngrid 200 --nsteps 10000 --nseg 5 --ptrans 0 --seed 1
 
