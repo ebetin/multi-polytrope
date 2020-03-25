@@ -5,7 +5,7 @@ import os
 import argparse
 from input_parser import parse_cli
 
-from priors import check_uniform, check_cEFT
+from priors import transform_uniform, check_cEFT
 from structure import structurePolytropeWithCEFT as structure
 import units as cgs
 from pQCD import nQCD

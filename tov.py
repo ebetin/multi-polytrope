@@ -10,7 +10,10 @@ from scipy.integrate import odeint
 #from scipy.integrate import solve_ivp
 
 from scipy.special import hyp2f1
-from scipy.misc import factorial2
+try:
+    from scipy.misc import factorial2
+except:
+    from scipy.special import factorial2
 
 import math
 
