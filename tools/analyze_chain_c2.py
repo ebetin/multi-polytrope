@@ -47,8 +47,10 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 
 ##################################################
 # read chain
-prefix='C1'
-filename = '../chains/'+prefix+'-run.h5'
+#prefix='C1'
+prefix='C5-s8'
+#prefix='PC4_0-s28'
+filename = '../chains/'+prefix+'run.h5'
 
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
@@ -149,7 +151,7 @@ for ax in axs:
 #M-R
 if False:
     nsamples, nblobs = blob_samples.shape
-    Nr = 50 #number of radius histogram bins
+    Nr = 200 #number of radius histogram bins
 
     mass_grid = param_indices["mass_grid"]
     rad = np.zeros((nsamples, Ngrid))
@@ -219,9 +221,9 @@ if False:
 
 ##################################################
 # eps - P
-if True:
+if False:
     nsamples, nblobs = blob_samples.shape
-    Nr = 100 #number of radius histogram bins
+    Nr = 200 #number of radius histogram bins
 
     rho_grid = param_indices["eps_grid"]
     press = np.zeros((nsamples, Ngrid))
@@ -275,9 +277,9 @@ if True:
 
 ##################################################
 # n - gamma
-if False:
+if True:
     nsamples, nblobs = blob_samples.shape
-    Ng = 100
+    Ng = 200
 
     nsat_grid = param_indices["nsat_gamma_grid"]
     gamma = np.zeros((nsamples, Ngrid))
@@ -325,7 +327,7 @@ if False:
 # n - c^2
 if False:
     nsamples, nblobs = blob_samples.shape
-    Ng = 100
+    Ng = 200
 
     nsat_grid = param_indices["nsat_c2_grid"]
     c2 = np.zeros((nsamples, Ngrid))

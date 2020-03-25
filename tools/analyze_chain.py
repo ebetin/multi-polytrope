@@ -49,8 +49,9 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
 
 ##################################################
 # read chain
-prefix='P4'
-filename = '../chains/'+prefix+'-run.h5'
+#prefix='P5'
+prefix='PC4_0-s28'
+filename = '../chains/'+prefix+'run.h5'
 reader = emcee.backends.HDFBackend(filename)#, name='initialization')
 
 
@@ -107,7 +108,8 @@ if False:
             #quantiles=[0.16, 0.5, 0.84],
             #show_titles=True, 
             #title_kwargs={"fontsize": 12})
-            labels=labels)
+            #labels=labels)
+            )
     
     plt.savefig("triangle_"+prefix+".pdf")
 
@@ -149,7 +151,7 @@ for ax in axs:
 
 
 #M-R
-if False:
+if True:
     nsamples, nblobs = blob_samples.shape
     Nr = 200 #number of radius histogram bins
 

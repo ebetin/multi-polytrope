@@ -41,8 +41,8 @@ NSK17 = { "rad_mean": 12.4,
 # log likelihood function for MR measurements
 def measurement_MR(mass, rad, density):
     fun = density(rad, mass)
-
     return  log( fun )
+
 
 # interpolating density function
 def interp_MR(string):
