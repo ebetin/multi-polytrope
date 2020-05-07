@@ -19,10 +19,9 @@ def parse_cli():
 
     parser.add_argument('-s', '--seed', 
             dest='seed', 
-            default=1,
+            default=0,
             type=int,
-            help='Random number generator seed (default: 1)')
-
+            help='Random number generator seed (default: 0 = random)')
 
     parser.add_argument('-n', '--nseg', 
             dest='eos_nseg', 
@@ -40,7 +39,7 @@ def parse_cli():
             dest='debug', 
             default=False,
             type=bool,
-            help='Debug mode(default: False)')
+            help='Debug mode (default: False)')
 
     parser.add_argument('--ngrid', 
             dest='ngrid', 
