@@ -200,6 +200,17 @@ def pSB(mu):
     except NonpositiveChemicalPotential:
         print("Chemical potential is nonpositive!")
 
+#TODO maybe one need to fix this?
+# Stefan-Boltzmann limit (Ba) as a function of the baryon chemical potential (GeV)
+def pSB_csg(mu):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        return pSB(mu) * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
 
 # Pressure (difference) (Ba) as a function of the baryon chemical potential (GeV)
 #   params: High-density parameters [X, muFin]
