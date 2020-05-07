@@ -469,7 +469,10 @@ def myloglike(cube):
 
     for im, mass in enumerate(param_indices['mass_grid']):
         ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
-        cube[ci+ic] = struc.radius_at(mass)
+        if flag_TOV:
+            cube[ci+ic] = struc.radius_at(mass)
+        else:
+            cube[ci+ic] = 0.0
     
         if debug:
             print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube[ic], ic))
