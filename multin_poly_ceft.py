@@ -8,7 +8,7 @@ from input_parser import parse_cli
 from priors import transform_uniform, check_cEFT
 from structure import structurePolytropeWithCEFT as structure
 import units as cgs
-from pQCD import nQCD
+from pQCD import nQCD, pSB_csg
 
 
 from measurements import gaussian_MR
@@ -39,17 +39,14 @@ from scipy.stats import norm
 # emcee stuff
 import sys
 from pymultinest.solve import solve as pymlsolve
+from pymultinest.run import run as pymlrun
 import json
-
-
-
 
 args = parse_cli()
 
 np.random.seed(args.seed) #for reproducibility
 
 if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
-
 
 
 ##################################################
@@ -60,6 +57,10 @@ phaseTransition = args.ptrans #position of the 1st order transition
 #after first two monotropes, 0: no phase transition
 #in other words, the first two monotrope do not behave
 #like a latent heat (ie. gamma != 0)
+flag_TOV   = True # calculating MR curve
+flag_GW    = True # using GW170817 event as a constrain (NB usable if flag_TOV = True)
+flag_Mobs  = True # using mass measurement data (NB usable if flag_TOV = True)
+flag_MRobs = True # using mass-radius observations (NB usable if flag_TOV = True)
 
 
 ##################################################
@@ -117,10 +118,11 @@ parameters2 = []
 
 Ngrid = args.ngrid
 param_indices = {
-        'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
+        'mass_grid': np.linspace(0.5, 3.6,   Ngrid),
         'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
-        'nsat_gamma_grid': np.linspace(1.1, 15.0, Ngrid),
-        'nsat_c2_grid': np.linspace(1.1, 15.0, Ngrid),
+        'nsat_gamma_grid': np.linspace(1.1, 45.0, Ngrid), #TODO limits
+        'nsat_c2_grid': np.linspace(1.1, 45.0, Ngrid), #TODO
+        'nsat_press_grid': np.linspace(1.1, 45.0, Ngrid), #TODO
                }
 
 #add M-R grid
@@ -149,27 +151,27 @@ for ir, nsat  in enumerate(param_indices['nsat_c2_grid']):
     param_indices['nsat_c2_'+str(ir)] = ci
     ci += 1
 
-print("Parameters to be only stored (blobs):")
+#add nsat - press grid
+for ir, nsat  in enumerate(param_indices['nsat_press_grid']):
+    parameters2.append('nsat_press_'+str(ir))
+    param_indices['nsat_press_'+str(ir)] = ci
+    ci += 1
+
+print("Parameters to be only stored:")
 print(len(parameters2))
 n_blobs = len(parameters2)
 
 
-# NOTE: for multinest everything is stored in the same array; combining params and params2
+# NOTE: for multinest everything is stored ifn the same array; combining params and params2
 parameters = parameters + parameters2
 
 
 ##################################################
 # Prior function; changes from [0,1] to physical limits
 def myprior(cube):
-
-    #print(cube)
-    cube = np.empty_like(cube)
-
-    # Parameters of the cEFT EoS
-    #cube[0] = prior_cEFT(cube[0], cube[1])
-    cube[0] = transform_uniform(cube[0], 1.17937, 1.59097) #cEFT limits for x
-    cube[1] = transform_uniform(cube[1], 0.0, 1.0) #TODO cEFT limits for y
-
+    # Parameters of the cEFT EoS, see Hebeler et al. (2013, arXiv:1303.4662)
+    cube[0] = transform_uniform(cube[0], 1.17, 1.61) #alphaL [unitless] TODO check 2D region
+    cube[1] = transform_uniform(cube[1], 0.6,  1.15) #etaL [unitless]
 
     # Scale parameter of the perturbative QCD, see Fraga et al. (2014, arXiv:1311.5154) 
     # for details
@@ -192,15 +194,15 @@ def myprior(cube):
         ci += 1
 
     # TD measurements
-    mu, sig = 1.186, 0.0006 #Chirp mass (GW170817) [Msun]
-    cube[ci]   = transform_uniform(cube[ci], mu-2*sig, mu+2*sig) 
-    cube[ci+1] = transform_uniform(cube[ci+1], 0.0, 1.0)  #Mass ratio (GW170817) #XXX Is this ok?
+    #mu, sig = 1.186, 0.0006 #Chirp mass (GW170817) [Msun]
+    cube[ci]   = transform_uniform(cube[ci],   1.0, 1.3) #TODO limits ok?
+    #cube[ci+1] = transform_uniform(cube[ci+1], 0.0, 1.0)  #Mass ratio (GW170817), NOTE no need to renormalize
     ci += 2
 
 
     # pulsar maximum M measurements; used as an upper limit constraint for EOS
-    cube[ci]   = transform_uniform(cube[ci],   1.9, 2.0) #m0432 [Msun]
-    cube[ci+1] = transform_uniform(cube[ci+1], 1.90, 2.20) #m6620 [Msun]
+    cube[ci]   =  transform_uniform(cube[ci], 1.0, 4.0)   # 2.01 NS TODO limits
+    cube[ci+1] =  transform_uniform(cube[ci+1], 1.0, 4.0) # 2.14 NS TODO limits
     ci += 2
 
     # M-R measurements
@@ -223,11 +225,11 @@ def myprior(cube):
 
 
 # probability function
-linf = np.inf
+linf = 1e100 # numerical infinity
 
 
 icalls = 0
-def myloglike(cube, m2=False):
+def myloglike(cube):
     """
         General likelihood function that builds the EoS and solves TOV-structure
         equations for it.
@@ -251,7 +253,6 @@ def myloglike(cube, m2=False):
 
 
     """
-
     if debug:
         global icalls
         icalls += 1
@@ -261,14 +262,16 @@ def myloglike(cube, m2=False):
 
 
     ################################################## 
-    # cEFT low-density EOS
+    # cEFT low-density EOS parameters
+    if debug:
+        print("Checking cEFT")
     if not(check_cEFT(cube[0], cube[1])):
         logl = -linf
         return logl 
 
 
     ################################################## 
-    # nuclear EoS
+    # interpolated EoS
  
     # general running index that maps cube array to real EoS parameters
     ci = 3 
@@ -284,9 +287,8 @@ def myloglike(cube, m2=False):
         else:
             gammas.append(0.0)
 
-
     # Transition ("matching") densities (g/cm^3)
-    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS
+    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #starting points #TODO is the crust-core transtion density ok?
     for itrope in range(eos_Ntrope-1):
         if debug:
             print("loading trans from cube #{}".format(ci))
@@ -312,7 +314,6 @@ def myloglike(cube, m2=False):
     muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
     highDensity = [muQCD, X]
 
-
     # Check that last transition (matching) point is large enough
     if debug:
         print("Checking nQCD")
@@ -329,123 +330,136 @@ def myloglike(cube, m2=False):
     struc = structure(gammas, trans, lowDensity, highDensity)
 
     # Is the obtained EoS realistic, e.g. causal?
+    if debug:
+        print("Checking structure")
     if not struc.realistic:
         logl = -linf
-
         return logl
 
-    #Chirp mass (GW170817) [Msun]
-    logl += norm.logpdf(cube[ci], 1.186, 0.0006079568319312625)  
+    ################################################## 
+    # measurements & constraints
 
-    # Masses GW170817
-    mass1_GW170817 = (1.0 + cube[ci+1])**0.2 / (cube[ci+1])**0.6 * cube[ci]
-    mass2_GW170817 = mass1_GW170817 * cube[ci+1]
+    #Chirp mass (GW170817) [Msun]
+    if flag_GW and flag_TOV:
+        logl += norm.logpdf(cube[ci], 1.186, 0.0006079568319312625)  
+
+        # Masses GW170817
+        mass1_GW170817 = (1.0 + cube[ci+1])**0.2 / (cube[ci+1])**0.6 * cube[ci]
+        mass2_GW170817 = mass1_GW170817 * cube[ci+1]
+
     ci += 2
 
     # solve structure 
     if debug:
         print("TOV...")
-    #struc.tov()
-    #struc.tov(l=2, m1=1.4 * cgs.Msun) # tidal deformability
-    struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun) # tidal deformabilities
-    print("params", cube)
+    
+    if flag_TOV:
+        if flag_GW: # with tidal deformabilities
+            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun)
+        else: # without
+            struc.tov()
 
-    ################################################## 
-    # measurements & constraints
+        # Maximum mass [Msun]
+        mmax = struc.maxmass
+
+        # Are the objects in event GW170817 too heavy?
+        if flag_GW:
+            if mass1_GW170817 > mmax or mass2_GW170817 > mmax:
+                logl = -linf
+                return logl
 
     # Mass measurement of PSR J0348+0432 from Antoniadis et al 2013 arXiv:1304.6875
     # and PSR J0740+6620 from Cromartie et al 2019 arXiv:1904.06759
-    if m2:
-        mmax = struc.maxmass
-
+    if flag_Mobs and flag_TOV:
         m0432 = cube[ci]
         m6620 = cube[ci+1]
 
         if m0432 > mmax or m6620 > mmax:
             logl = -linf
-
             return logl 
 
-    logl += measurement_M(cube[ci],   J0348) #m0432 [Msun]
-    logl += measurement_M(cube[ci+1], J0740) #m6620 [Msun]
+        logl += measurement_M(cube[ci],   J0348) #m0432 [Msun]
+        logl += measurement_M(cube[ci+1], J0740) #m6620 [Msun]
+
     ci += 2
 
-    # masses
-    mass_1702 = cube[ci]
-    mass_6304 = cube[ci+1]
-    mass_6397 = cube[ci+2]
-    mass_M28  = cube[ci+3]
-    mass_M30  = cube[ci+4]
-    mass_X7   = cube[ci+5]
-    mass_X5   = cube[ci+6]
-    mass_wCen = cube[ci+7]
-    mass_M13  = cube[ci+8]
-    mass_1724 = cube[ci+9]
-    mass_1810 = cube[ci+10]
+    # Mass-radius measurements
+    if flag_MRobs and flag_TOV:
+        # Masses [Msun]
+        mass_1702 = cube[ci]
+        mass_6304 = cube[ci+1]
+        mass_6397 = cube[ci+2]
+        mass_M28  = cube[ci+3]
+        mass_M30  = cube[ci+4]
+        mass_X7   = cube[ci+5]
+        mass_X5   = cube[ci+6]
+        mass_wCen = cube[ci+7]
+        mass_M13  = cube[ci+8]
+        mass_1724 = cube[ci+9]
+        mass_1810 = cube[ci+10]
 
-    masses = [ mass_1702, mass_6304, mass_6397, mass_M28,
-    mass_M30, mass_X7, mass_X5, mass_wCen, mass_M13,
-    mass_1724, mass_1810, ]
+        # All stars have to be lighter than the max mass limit
+        masses = [ mass_1702, mass_6304, mass_6397, mass_M28,
+                   mass_M30, mass_X7, mass_X5, mass_wCen, mass_M13,
+                   mass_1724, mass_1810, ]
 
-    # All stars have to be lighter than the max mass limit
-    if any(m > struc.maxmass for m in masses):
-        logl = -linf
+        if any(m > mmax for m in masses):
+            logl = -linf
+            return logl 
 
-        return logl 
+        # 4U 1702-429 from Nattila et al 2017, arXiv:1709.09120
+        rad_1702 = struc.radius_at(mass_1702)
+        logl += gaussian_MR(mass_1702, rad_1702, NSK17)
 
-    # 4U 1702-429 from Nattila et al 2017, arXiv:1709.09120
-    rad_1702 = struc.radius_at(mass_1702)
-    logl += gaussian_MR(mass_1702, rad_1702, NSK17)
+        # NGC 6304 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_6304 = struc.radius_at(mass_6304)
+        logl += measurement_MR(mass_6304, rad_6304, SHB18_6304_He)
 
-    # NGC 6304 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_6304 = struc.radius_at(mass_6304)
-    logl += measurement_MR(mass_6304, rad_6304, SHB18_6304_He)
+        # NGC 6397 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_6397 = struc.radius_at(mass_6397)
+        logl += measurement_MR(mass_6397, rad_6397, SHB18_6397_He)
 
-    # NGC 6397 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_6397 = struc.radius_at(mass_6397)
-    logl += measurement_MR(mass_6397, rad_6397, SHB18_6397_He)
+        # M28 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_M28 = struc.radius_at(mass_M28)
+        logl += measurement_MR(mass_M28, rad_M28, SHB18_M28_He)
 
-    # M28 with He atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_M28 = struc.radius_at(mass_M28)
-    logl += measurement_MR(mass_M28, rad_M28, SHB18_M28_He)
+        # M30 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_M30 = struc.radius_at(mass_M30)
+        logl += measurement_MR(mass_M30, rad_M30, SHB18_M30_H)
 
-    # M30 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_M30 = struc.radius_at(mass_M30)
-    logl += measurement_MR(mass_M30, rad_M30, SHB18_M30_H)
+        # X7 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_X7 = struc.radius_at(mass_X7)
+        logl += measurement_MR(mass_X7, rad_X7, SHB18_X7_H)
 
-    # X7 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_X7 = struc.radius_at(mass_X7)
-    logl += measurement_MR(mass_X7, rad_X7, SHB18_X7_H)
+        # X5 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_X5 = struc.radius_at(mass_X5)
+        logl += measurement_MR(mass_X5, rad_X5, SHB18_X5_H)
 
-    # X5 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_X5 = struc.radius_at(mass_X5)
-    logl += measurement_MR(mass_X5, rad_X5, SHB18_X5_H)
+        # wCen with H atmosphere from Steiner et al 2018, arXiv:1709.05013
+        rad_wCen = struc.radius_at(mass_wCen)
+        logl += measurement_MR(mass_wCen, rad_wCen, SHB18_wCen_H)
 
-    # wCen with H atmosphere from Steiner et al 2018, arXiv:1709.05013
-    rad_wCen = struc.radius_at(mass_wCen)
-    logl += measurement_MR(mass_wCen, rad_wCen, SHB18_wCen_H)
+        # M13 with H atmosphere from Shaw et al 2018, arXiv:1803.00029
+        rad_M13 = struc.radius_at(mass_M13)
+        logl += measurement_MR(mass_M13, rad_M13, SHS18_M13_H)
 
-    # M13 with H atmosphere from Shaw et al 2018, arXiv:1803.00029
-    rad_M13 = struc.radius_at(mass_M13)
-    logl += measurement_MR(mass_M13, rad_M13, SHS18_M13_H)
+        # 4U 1724-307 from Natiila et al 2016, arXiv:1509.06561
+        rad_1724 = struc.radius_at(mass_1724)
+        logl += measurement_MR(mass_1724, rad_1724, NKS15_1724)
 
-    # 4U 1724-307 from Natiila et al 2016, arXiv:1509.06561
-    rad_1724 = struc.radius_at(mass_1724)
-    logl += measurement_MR(mass_1724, rad_1724, NKS15_1724)
-
-    # SAX J1810.8-260 from Natiila et al 2016, arXiv:1509.06561
-    rad_1810 = struc.radius_at(mass_1810)
-    logl += measurement_MR(mass_1810, rad_1810, NKS15_1810)
+        # SAX J1810.8-260 from Natiila et al 2016, arXiv:1509.06561
+        rad_1810 = struc.radius_at(mass_1810)
+        logl += measurement_MR(mass_1810, rad_1810, NKS15_1810)
 
     # GW170817, tidal deformability
-    if struc.TD > 1600.0 or struc.TD2 > 1600.0:
-        logl = -linf
+    if flag_GW and flag_TOV:
+        if struc.TD > 1600.0 or struc.TD2 > 1600.0 or struc.TD < 0.0 or struc.TD2 < 0.0:
+            logl = -linf
+            return logl
 
-        return logl
+        logl += measurement_TD(struc.TD, struc.TD2, GW170817)
 
-    logl += measurement_TD(struc.TD, struc.TD2, GW170817)
-
-    #ic = 0
+    ci += 11
     
     #build M-R curve
     if debug:
@@ -454,8 +468,8 @@ def myloglike(cube, m2=False):
 
     for im, mass in enumerate(param_indices['mass_grid']):
         ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
-        cube[ic] = struc.radius_at(mass) 
-
+        cube[ci+ic] = struc.radius_at(mass)
+    
         if debug:
             print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube[ic], ic))
 
@@ -463,11 +477,11 @@ def myloglike(cube, m2=False):
     if debug:
         ic = param_indices['Peps_0'] #starting index
         print("building eps-P curve from EoS... (starts from ic = {}".format(ic))
-
+    
     for ir, eps in enumerate(param_indices['eps_grid']):
         ic = param_indices['Peps_'+str(ir)] #this is the index pointing to correct position in cube
-        cube[ic] = struc.eos.pressure_edens( eps * 0.001 * cgs.GeVfm_per_dynecm / (cgs.c**2) ) * 1000.0 / cgs.GeVfm_per_dynecm
-
+        cube[ci+ic] = struc.eos.pressure_edens( eps * 0.001 * cgs.GeVfm_per_dynecm / (cgs.c**2) ) * 1000.0 / cgs.GeVfm_per_dynecm
+    
         if debug:
             print("ir = {}, eps = {}, P = {}, ic = {}".format(ir, eps, cube[ic], ic))
 
@@ -479,7 +493,7 @@ def myloglike(cube, m2=False):
     for ir, nsat in enumerate(param_indices['nsat_gamma_grid']):
         ic = param_indices['nsat_gamma_'+str(ir)] #this is the index pointing to correct position in cube
 
-        cube[ic] = struc.eos.gammaFunction( cgs.rhoS*nsat, flag = 0 )
+        cube[ci+ic] = struc.eos.gammaFunction( cgs.rhoS*nsat, flag = 0 )
 
         if debug:
             print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube[ic], ic))
@@ -492,30 +506,45 @@ def myloglike(cube, m2=False):
     for ir, nsat in enumerate(param_indices['nsat_c2_grid']):
         ic = param_indices['nsat_c2_'+str(ir)] #this is the index pointing to correct position in cube
 
-        cube[ic] = struc.eos.speed2( struc.eos.pressure( cgs.rhoS * nsat ) )
+        cube[ci+ic] = struc.eos.speed2( struc.eos.pressure( cgs.rhoS * nsat ) )
 
         if debug:
             print("ir = {}, nsat = {}, c^2 = {}, ic = {}".format(ir, nsat, cube[ic], ic))
 
+    #build nsat-press/press_SB curve
+    if debug:
+        ic = param_indices['nsat_press_0'] #starting index
+        print("building nsat-press curve from EoS... (starts from ic = {}".format(ic))
+
+    for ir, nsat in enumerate(param_indices['nsat_press_grid']):
+        ic = param_indices['nsat_press_'+str(ir)] #this is the index pointing to correct position in cube
+        rhooB = cgs.rhoS * nsat
+        pB = struc.eos.pressure( rhooB )
+        muB = ( pB + struc.eos.edens_inv(pB) * cgs.c**2 ) * cgs.mB * cgs.erg_per_kev * 1.0e-6 / rhooB
+        cube[ci+ic] = pB / pSB_csg( muB )
+
+        if debug:
+            print("ir = {}, nsat = {}, press = {}, ic = {}".format(ir, nsat, cube[ic], ic))
+
     return logl
-
-
-
 
 ##################################################
 # run MultiNest
-if True:
+if flag_MN:
     result = pymlsolve( 
-                LogLikelihood=myloglike, 
-                Prior=myprior, 
-    	        n_params=n_params,
-    	        n_dims=n_params + n_blobs,
-                n_live_points=50,
-                log_zero = linf,
-                outputfiles_basename=prefix,
-                resume=False,
-                verbose=True,
-                     )
+                LogLikelihood        = myloglike, 
+                Prior                = myprior, 
+    	        n_dims               = n_params + n_blobs,
+    	        n_params             = n_params,
+                outputfiles_basename = prefix,
+                resume               = False,
+                verbose              = True,
+                seed                 = args.seed,
+                sampling_efficiency  = 0.8,
+                evidence_tolerance   = 0.5,
+                n_live_points        = 400,
+                log_zero             = -linf
+                )
 
     print()
     print('evidence: %(logZ).1f +- %(logZerr).1f' % result)
