@@ -61,6 +61,7 @@ flag_TOV   = True # calculating MR curve
 flag_GW    = True # using GW170817 event as a constrain (NB usable if flag_TOV = True)
 flag_Mobs  = True # using mass measurement data (NB usable if flag_TOV = True)
 flag_MRobs = True # using mass-radius observations (NB usable if flag_TOV = True)
+flag_MN    = True # run MultiNest
 
 
 ##################################################
