@@ -42,6 +42,13 @@ from measurements import measurement_TD
 from measurements import GW170817
 
 
+# only print as a master rank
+def mpi_print(*args):
+    if mpi4py.MPI.COMM_WORLD.Get_rank() == 0: #only master rank prints
+        for arg in args:
+            print(arg)
+
+
 #--------------------------------------------------
 # cli arguments
 from input_parser import parse_cli # cli arguments
@@ -50,11 +57,6 @@ args = parse_cli()
 np.random.seed(args.seed) #for reproducibility
 
 if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
-
-
-#print('numpy path:')
-#print(np.version)
-#print(np.path)
 
 
 ##################################################
@@ -112,8 +114,8 @@ parameters.append("mass_1724")
 parameters.append("mass_1810")
 
 
-print("Parameters to be sampled are:")
-print(parameters)
+mpi_print("Parameters to be sampled are:")
+mpi_print(parameters)
 
 
 n_params = len(parameters)
@@ -169,8 +171,8 @@ for ir, nsat  in enumerate(param_indices['nsat_press_grid']):
     param_indices['nsat_press_'+str(ir)] = ci
     ci += 1
 
-print("Parameters to be only stored:")
-print(len(parameters2))
+mpi_print("Parameters to be only stored:")
+mpi_print(len(parameters2))
 n_blobs = len(parameters2)
 
 
@@ -194,14 +196,14 @@ def myprior(cube):
     for itrope in range(eos_Ntrope-2):
         if itrope + 1 != phaseTransition:
             if debug:
-                print("prior for gamma from cube #{}".format(ci))
+                mpi_print("prior for gamma from cube #{}".format(ci))
             cube[ci] = transform_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless]
             ci += 1
 
     # Lengths of the first N-1 monotropes (N = # of polytropes)
     for itrope in range(eos_Ntrope-1):
         if debug:
-            print("prior for trans from cube #{}".format(ci))
+            mpi_print("prior for trans from cube #{}".format(ci))
         cube[ci] = transform_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
         ci += 1
 
@@ -266,7 +268,7 @@ def myloglike(cube):
     if debug:
         global icalls
         icalls += 1
-        print(icalls, cube)
+        mpi_print(icalls, cube)
 
     logl = 0.0 #total likelihood
 
@@ -274,7 +276,7 @@ def myloglike(cube):
     ################################################## 
     # cEFT low-density EOS parameters
     if debug:
-        print("Checking cEFT")
+        mpi_print("Checking cEFT")
     if not(check_cEFT(cube[0], cube[1])):
         logl = -linf
         return logl 
@@ -291,7 +293,7 @@ def myloglike(cube):
     for itrope in range(eos_Ntrope-2):
         if itrope + 1 != phaseTransition:
             if debug:
-                print("loading gamma from cube #{}".format(ci))
+                mpi_print("loading gamma from cube #{}".format(ci))
             gammas.append(cube[ci])
             ci += 1
         else:
@@ -301,7 +303,7 @@ def myloglike(cube):
     trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #starting points #TODO is the crust-core transtion density ok?
     for itrope in range(eos_Ntrope-1):
         if debug:
-            print("loading trans from cube #{}".format(ci))
+            mpi_print("loading trans from cube #{}".format(ci))
         trans.append(trans[-1] + cgs.rhoS * cube[ci]) 
         ci += 1
 
@@ -326,7 +328,7 @@ def myloglike(cube):
 
     # Check that last transition (matching) point is large enough
     if debug:
-        print("Checking nQCD")
+        mpi_print("Checking nQCD")
     if nQCD(muQCD, X) * cgs.mB <= trans[-1]:
         logl = -linf
         return logl 
@@ -336,12 +338,12 @@ def myloglike(cube):
 
     # Construct the EoS
     if debug:
-        print("Structure...")
+        mpi_print("Structure...")
     struc = structure(gammas, trans, lowDensity, highDensity)
 
     # Is the obtained EoS realistic, e.g. causal?
     if debug:
-        print("Checking structure")
+        mpi_print("Checking structure")
     if not struc.realistic:
         logl = -linf
         return logl
@@ -361,7 +363,7 @@ def myloglike(cube):
 
     # solve structure 
     if debug:
-        print("TOV...")
+        mpi_print("TOV...")
     
     if flag_TOV:
         if flag_GW: # with tidal deformabilities
@@ -474,7 +476,7 @@ def myloglike(cube):
     #build M-R curve
     if debug:
         ic = param_indices['rad_0'] #starting index
-        print("building M-R curve from EoS... (starts from ic = {}".format(ic))
+        mpi_print("building M-R curve from EoS... (starts from ic = {}".format(ic))
 
     for im, mass in enumerate(param_indices['mass_grid']):
         ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
@@ -484,24 +486,24 @@ def myloglike(cube):
             cube[ci+ic] = 0.0
     
         if debug:
-            print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube[ic], ic))
+            mpi_print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, cube[ic], ic))
 
     #build eps-P curve
     if debug:
         ic = param_indices['Peps_0'] #starting index
-        print("building eps-P curve from EoS... (starts from ic = {}".format(ic))
+        mpi_print("building eps-P curve from EoS... (starts from ic = {}".format(ic))
     
     for ir, eps in enumerate(param_indices['eps_grid']):
         ic = param_indices['Peps_'+str(ir)] #this is the index pointing to correct position in cube
         cube[ci+ic] = struc.eos.pressure_edens( eps * 0.001 * cgs.GeVfm_per_dynecm / (cgs.c**2) ) * 1000.0 / cgs.GeVfm_per_dynecm
     
         if debug:
-            print("ir = {}, eps = {}, P = {}, ic = {}".format(ir, eps, cube[ic], ic))
+            mpi_print("ir = {}, eps = {}, P = {}, ic = {}".format(ir, eps, cube[ic], ic))
 
     #build nsat-gamma curve
     if debug:
         ic = param_indices['nsat_gamma_0'] #starting index
-        print("building nsat-gamma curve from EoS... (starts from ic = {}".format(ic))
+        mpi_print("building nsat-gamma curve from EoS... (starts from ic = {}".format(ic))
 
     for ir, nsat in enumerate(param_indices['nsat_gamma_grid']):
         ic = param_indices['nsat_gamma_'+str(ir)] #this is the index pointing to correct position in cube
@@ -509,12 +511,12 @@ def myloglike(cube):
         cube[ci+ic] = struc.eos.gammaFunction( cgs.rhoS*nsat, flag = 0 )
 
         if debug:
-            print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube[ic], ic))
+            mpi_print("ir = {}, nsat = {}, gamma = {}, ic = {}".format(ir, nsat, cube[ic], ic))
 
     #build nsat-c^2 curve
     if debug:
         ic = param_indices['nsat_c2_0'] #starting index
-        print("building nsat-c^2 curve from EoS... (starts from ic = {}".format(ic))
+        mpi_print("building nsat-c^2 curve from EoS... (starts from ic = {}".format(ic))
 
     for ir, nsat in enumerate(param_indices['nsat_c2_grid']):
         ic = param_indices['nsat_c2_'+str(ir)] #this is the index pointing to correct position in cube
@@ -522,12 +524,12 @@ def myloglike(cube):
         cube[ci+ic] = struc.eos.speed2( struc.eos.pressure( cgs.rhoS * nsat ) )
 
         if debug:
-            print("ir = {}, nsat = {}, c^2 = {}, ic = {}".format(ir, nsat, cube[ic], ic))
+            mpi_print("ir = {}, nsat = {}, c^2 = {}, ic = {}".format(ir, nsat, cube[ic], ic))
 
     #build nsat-press/press_SB curve
     if debug:
         ic = param_indices['nsat_press_0'] #starting index
-        print("building nsat-press curve from EoS... (starts from ic = {}".format(ic))
+        mpi_print("building nsat-press curve from EoS... (starts from ic = {}".format(ic))
 
     for ir, nsat in enumerate(param_indices['nsat_press_grid']):
         ic = param_indices['nsat_press_'+str(ir)] #this is the index pointing to correct position in cube
@@ -537,7 +539,7 @@ def myloglike(cube):
         cube[ci+ic] = pB / pSB_csg( muB )
 
         if debug:
-            print("ir = {}, nsat = {}, press = {}, ic = {}".format(ir, nsat, cube[ic], ic))
+            mpi_print("ir = {}, nsat = {}, press = {}, ic = {}".format(ir, nsat, cube[ic], ic))
 
     return logl
 
@@ -562,8 +564,8 @@ if flag_MN:
                 verbose              = True,
                 seed                 = args.seed,
                 sampling_efficiency  = 0.8,
-                evidence_tolerance   = 0.5,
-                n_live_points        = 400,
+                evidence_tolerance   = 0.1, #0.5,
+                n_live_points        = 20, #400,
                 log_zero             = -linf
                 )
 
