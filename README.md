@@ -6,7 +6,24 @@
     - add `our/multinest/path/Multinest/lib` to `LD_LIBRARY_PATH`variable
  - Install pymultinest
     - `pip install pymultinest`
- - Optionally one can install `mpi4py` for running the sampler in parallel
+ - Install `mpi4py` for running the sampler in parallel
+
+
+## usage
+
+Run sampler with
+
+```bash
+mpirun -n X python3 multin_poly_ceft.py --nsteps 100 --dir chains --nseg 4 --ngrid 50
+```
+
+See `input_parser.py` for more run time options.
+
+
+
+
+---------
+# Old notes
 
 ## UPDATES
 

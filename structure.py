@@ -1,6 +1,7 @@
 import numpy as np
-from math import pi
 from scipy import interpolate
+#from math import pi
+from numpy import pi
 
 
 import units as cgs
@@ -567,8 +568,6 @@ def test_tov():
 
     plt.subplots_adjust(left=0.15, bottom=0.16, right=0.98, top=0.95, wspace=0.1, hspace=0.1)
     plt.savefig('mr_test.pdf')
-
-
 
 
 

@@ -1,16 +1,24 @@
-from __future__ import absolute_import, unicode_literals, print_function
+#from __future__ import absolute_import, unicode_literals, print_function #not needed for python3
 
+#--------------------------------------------------
+# system packages
 import numpy as np
 import os
 import argparse
-from input_parser import parse_cli
+import sys
+import json
+from scipy.stats import norm
+import mpi4py #loading mpi4py should automatically switch state to parallel 
 
+#  problem physics modules
+#--------------------------------------------------
 from priors import transform_uniform, check_cEFT
 from structure import structurePolytropeWithCEFT as structure
 import units as cgs
 from pQCD import nQCD, pSB_csg
 
-
+# measurements
+#--------------------------------------------------
 from measurements import gaussian_MR
 from measurements import NSK17 #1702 measurement
 
@@ -26,7 +34,6 @@ from measurements import SHS18_M13_H   #M13 measurement
 from measurements import NKS15_1724    #1724 measurement
 from measurements import NKS15_1810    #1810 measurement
 
-
 from measurements import measurement_M
 from measurements import J0348
 from measurements import J0740
@@ -34,14 +41,10 @@ from measurements import J0740
 from measurements import measurement_TD
 from measurements import GW170817
 
-from scipy.stats import norm
 
-# emcee stuff
-import sys
-from pymultinest.solve import solve as pymlsolve
-from pymultinest.run import run as pymlrun
-import json
-
+#--------------------------------------------------
+# cli arguments
+from input_parser import parse_cli # cli arguments
 args = parse_cli()
 
 np.random.seed(args.seed) #for reproducibility
@@ -49,11 +52,18 @@ np.random.seed(args.seed) #for reproducibility
 if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
 
+#print('numpy path:')
+#print(np.version)
+#print(np.path)
+
+
 ##################################################
 # global flags for different run modes
 eos_Ntrope = args.eos_nseg #polytrope order
 debug = args.debug  #flag for additional debug printing
 phaseTransition = args.ptrans #position of the 1st order transition
+
+
 #after first two monotropes, 0: no phase transition
 #in other words, the first two monotrope do not behave
 #like a latent heat (ie. gamma != 0)
@@ -62,6 +72,7 @@ flag_GW    = True # using GW170817 event as a constrain (NB usable if flag_TOV =
 flag_Mobs  = True # using mass measurement data (NB usable if flag_TOV = True)
 flag_MRobs = True # using mass-radius observations (NB usable if flag_TOV = True)
 flag_MN    = True # run MultiNest
+
 
 
 ##################################################
@@ -220,8 +231,6 @@ def myprior(cube):
     cube[ci+10] = transform_uniform(cube[ci+10], 0.8, 2.5)  #M_1810 [Msun]
 
     return cube
-
-
 
 
 
@@ -532,9 +541,17 @@ def myloglike(cube):
 
     return logl
 
+
 ##################################################
 # run MultiNest
 if flag_MN:
+
+
+    # solver
+    #from pymultinest.run import run as pymlrun
+    from pymultinest2.solve import solve as pymlsolve
+
+
     result = pymlsolve( 
                 LogLikelihood        = myloglike, 
                 Prior                = myprior, 
@@ -550,15 +567,17 @@ if flag_MN:
                 log_zero             = -linf
                 )
 
-    print()
-    print('evidence: %(logZ).1f +- %(logZerr).1f' % result)
-    print()
-    print('parameter values:')
     
-    for name, col in zip(parameters, result['samples'].transpose()):
-    	print('%15s : %.3f +- %.3f' % (name, col.mean(), col.std()))
+    if mpi4py.MPI.COMM_WORLD.Get_rank() == 0: #only master rank prints
+        print()
+        print('evidence: %(logZ).1f +- %(logZerr).1f' % result)
+        print()
+        print('parameter values:')
+        
+        for name, col in zip(parameters, result['samples'].transpose()):
+        	print('%15s : %.3f +- %.3f' % (name, col.mean(), col.std()))
+        
+        with open('%sparams.json' % prefix, 'w') as f:
+            json.dump(parameters, f, indent=2)
+        
     
-    with open('%sparams.json' % prefix, 'w') as f:
-        json.dump(parameters, f, indent=2)
-    
-

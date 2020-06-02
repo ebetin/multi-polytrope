@@ -1,7 +1,8 @@
-from scipy.optimize import fsolve
-from math import log
-from math import pi
 import numpy
+from scipy.optimize import fsolve
+
+from numpy import log, pi
+#from math import log, pi
 
 import units as cgs
 
