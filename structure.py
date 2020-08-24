@@ -173,12 +173,7 @@ class structurePolytrope:
         if mass >= self.maxmass:
             return 0.0
 
-        try:
-            intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
-            return intp(mass)
-        except:
-            # linear interpolant (faster, backup)
-            return np.interp(mass, self.mass, self.rad)
+        return np.interp(mass, self.mass, self.rad)
 
 class structurePolytropeWithCEFT:
 
@@ -313,9 +308,8 @@ class structurePolytropeWithCEFT:
             self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
-        
-        self.maxmass = np.max( self.mass )
 
+        self.maxmass = np.max( self.mass )
 
     # interpolate radius given a mass
     # note: structure must be solved beforehand
@@ -324,12 +318,7 @@ class structurePolytropeWithCEFT:
         if mass >= self.maxmass:
             return 0.0
 
-        try:
-            intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
-            return intp(mass)
-        except:
-            # linear interpolant (faster, backup)
-            return np.interp(mass, self.mass, self.rad)
+        return np.interp(mass, self.mass, self.rad)
 
 
 class structureC2AGKNV:
@@ -474,12 +463,7 @@ class structureC2AGKNV:
         if mass >= self.maxmass:
             return 0.0
 
-        try:
-            intp = interpolate.interp1d(self.mass, self.rad, kind='cubic')
-            return intp(mass)
-        except:
-            # linear interpolant (faster, backup)
-            return np.interp(mass, self.mass, self.rad)
+        return np.interp(mass, self.mass, self.rad)
         
 
 
