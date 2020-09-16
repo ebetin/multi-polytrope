@@ -17,9 +17,10 @@ def causalityPolytropes(gammas, transitions, lowDensity):
     p = [lowDensity[0]] # Pressure
     e = [lowDensity[1] * cgs.c**2] # Energy density
     speedLow = gammas[0] * p[0] / (p[0] + e[0]) # Speed of sound
+    speedmax = speedLow
 
     if speedLow > 1.0:
-        return False
+        return False, 0
 
     # Densities 
     rhoo = transitions
@@ -40,15 +41,21 @@ def causalityPolytropes(gammas, transitions, lowDensity):
         # Speed of sound before a transition
         coeff = p[-1] / (p[-1] + e[-1])
         speedHigh = gammas[k-1] * coeff
+
+        if speedHigh > speedmax:
+            speedmax = speedHigh
         
         # Speed of sound after a transition
         if k < len(rhoo) - 1:
             speedLow = gammas[k] * coeff
 
         if speedLow > 1.0 or speedHigh > 1.0:
-            return False
+            return False, 0
 
-    return True
+        if speedLow > speedmax:
+            speedmax = speedLow
+
+    return True, speedmax
 
 
 # Function which tests is a polytropic EoS hydrodynamically stable
@@ -69,11 +76,15 @@ def hydrodynamicalStabilityPolytropes(gammas):
 #   mu: baryon chemical potential (GeV)
 def causalityPerturbativeQCD(EOS, mu):
     press = pQCD(mu, EOS.X)
+    speed2 = EOS.speed2(press)
 
-    if EOS.speed2(press) < 0.0:
-        return False
+    if speed2 < 0.0:
+        return False, 0
 
-    return True
+    if speed2 > 1.0 / 3.0:
+        return True, speed2
+    else:
+        return True, 1.0 / 3.0
 
 
 # Tests that latent heats are positive quantities 
