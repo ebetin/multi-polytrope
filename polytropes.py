@@ -1,6 +1,6 @@
 import units as cgs
 from scipy.optimize import fsolve
-from numpy import sqrt
+from numpy import sqrt, linspace, empty, interp
 from math import pi
 from math import isnan
 from math import log
@@ -204,13 +204,26 @@ class polytrope:
         trope = self._find_interval_given_pressure(press)
         return trope.edens_inv(press)
 
+    def edens(self, rho):
+        trope = self._find_interval_given_density(rho)
+        return trope.edens(rho)
+
     def rho(self, press):
         trope = self._find_interval_given_pressure(press)
         return trope.rho(press)
 
+    def speed2_rho(self, rho):
+        trope = self._find_interval_given_density(rho)
+        press = trope.pressure(rho)
+
+        return trope.G * press / (press + trope.edens(rho) * cgs.c**2) 
+
     # Square of the speed of sound (unitless)
-    def speed2(self, press):
-        trope = self._find_interval_given_pressure(press)
+    def speed2(self, press, tropes = False):
+        if tropes:
+            trope = tropes
+        else:
+            trope = self._find_interval_given_pressure(press)
         return trope.G * press / (press + trope.edens_inv(press) * cgs.c**2) 
 
     def gammaFunction(self, rho, flag = 1):
@@ -226,6 +239,13 @@ class polytrope:
     def pressure_edens(self, edens):
         trope = self._find_interval_given_energy_density(edens)
         return trope.pressure_edens(edens)
+
+    def tov(self, press):
+        trope = self._find_interval_given_pressure(press)
+        eden = trope.edens_inv(press)
+        speed2inv = (press + eden * cgs.c**2) / (trope.G * press)
+
+        return eden, speed2inv
 
 
 
@@ -532,10 +552,8 @@ class doubleMonotrope:
         return rho[0]
 
     # Square of the speed of sound (unitless)
-    def speed2(self, press):
+    def speed2_rho(self, rho):
         try:
-            rho = self.rho(press)
-
             DenergyDensity1 = self.trope1.Dedens(rho) # a-alpha part ("low" density)
             DenergyDensity2 = self.trope2.Dedens(rho) # b-beta part ("high" density)
             Dpressure1 = self.trope1.Dpressure(rho)
@@ -613,6 +631,11 @@ class doubleMonotrope:
             print("Incorrect value of the symmetry energy model!")
             print()
 
+    def speed2(self, press):
+        rho = self.rho(press)
+        return speed2_rho(rho)
+
+
     def gammaFunction(self, rho, flag = 1):
         press = self.pressure(rho)
         edens = self.edens_inv(press) * cgs.c**2.0
@@ -628,6 +651,14 @@ class doubleMonotrope:
 
         return self.pressure(rho)
 
+    def tov(self, press):
+        rho = self.rho(press)
+        eden = self.edens(rho)
+        speed2inv = 1.0 / self.speed2_rho(rho)
+
+        return eden, speed2inv
+
+
 # Chiral effective field theory results by Hebeler et al. 2013
 class cEFT:
     
@@ -641,6 +672,37 @@ class cEFT:
 
         self.eta = -2.0 * (cgs.Enuc / self.T0 + 0.2) / (1.0 - self.gamma)
         self.alpha = 0.8 + self.gamma * self.eta
+
+        N = 1001 # TODO is this ok?
+        self.listP = empty(N)
+        self.listE = empty(N)
+        self.listC2inv = empty(N)
+        self.listR = linspace(0.1, 1.1, N)
+        for i, r in enumerate(self.listR):
+            rhoB = r * cgs.rhoS
+            rhoM = rhoB / cgs.mB
+            xp = self.protonFraction(rhoB)
+
+            term1 = self.termX(xp) * (2.0 * r)**(self.p - 1.0)
+            term2 = self.termAlpha(xp) * r
+            term3 = self.termEta(xp) * r**self.gamma
+            term4 = 0.25 * cgs.hbar * cgs.c * xp * (3.0 * pi**2.0 * xp * rhoM)**(0.2 * self.p)
+
+            pN = (0.4 * term1 - term2 + self.gamma * term3) * r
+            pe = rhoM * term4
+            press = pN * self.T0 * cgs.nS + pe
+
+            eN = 0.6 * term1 - term2 + term3
+            ee = 3.0 * term4
+            eden = ( (eN * self.T0 + ee) / (cgs.mB * cgs.c**2) + 1.0) * rhoB
+
+            dpdn = (self.p - 1.0) * term1 - 2.0 * term2 + self.gamma * (self.gamma + 1.0) * term3
+            dnde = rhoM / ( press + eden * cgs.c**2.0 )
+            speed2inv = 1.0 / (dpdn * self.T0 * dnde)
+
+            self.listP[i] = press
+            self.listE[i] = eden
+            self.listC2inv[i] = speed2inv
 
 
     def termAlpha(self, x):
@@ -659,13 +721,14 @@ class cEFT:
         dedx = dedx - (2.0 * self.alpha - 4.0 * self.alphaL) * (1.0 - 2.0 * x) * rhoBar
         dedx = dedx + (2.0 * self.eta - 4.0 * self.etaL) * (1.0 - 2.0 * x) * rhoBar**self.gamma
 
-        chemPotEl = cgs.hbar * cgs.c * (3.0 * pi**2.0 * x * rho / cgs.mB)**(1.0 / 3.0)
+        chemPotEl = cgs.hbar * cgs.c * (3.0 * pi**2.0 * x * rho / cgs.mB)**(0.2 * self.p)
 
         return dedx * self.T0 + chemPotEl #- (cgs.mn - cgs.mp) * cgs.c**2.0
 
     def protonFraction(self, rho):
-        xp = fsolve(self.protonFractionCondition, 0.01, args = rho, xtol=1.0e-9)
-
+        rhoB = rho / cgs.rhoS
+        xp0 = 2.01050676e-01 - 1.41696317e-01 * self.alphaL + 1.62693030e-01 * self.etaL + (-9.57138848e-02 + 2.63822962e-02 * self.alphaL - 4.73715937e-02 * self.etaL) * rhoB + (1.21096502e-01 - 1.12961962e-01 * self.alphaL + 1.72535009e-01 * self.etaL) * log(rhoB) + (7.13141795e-03 - 2.80218192e-02 * self.alphaL + 7.43503102e-02 * self.etaL) * log(rhoB)**2 + (-9.75681062e-03 - 1.75147317e-04 * self.alphaL + 1.51120937e-02 * self.etaL) * log(rhoB)**3 + (-1.43034552e-03 - 6.28087643e-04 * self.alphaL + 1.91629380e-03 * self.etaL + 7.06365607e-04 * self.alphaL**2 - 8.43608522e-04 * self.alphaL * self.etaL + 2.57671874e-04 * self.etaL**2) * log(rhoB)**4
+        xp = fsolve(self.protonFractionCondition, xp0, args = rho)
         return xp[0]
 
 
@@ -679,7 +742,7 @@ class cEFT:
         pN = pN + self.termEta(xp) * self.gamma * rhoBar**(self.gamma + 1.0)
 
         rhom = rho / cgs.mB
-        pe = 0.25 * cgs.hbar * cgs.c * xp * rhom * (3.0 * pi**2.0 * xp * rhom)**(1.0 / 3.0)
+        pe = 0.25 * cgs.hbar * cgs.c * xp * rhom * (3.0 * pi**2.0 * xp * rhom)**(0.2 * self.p)
 
         return pN * self.T0 * cgs.nS + pe - p
 
@@ -692,25 +755,31 @@ class cEFT:
         return press
 
     # Energy density (g/cm^3) as a function of the mass density rho (g/cm^3)
-    def edens(self, rho, e=0):
+    def edens(self, rho, e=0, pf = False):
         rhoBar = rho / cgs.rhoS
-        xp = self.protonFraction(rho)
+        if pf:
+            xp = pf
+        else:
+            xp = self.protonFraction(rho)
 
         eN = 0.6 * self.termX(xp) * (2.0 * rhoBar)**(self.p - 1.0)
         eN = eN - self.termAlpha(xp) * rhoBar
         eN = eN + self.termEta(xp) * rhoBar**self.gamma
 
-        ee = 0.75 * cgs.hbar * cgs.c * xp * (3.0 * pi**2.0 * xp * rho / cgs.mB)**(1.0 / 3.0)
+        ee = 0.75 * cgs.hbar * cgs.c * xp * (3.0 * pi**2.0 * xp * rho / cgs.mB)**(0.2 * self.p)
 
         return ( (eN * self.T0 + ee) / (cgs.mB * cgs.c**2.0) + 1.0) * rho - e
 
-    def edens_inv(self, press):
-        rhoB = self.rho(press)
-
-        return self.edens(rhoB)
+    def edens_inv(self, press, flagInterp = True):
+        if flagInterp:
+            return interp(press, self.listP, self.listE)
+        else:
+            rhoB = self.rho(press)
+            return self.edens(rhoB)
 
     def rho(self, press):
-        rho = fsolve(self.pressures, cgs.rhoS, args = press)
+        rho0 = 142.681 + 1.7098e-35 * press - 3.9811 * log(press) + 0.0277805 * (log(press))**2
+        rho = fsolve(self.pressures, rho0 * cgs.rhoS, args = press)
 
         return rho[0]
 
@@ -718,7 +787,7 @@ class cEFT:
     def speed2_rho(self, rhoB):
         rhoBar = rhoB / cgs.rhoS
         xp = self.protonFraction(rhoB)
-
+        print(xp)
         dpdn = (self.p - 1.0) * self.termX(xp) * (2.0 * rhoBar)**(self.p - 1.0)
         dpdn = dpdn - 2.0 * self.termAlpha(xp) * rhoBar
         dpdn = dpdn + self.termEta(xp) * self.gamma * (self.gamma + 1.0) * rhoBar**self.gamma
@@ -741,21 +810,33 @@ class cEFT:
 
         return dpdn * self.T0 * dnde
 
-    def gammaFunction(self, rho, flag = 1):
-        press = self.pressure(rho)
-        edens = self.edens_inv(press) * cgs.c**2.0
-        speed2 = self.speed2(press)
+    def gammaFunction(self, rho, flag = 1, flagInterp = True):
+        if flagInterp:
+            press = interp(rho, self.listR, self.listP)
+            edens = interp(rho, self.listR, self.listE)
+            speed2 = 1.0 / interp(rho, self.listR, self.listC2inv)
+        else:
+            press = self.pressure(rho)
+            edens = self.edens(rho) * cgs.c**2.0
+            speed2 = self.speed2_rho(rho)
 
         if flag == 1: # d(ln p)/d(ln n)
             return ( edens + press ) * speed2 / press
         else: # d(ln p)/d(ln eps)
             return edens * speed2 / press
 
-    def pressure_edens(self, edens):
-        rhoB = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+    def pressure_edens(self, edens, flagInterp = True):
+        if flagInterp:
+            return interp(edens, self.listE, self.listP)
+        else:
+            rhoB = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+            return self.pressure(rhoB)
 
-        return self.pressure(rhoB)
+    def tov(self, press):
+        eden      = interp(press, self.listP, self.listE)
+        speed2inv = interp(press, self.listP, self.listC2inv)
 
+        return eden, speed2inv
 
 
 
@@ -852,17 +933,30 @@ class combiningEos:
             press.append( pr )
         return press
 
-    def edens_inv(self, press):
-        trope = self._find_interval_given_pressure(press)
-
+    def edens_inv(self, press, tropes = False):
+        if tropes:
+            trope = tropes
+        else:
+            trope = self._find_interval_given_pressure(press)
         return trope.edens_inv(press)
+
+    def edens(self, rho):
+        trope = self._find_interval_given_density(rho)
+        return trope.edens(rho)
 
     def rho(self, press):
         trope = self._find_interval_given_pressure(press)
         return trope.rho(press)
 
-    def speed2(self, press):
-        trope = self._find_interval_given_pressure(press)
+    def speed2_rho(self, rho):
+        trope = self._find_interval_given_density(rho)
+        return trope.speed2_rho(rho)
+
+    def speed2(self, press, tropes = False):
+        if tropes:
+            trope = tropes
+        else:
+            trope = self._find_interval_given_pressure(press)
         return trope.speed2(press)
 
     def gammaFunction(self, rho, flag = 1):
@@ -872,3 +966,7 @@ class combiningEos:
     def pressure_edens(self, edens):
         trope = self._find_interval_given_energy_density(edens)
         return trope.pressure_edens(edens)
+
+    def tov(self, press):
+        trope = self._find_interval_given_pressure(press)
+        return trope.tov(press)
