@@ -83,10 +83,11 @@ class structurePolytrope:
 
         if testHydro:
             # Check that the polytropi EoS is also causal
-            testCausality = causalityPolytropes(gammasAll, transitionsSaturation, gandolfiMatchingHigh)
+            testCausality, self.speed2max = causalityPolytropes(gammasAll, transitionsSaturation, gandolfiMatchingHigh)
 
         else:
             testCausality = True
+            self.speed2max = 0
 
         # Do not proceed if tested failed
         if gammasAll == None or not testHydro or not testCausality:
@@ -129,7 +130,10 @@ class structurePolytrope:
 
 
             # Is the pQCD EoS causal?
-            test3 = causalityPerturbativeQCD(qcdEoS, muQCD)
+            test3, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+
+            if self.speed2max < speed2pQCD and not testHydro:
+                self.speed2max = speed2pQCD
 
             # Is the latent heat between EoS pieces positive?
             test4 = positiveLatentHeat(combinedEoS, transitionPieces)
@@ -163,7 +167,10 @@ class structurePolytrope:
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
         
-        self.maxmass = np.max( self.mass )
+        indexM = np.argmax( self.mass )
+        self.maxmass = self.mass[indexM]
+        self.maxmassrho = self.rho[indexM]
+        self.maxmassrad = self.rad[indexM]
 
 
     # interpolate radius given a mass
@@ -229,10 +236,11 @@ class structurePolytropeWithCEFT:
 
         if testHydro:
             # Check that the polytropi EoS is also causal
-            testCausality = causalityPolytropes(gammasAll, transitionsSaturation, ceftMatchingHigh)
+            testCausality, self.speed2max = causalityPolytropes(gammasAll, transitionsSaturation, ceftMatchingHigh)
 
         else:
             testCausality = True
+            self.speed2max = 0
 
         # Do not proceed if tested failed
         if gammasAll == None or not testHydro or not testCausality:
@@ -275,7 +283,10 @@ class structurePolytropeWithCEFT:
 
 
             # Is the pQCD EoS causal?
-            test3 = causalityPerturbativeQCD(qcdEoS, muQCD)
+            test3, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+
+            if self.speed2max < speed2pQCD and not testHydro:
+                self.speed2max = speed2pQCD
 
             # Is the latent heat between EoS pieces positive?
             test4 = positiveLatentHeat(combinedEoS, transitionPieces)
@@ -309,7 +320,10 @@ class structurePolytropeWithCEFT:
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
 
-        self.maxmass = np.max( self.mass )
+        indexM = np.argmax( self.mass )
+        self.maxmass = self.mass[indexM]
+        self.maxmassrho = self.rho[indexM]
+        self.maxmassrad = self.rad[indexM]
 
     # interpolate radius given a mass
     # note: structure must be solved beforehand
@@ -453,7 +467,10 @@ class structureC2AGKNV:
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
         
-        self.maxmass = np.max( self.mass )
+        indexM = np.argmax( self.mass )
+        self.maxmass = self.mass[indexM]
+        self.maxmassrho = self.rho[indexM]
+        self.maxmassrad = self.rad[indexM]
 
 
     # interpolate radius given a mass
