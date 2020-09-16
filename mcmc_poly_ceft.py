@@ -122,7 +122,7 @@ mpi_print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/PC{}_{}-s{}".format(eos_Ntrope, phaseTransition, args.seed)
+prefix = "chains/PC{}_{}-s{}T1".format(eos_Ntrope, phaseTransition, args.seed)
 
 
 ##################################################
@@ -173,6 +173,28 @@ for ir, nsat  in enumerate(param_indices['nsat_press_grid']):
     param_indices['nsat_press_'+str(ir)] = ci
     ci += 1
 
+#add mmax parameters
+parameters2.append('mmax')
+param_indices['mmax'] = ci
+parameters2.append('mmax_rad')
+param_indices['mmax_rad'] = ci+1
+parameters2.append('mmax_rho')
+param_indices['mmax_rho'] = ci+2
+parameters2.append('mmax_press')
+param_indices['mmax_press'] = ci+3
+parameters2.append('mmax_edens')
+param_indices['mmax_edens'] = ci+4
+parameters2.append('mmax_ppFD')
+param_indices['mmax_ppFD'] = ci+5
+parameters2.append('mmax_c2')
+param_indices['mmax_c2'] = ci+6
+parameters2.append('mmax_gamma')
+param_indices['mmax_gamma'] = ci+7
+
+# max squared speed of sound
+parameters2.append('c2max')
+param_indices['c2max'] = ci+8
+
 mpi_print("Parameters to be only stored (blobs):")
 mpi_print(len(parameters2))
 n_blobs = len(parameters2)
@@ -183,8 +205,6 @@ n_blobs = len(parameters2)
 # Prior function; changes from [0,1] to whatever physical lims
 #def myprior(cube, ndim, nparams):
 def myprior(cube):
-
-    #print(cube)
     lps = np.empty_like(cube)
 
     # Parameters of the cEFT EoS
@@ -245,7 +265,6 @@ def myprior(cube):
 
 # probability function
 linf = np.inf
-#linf = 1e100 # numerical infinity
 
 
 icalls = 0
@@ -487,7 +506,7 @@ def myloglike(cube):
         logl += measurement_TD(struc.TD, struc.TD2, GW170817)
 
     ic = 0
-    
+
     #build M-R curve
     if debug:
         ic = param_indices['rad_0'] #starting index
@@ -498,7 +517,6 @@ def myloglike(cube):
         blobs[ic] = struc.radius_at(mass) 
 
         if flag_TOV:
-            print("/", mass, struc.radius_at(mass))
             blobs[ic] = struc.radius_at(mass) 
         else:
             blobs[ic] = 0.0
@@ -558,6 +576,25 @@ def myloglike(cube):
 
         if debug:
             mpi_print("ir = {}, nsat = {}, press = {}, ic = {}".format(ir, nsat, cube[ic], ic))
+
+    # Variables at M = M_max
+    ic = param_indices['mmax'] #this is the index pointing to correct position in cube
+    rhoM = struc.maxmassrho
+    press = struc.eos.pressure( rhoM )
+    edens = struc.eos.edens ( rhoM )
+    muB = ( press + edens * cgs.c**2 ) * cgs.mB * cgs.erg_per_kev * 1.0e-6 / rhoM
+    blobs[ic] = mmax # max mass
+    blobs[ic+1] = struc.maxmassrad # rad(Mmax)
+    blobs[ic+2] = rhoM / cgs.rhoS # rho(Mmax) [rhoS]
+    blobs[ic+3] = press * 1000.0 / cgs.GeVfm_per_dynecm # pressure [MeV/fm^3]
+    blobs[ic+4] = edens * cgs.c**2 * 1000.0 / cgs.GeVfm_per_dynecm  # edens [MeV/fm^3]
+    blobs[ic+5] = press / pSB_csg( muB ) # normalized press
+    blobs[ic+6] = struc.eos.speed2_rho ( rhoM ) # speed of sound
+    blobs[ic+7] = struc.eos.gammaFunction ( rhoM ) # gamma
+
+    # Max speed of sound square
+    ic = param_indices['c2max'] #this is the index pointing to correct position in cube
+    blobs[ic] = struc.speed2max
 
     return logl, blobs
 
