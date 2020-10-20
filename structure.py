@@ -72,6 +72,7 @@ class structurePolytrope:
             polyConditions = matchPolytopesWithLimits(gandolfiMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
 
             gammasAll = polyConditions.GammaValues()
+            self.gammasSolved = polyConditions.gammasSolved
 
         
             # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
@@ -152,25 +153,32 @@ class structurePolytrope:
 
         if m1 < 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho = t.mass_radius()
-            self.TD2 = 1.0e10
             self.TD = 1.0e10
+            self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
+            self.TDlist = np.zeros(len(self.mass))
         elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
             self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
         
-        indexM = np.argmax( self.mass )
-        self.maxmass = self.mass[indexM]
-        self.maxmassrho = self.rho[indexM]
-        self.maxmassrad = self.rad[indexM]
+        if len(self.mass) == 0:
+            self.maxmass = 0.0
+            self.maxmassrho = 0.0
+            self.maxmassrad = 0.0
+        else:
+            self.indexM = np.argmax( self.mass )
+            self.maxmass = self.mass[self.indexM]
+            self.maxmassrho = self.rho[self.indexM]
+            self.maxmassrad = self.rad[self.indexM]
+
 
 
     # interpolate radius given a mass
@@ -181,6 +189,16 @@ class structurePolytrope:
             return 0.0
 
         return np.interp(mass, self.mass, self.rad)
+
+    # interpolate TD given a mass
+    # note: structure must be solved beforehand
+    def TD_at(self, mass):
+
+        if mass >= self.maxmass:
+            return 0.0
+
+        return np.interp(mass, self.mass, self.TDlist)
+
 
 class structurePolytropeWithCEFT:
 
@@ -225,6 +243,7 @@ class structurePolytropeWithCEFT:
             polyConditions = matchPolytopesWithLimits(ceftMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
 
             gammasAll = polyConditions.GammaValues()
+            self.gammasSolved = polyConditions.gammasSolved
 
         
             # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
@@ -305,25 +324,32 @@ class structurePolytropeWithCEFT:
 
         if m1 < 0.0 and m2 < 0.0:
             self.mass, self.rad, self.rho = t.mass_radius()
-            self.TD2 = 1.0e10
             self.TD = 1.0e10
+            self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
+            self.TDlist = np.zeros(len(self.mass))
         elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
             self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
+        
+        if len(self.mass) == 0:
+            self.maxmass = 0.0
+            self.maxmassrho = 0.0
+            self.maxmassrad = 0.0
+        else:
+            self.indexM = np.argmax( self.mass )
+            self.maxmass = self.mass[self.indexM]
+            self.maxmassrho = self.rho[self.indexM]
+            self.maxmassrad = self.rad[self.indexM]
 
-        indexM = np.argmax( self.mass )
-        self.maxmass = self.mass[indexM]
-        self.maxmassrho = self.rho[indexM]
-        self.maxmassrad = self.rad[indexM]
 
     # interpolate radius given a mass
     # note: structure must be solved beforehand
@@ -333,6 +359,15 @@ class structurePolytropeWithCEFT:
             return 0.0
 
         return np.interp(mass, self.mass, self.rad)
+
+    # interpolate TD given a mass
+    # note: structure must be solved beforehand
+    def TD_at(self, mass):
+
+        if mass >= self.maxmass:
+            return 0.0
+
+        return np.interp(mass, self.mass, self.TDlist)
 
 
 class structureC2AGKNV:
@@ -378,7 +413,7 @@ class structureC2AGKNV:
             gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh, gandolfiDensityHigh, gandolfiSpeed2High]
 
             # Determining matching chemical potentials
-            mu0 = cgs.mB * ( gandolfiEnergyDensityHigh * cgs.c**2 + gandolfiPressureHigh )      
+            mu0 = cgs.mB * ( gandolfiEnergyDensityHigh * cgs.c**2 + gandolfiPressureHigh )
             mu0 = mu0 / ( gandolfiDensityHigh * cgs.eV ) * 1.0e-9
             muKnown = []
             for mu in muDeltaKnown:
@@ -412,6 +447,9 @@ class structureC2AGKNV:
         
                 # Checking that the gotten coefficients are suitable
                 testC2Ok = c2Conditions.coeffValuesOkTest( muAll, c2All )
+
+                self.muSolved = c2Conditions.muSolved
+                self.c2Solved = c2Conditions.c2Solved
             else:
                 muAll = None
                 c2All = None
@@ -433,7 +471,11 @@ class structureC2AGKNV:
             self.eos = combiningEos(combinedEoS, transitionPieces)
 
             # Is the pQCD EoS causal?
-            test2 = causalityPerturbativeQCD(qcdEoS, muQCD)
+            test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+
+            self.speed2max = max(c2Known)
+            if self.speed2max < speed2pQCD:
+                self.speed2max = speed2pQCD
 
             # Is the latent heat between EoS pieces positive?
             test3 = positiveLatentHeat(combinedEoS, transitionPieces)
@@ -455,22 +497,28 @@ class structureC2AGKNV:
             self.TD = 1.0e10
             self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
+            self.TDlist = np.zeros(len(self.mass))
         elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
             self.TD2 = 1.0e10
             self.TDtilde = 1.0e10
         elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
             self.TD = 1.0e10
             self.TDtilde = 1.0e10
         
-        indexM = np.argmax( self.mass )
-        self.maxmass = self.mass[indexM]
-        self.maxmassrho = self.rho[indexM]
-        self.maxmassrad = self.rad[indexM]
+        if len(self.mass) == 0:
+            self.maxmass = 0.0
+            self.maxmassrho = 0.0
+            self.maxmassrad = 0.0
+        else:
+            self.indexM = np.argmax( self.mass )
+            self.maxmass = self.mass[self.indexM]
+            self.maxmassrho = self.rho[self.indexM]
+            self.maxmassrad = self.rad[self.indexM]
 
 
     # interpolate radius given a mass
@@ -481,7 +529,169 @@ class structureC2AGKNV:
             return 0.0
 
         return np.interp(mass, self.mass, self.rad)
-        
+
+    # interpolate TD given a mass
+    # note: structure must be solved beforehand
+    def TD_at(self, mass):
+
+        if mass >= self.maxmass:
+            return 0.0
+
+        return np.interp(mass, self.mass, self.TDlist)
+
+
+
+class structureC2AGKNVwithCEFT:
+
+    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD):
+        # Equation of state of the crust
+        crustEoS = SLyCrust
+
+        # cEFT EoS
+        gamma = lowDensity[0]
+        alphaL = lowDensity[1]
+        etaL = lowDensity[2]
+
+        # Form the bimonotropic EoS
+        ceftEoS = cEFT(lowDensity)
+
+        # Causality test
+        testCausalityCEFT = True#XXX Squared speed of sound is small
+
+        if testCausalityCEFT:
+            # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
+            ceftPressureHigh = ceftEoS.pressure(transitions[1])
+            ceftEnergyDensityHigh = ceftEoS.edens(transitions[1])
+            ceftDensityHigh = transitions[1]
+            ceftC2High = ceftEoS.speed2_rho(transitions[1])
+            ceftMatchingHigh = [ceftPressureHigh, ceftEnergyDensityHigh, ceftDensityHigh, ceftC2High]
+
+            # Determining matching chemical potentials
+            mu0 = cgs.mB * ( ceftEnergyDensityHigh * cgs.c**2 + ceftPressureHigh )
+            mu0 = mu0 / ( ceftDensityHigh * cgs.eV ) * 1.0e-9
+            muKnown = []
+            for mu in muDeltaKnown:
+                if len( muKnown ) == 0:
+                    muKnown.append( mu0 + mu )
+                else:
+                    muKnown.append( muKnown[-1] + mu )
+            # Perturbative QCD EoS
+            muQCD = QCD[0]
+            X = QCD[1]
+            qcdEoS = qcd(X)
+
+            # Pressure, energy density, and speed of sound squared at the beginning of the pQCD EoS
+            qcdPressureLow = pQCD(muQCD, X)
+            qcdDensityLow = nQCD(muQCD, X) * cgs.mB
+            qcdSpeed2Low = qcdEoS.speed2(qcdPressureLow)
+            qcdMathing = [qcdPressureLow, qcdDensityLow, muQCD, qcdSpeed2Low]
+
+            # Transition (matching) densities of the c2 EoS
+            transitionsC2 = transitions[1:] # mass density
+            transitionsSaturation = [x / cgs.rhoS for x in transitionsC2] # number density
+            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
+
+            # Check that the last known chemical potential is small enough
+            if muQCD > muKnown[-1]:
+                # Determine unknown coefficients (chem.pot. and c2)
+                c2Conditions = matchC2AGKNV( muKnown, c2Known, ceftMatchingHigh, qcdMathing )
+
+                muAll, c2All = c2Conditions.coeffValues()
+
+                # Checking that the gotten coefficients are suitable
+                testC2Ok = c2Conditions.coeffValuesOkTest( muAll, c2All )
+
+                self.muSolved = c2Conditions.muSolved
+                self.c2Solved = c2Conditions.c2Solved
+            else:
+                muAll = None
+                c2All = None
+                testC2Ok = False
+
+        # Do not proceed if tested failed
+        if muAll == None or c2All == None or not testC2Ok:
+            self.eos = None
+            self.realistic = False
+
+        else:
+            # Create c2 EoS
+            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = True )
+
+            # Combining EoSs
+            combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
+            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+
+            self.eos = combiningEos(combinedEoS, transitionPieces)
+
+            # Is the pQCD EoS causal?
+            test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+
+            self.speed2max = max(c2Known)
+            if self.speed2max < speed2pQCD:
+                self.speed2max = speed2pQCD
+
+            # Is the latent heat between EoS pieces positive?
+            test3 = positiveLatentHeat(combinedEoS, transitionPieces)
+
+            if not test2 or not test3:
+                self.realistic = False
+            else:
+                self.realistic = True
+
+
+
+    #solve TOV equations
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
+        t = tov(self.eos)
+
+        assert isinstance(l, int)
+
+        if m1 < 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho = t.mass_radius()
+            self.TD = 1.0e10
+            self.TD2 = 1.0e10
+            self.TDtilde = 1.0e10
+            self.TDlist = np.zeros(len(self.mass))
+        elif m1 > 0.0 and m2 < 0.0:
+            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.TD2 = 1.0e10
+            self.TDtilde = 1.0e10
+        elif m1 > 0.0 and m2 > 0.0:
+            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+            self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
+        else:
+            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.TD = 1.0e10
+            self.TDtilde = 1.0e10
+
+        if len(self.mass) == 0:
+            self.maxmass = 0.0
+            self.maxmassrho = 0.0
+            self.maxmassrad = 0.0
+        else:
+            self.indexM = np.argmax( self.mass )
+            self.maxmass = self.mass[self.indexM]
+            self.maxmassrho = self.rho[self.indexM]
+            self.maxmassrad = self.rad[self.indexM]
+
+
+    # interpolate radius given a mass
+    # note: structure must be solved beforehand
+    def radius_at(self, mass):
+
+        if mass > self.maxmass:
+            return 0.0
+
+        return np.interp(mass, self.mass, self.rad)
+
+    # interpolate radius given a mass
+    # note: structure must be solved beforehand
+    def TD_at(self, mass):
+
+        if mass >= self.maxmass:
+            return 0.0
+
+        return np.interp(mass, self.mass, self.TDlist)
 
 
 # test TOV solver with various setups
