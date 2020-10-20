@@ -10,6 +10,9 @@ from scipy.interpolate import interp1d
 
 from math import pi, sin
 
+import warnings
+warnings.filterwarnings("error")
+
 # This file contains speed of sound square (c^2) interpolation related formulas etc.
 # The used interpolation method is from arXiv:1903.09121.
 
@@ -50,16 +53,21 @@ class c2AGKNV:
         self.approx = approx
 
         if approx:
-            N = 500 # If one wants to be very save, use N = 10,000
-            listRho = np.linspace(self.rho0, 15.0 * cgs.rhoS, N)
-            listP = np.zeros(N)
-            listP[0] = self.p0
+            N1 = 500 # If one wants to be (very) save, use N = 2,000 (10,000) #TODO is this ok?
+            listRho1 = np.linspace(self.rho0, 45.0 * cgs.rhoS, N1)
+            listP1 = np.empty(N1)
+            listE1 = np.empty(N1)
+            listC2inv1 = np.empty(N1)
+            #listP1[0] = self.p0
+            for i, r in enumerate(listRho1):
+                listP1[i] = self.pressure(r)
+                listE1[i] = self.edens(r)
+                listC2inv1[i] = 1.0 / self.speed2_rho(r)
 
-            for i in range(1, N):
-                listP[i] = self.pressure(listRho[i])
-
-            self.listRhoLong = listRho
-            self.listPLong = listP
+            self.listRhoLong = listRho1
+            self.listPLong = listP1
+            self.listELong = listE1
+            self.listC2invLong = listC2inv1
 
 
     # Power used in the next function
@@ -107,8 +115,10 @@ class c2AGKNV:
             # If the power is NaN, we just return the bar
             if np.isnan(ai):
                 return 1.0
-
-            bar = bar**ai
+            try:
+                bar = bar**ai
+            except:
+                return np.inf
 
         return bar
 
@@ -145,7 +155,10 @@ class c2AGKNV:
 
         numerator = self.c2List[index - 1] * self.muList[index] 
         numerator = numerator - self.c2List[index] * self.muList[index - 1]
-        denominator = (1.0 + (1.0 * self.muList[index] / self.muList[index - 1] - 1.0) * barRho**(1.0 / ai)) 
+        try:
+            denominator = (1.0 + (1.0 * self.muList[index] / self.muList[index - 1] - 1.0) * barRho**(1.0 / ai))
+        except:
+            return 0.0
         denominator = denominator * self.c2List[index - 1] - self.c2List[index]
 
         return numerator / denominator
@@ -181,32 +194,51 @@ class c2AGKNV:
                 f = hyp2f1( 1.0, 1.0 + aiNegative, 2.0 + aiNegative, termZ / (termZ - 1.0) ) / (1.0 - termZ) / (1.0 + aiNegative)
             else: # analytical continuation, z > 1
                 f = hyp2f1( 1.0, 1.0, 1.0 - aiNegative, 1.0 - termZ ) / aiNegative
-                f1 = (1.0 - termZ + 0j)**aiNegative
-                f2 = (termZ + 0j)**(-1.0 - aiNegative)
-                f3 = pi / sin(-pi * aiNegative)
-                f = f + f1 * f2 * f3
+                #if aiNegative > -1:
+                try:
+                    f1 = (1.0 - termZ + 0j)**aiNegative
+                    f2 = (termZ + 0j)**(-1.0 - aiNegative)
+                    f3 = pi / sin(-pi * aiNegative)
+                    f = f + f1 * f2 * f3
+                    #print(f2, termZ, aiNegative)
+                except:#else:
+                    f = np.inf
 
-            return ( 1.0 * mu * ( 1.0 - f * aiNegative ) ).real
+            try:
+                return ( 1.0 * mu * ( 1.0 - f * aiNegative ) ).real
+            except:
+                if (f>0 and aiNegative<0) or (f<0 and aiNegative>0):
+                    return np.inf
+                elif f==0 or aiNegative==0:
+                    return mu
+                else:
+                    return -np.inf
 
 
     # Term in the pressure sum
     # Inputs:
     #     rho: Mass density (g/cm^3)
     #     index: position of the segment
-    def pressureTerm(self, rho, index):
-        mu = self.chemicalPotential(rho)
-        rhoList = self.rhoListing()
+    def pressureTerm(self, rho, index, muB = 0.0):
+        try:
+            if muB == 0.0:
+                mu = self.chemicalPotential(rho)
+            else:
+                mu = muB
+            rhoList = self.rhoListing()
 
-        if mu < self.muList[index] and mu > self.muList[index - 1]:
-            high = rho * self.pressurePartial(mu, index)
-        elif mu >= self.muList[index]:
-            high = rhoList[index] * self.pressurePartial(self.muList[index], index)
-        else:
-            return 0.0
+            if mu < self.muList[index] and mu > self.muList[index - 1]:
+                high = rho * self.pressurePartial(mu, index)
+            elif mu >= self.muList[index]:
+                high = rhoList[index] * self.pressurePartial(self.muList[index], index)
+            else:
+                return 0.0
 
-        low = rhoList[index - 1] * self.pressurePartial(self.muList[index - 1], index)
+            low = rhoList[index - 1] * self.pressurePartial(self.muList[index - 1], index)
 
-        return self.GeV * float(high - low) * self.mB_inv
+            return self.GeV * np.float64(high - low) * self.mB_inv
+        except:
+            return np.inf
 
 
     # Term in the pressure sum
@@ -217,69 +249,60 @@ class c2AGKNV:
         if mu < self.muList[index] and mu > self.muList[index - 1]:
             high = self.rhoMu(mu) * self.pressurePartial(mu, index)
         elif mu >= self.muList[index]:
-            high = self.rhoMu(self.muList[index]) * self.pressurePartial(self.muList[index], index)
+            try:
+                high = self.rhoMu(self.muList[index]) * self.pressurePartial(self.muList[index], index)
+            except:
+                high = np.inf
         else:
             return 0.0
 
         low = self.rhoMu(self.muList[index - 1]) * self.pressurePartial(self.muList[index - 1], index)
 
-        return self.GeV * float(high - low) * self.mB_inv
+        if np.isinf(high) and np.isinf(low):
+            return np.inf # TODO is this ok?
+        else:
+            return self.GeV * np.float64(high - low) * self.mB_inv
 
 
     # Pressure (Ba) as a function of chemical potential (GeV)
     def pressureMu(self, mu):
-        N = len(self.c2List)
-        pressureMuVector = N * [None]
-        pressureMuVector[0] = self.p0
+        try:
+            N = len(self.c2List)
+            sm = self.p0
 
-        for i in range(1, N):
-            pressureMuVector[i] = self.pressureMuTerm(mu, i)
+            for i in range(1, N):
+                sm += self.pressureMuTerm(mu, i)
 
-        return sum(pressureMuVector)
+            return sm
+        except:
+            return np.inf
 
 
     # Baryon mass density (g/cm^3) as a function of chemical potential (GeV)
     def rhoMu(self, mu):
-        N = len(self.c2List)
-        rhoMuVector = N * [None]
-        rhoMuVector[0] = self.rho0
+        try:
+            N = len(self.c2List)
+            prd = self.rho0
 
-        for i in range(1, N):
-            rhoMuVector[i] = self.rhoBar(mu, i)
+            for i in range(1, N):
+                prd *= self.rhoBar(mu, i)
 
-        return np.prod(rhoMuVector)
-
-    # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
-    def edens_inv_rho(self, rho):
-        pressure = self.pressure(rho) # pressure (Ba)
-        mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
-
-        return (rho * mu * self.mB_inv - pressure) * self.cgsunits_inv
-
-    # Speed of sound squared (unitless) as a function of the mass density (g/cm^3)
-    def speed2_rho(self, rho):
-        mu = self.chemicalPotential(rho) # chem.pot. (GeV)
-        index = self.indexRho(rho)
-
-        numerator = self.c2List[index - 1] * ( self.muList[index] - mu ) 
-        numerator = numerator + self.c2List[index] * ( mu -self.muList[index - 1] )
-        denominator = self.muList[index] - self.muList[index - 1]
-
-        return 1.0 * numerator / denominator
+            return prd
+        except:
+            return np.inf
 
     ################################################
     ################################################
 
     # Pressure (Ba) as a function of the mass density (g/cm)
-    def pressure(self, rho, p = 0.0):
+    def pressure(self, rho, p = 0.0, muB = 0.0):
         N = len(self.c2List)
-        pressureVector = N * [None]
-        pressureVector[0] = self.p0
+        pressureSum = self.p0
 
         for i in range(1, N):
-            pressureVector[i] = self.pressureTerm(rho, i)
+            pressureSum += self.pressureTerm(rho, i, muB)
 
-        return sum(pressureVector) - p
+        return pressureSum - p
 
 
     # Vectorized version
@@ -292,14 +315,18 @@ class c2AGKNV:
 
 
     # Energy density (g/cm^3) as a function of the pressure (Ba)
-    def edens_inv(self, pressure, e = 0, approx = 2):
+    def edens_inv(self, pressure, e = 0, approx = 2, muB = 0.0):
         if approx == 0:
             rho = self.rho(pressure, False) # mass density (g/cm^3)
         elif approx == 1:
             rho = self.rho(pressure, True) # mass density (g/cm^3)
         else:
             rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
-        mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
+
+        if muB == 0.0:
+            mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
+        else:
+            mu = muB * self.GeV
 
         return (rho * mu * self.mB_inv - pressure) * self.cgsunits_inv - e
 
@@ -325,9 +352,25 @@ class c2AGKNV:
 
 
     # Speed of sound squared (unitless) as a function of the pressure (Ba)
-    def speed2(self, pressure):
+    def speed2(self, pressure, muB = 0.0):
         rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
-        mu = self.chemicalPotential(rho) # chem.pot. (GeV)
+        if muB == 0.0:
+            mu = self.chemicalPotential(rho) # chem.pot. (GeV)
+        else:
+            mu = muB
+        index = self.indexRho(rho)
+
+        numerator = self.c2List[index - 1] * ( self.muList[index] - mu ) 
+        numerator = numerator + self.c2List[index] * ( mu -self.muList[index - 1] )
+        denominator = self.muList[index] - self.muList[index - 1]
+
+        return 1.0 * numerator / denominator
+
+    def speed2_rho(self, rho, muB = 0.0):
+        if muB == 0.0:
+            mu = self.chemicalPotential(rho) # chem.pot. (GeV)
+        else:
+            mu = muB
         index = self.indexRho(rho)
 
         numerator = self.c2List[index - 1] * ( self.muList[index] - mu ) 
@@ -339,7 +382,7 @@ class c2AGKNV:
 
     def gammaFunction(self, rho, flag = 1):
         press = self.pressure(rho)
-        edens = self.edens_inv_rho(rho) * self.cgsunits
+        edens = self.edens(rho) * self.cgsunits
         speed2 = self.speed2_rho(rho)
 
         if flag == 1: # d(ln p)/d(ln n)
@@ -348,24 +391,37 @@ class c2AGKNV:
             return edens / press * speed2
 
     # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
-    def edens_rho(self, rho, e = 0):
-        mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
+    def edens(self, rho, e = 0, muB = 0.0):
+        if muB == 0.0:
+            mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
+        else:
+            mu = muB * self.GeV
         pressure = self.pressure(rho)
 
         return (rho * mu * self.mB_inv - pressure) * self.cgsunits_inv - e 
 
 
     def pressure_edens(self, edens):
-        edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
+        #edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
 
-        if edensGeV < 0.7:
-            rhoEstimate = edensGeV + 0.05
-        else:
-            rhoEstimate = 0.4 * edensGeV + 0.5
+        #if edensGeV < 0.7:
+        #    rhoEstimate = edensGeV + 0.05
+        #else:
+        #    rhoEstimate = 0.4 * edensGeV + 0.5
 
-        rho = fsolve(self.edens_rho, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
+        #rho = fsolve(self.edens, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
+        #rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
 
-        return self.pressure(rho)
+        #return self.pressure(rho)
+        return np.interp(edens, self.listELong, self.listPLong)
+
+    def tov(self, press):
+        #eden      = self.edens_inv(press)
+        #speed2inv = 1.0 / self.speed2(press)
+        eden      = np.interp(press, self.listPLong, self.listELong)
+        speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+
+        return eden, speed2inv
 
 
 
@@ -449,6 +505,7 @@ class matchC2AGKNV:
                 if flagC == 1 and testTol[0] < tole and testTol[1] < tole:
                     stopLooping = True
                     break
+
             if stopLooping:
                 break
 
@@ -478,6 +535,9 @@ class matchC2AGKNV:
                         break
                 if stopLooping:
                     break        
+
+        self.muSolved = coeffs[0]
+        self.c2Solved = coeffs[1]
 
         # Original chemical potential and speed of sound square lists
         muList = self.muKnown[:]
