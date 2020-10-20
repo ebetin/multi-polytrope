@@ -47,6 +47,18 @@ def parse_cli():
             type=int,
             help='Number of grid points for M/R/P grids (default: 200)')
 
+    parser.add_argument('-m','--model', 
+            dest='model', 
+            default=0,
+            type=int,
+            help='Interpolation model (poly = 0, c2 = 1)')
+
+    parser.add_argument('-w','--walkers', 
+            dest='walkers', 
+            default=2,
+            type=int,
+            help='Walker multiplier (default: 2)')
+
     args = parser.parse_args()
 
 
