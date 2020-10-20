@@ -143,6 +143,8 @@ class matchPolytopesWithLimits:
                 if flagG != 1:
                     Gammas = numpy.array([-1.0, -1.0])
 
+            self.gammasSolved = Gammas.tolist()
+
             GammaAll = Gammas.tolist() + self.gamma
 
             return GammaAll
@@ -408,6 +410,19 @@ class qcd:
 
         except NonpositivePressure:
             print("Pressure is nonpositive!")
+
+    # Energy density (g/cm^3) as a function of mass density (g/cm^3)
+    def edens(self, rhoo):
+        try:
+            if rhoo <= 0.0:
+                raise NonpositiveNumberDensity
+
+            mu = fsolve(nQCD, 2.6, args = (self.X, rhoo / cgs.mB))[0]
+
+            return eQCD(mu, self.X)
+
+        except NonpositiveNumberDensity:
+            print("Baryon number density is nonpositive!")
 
     # Baryon mass density (g/cm^3) as a function of pressure (Ba)
     def rho(self, press):
