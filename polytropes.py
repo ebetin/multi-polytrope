@@ -787,7 +787,7 @@ class cEFT:
     def speed2_rho(self, rhoB):
         rhoBar = rhoB / cgs.rhoS
         xp = self.protonFraction(rhoB)
-        print(xp)
+
         dpdn = (self.p - 1.0) * self.termX(xp) * (2.0 * rhoBar)**(self.p - 1.0)
         dpdn = dpdn - 2.0 * self.termAlpha(xp) * rhoBar
         dpdn = dpdn + self.termEta(xp) * self.gamma * (self.gamma + 1.0) * rhoBar**self.gamma
