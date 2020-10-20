@@ -115,20 +115,22 @@ class tov:
                 [P, m, eta], 
                 args=(1.0 * l, ), 
                 rtol=1.0e-4, 
-                atol=1.0e-4,
-                max_step = 1000,
+                atol=1.0e-6,
+                #max_step = 1000,
                 method = 'LSODA' #TODO is this ok?
                 )
 
         return psol.t[:], psol.y[0], psol.y[1], psol.y[2]
 
     
-    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 50):#TODO optimal value of N
+    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 100):#TODO optimal value of N
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
         etaCurve = np.zeros(N)
+        TDcurve = np.zeros(N)
         # rhoS = 10**14.427817280025156, 1.2rhoS = 10**14.46920996518338, 10**15.6 ~ 14.9rhoS
-        rhocs = np.logspace(14.5, 15.6, N)
+        rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
+        #np.logspace(14.427817280025156, 15.6, N) #TODO lower limit
         mass_max = 0.0
         j = 0
         jRef1 = 0
@@ -145,10 +147,20 @@ class tov:
                     mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
                     rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
                     etaStar = eta[i] - (eta[i-1] - eta[i]) * tmp
+                    if rstar < rad[i] or i == ( len(press)-1 ):
+                        mstar = mass[i]
+                        rstar = rad[i]
+                        etaStar = eta[i]
+                    else:
+                        if rstar > rad[i+1]:
+                            mstar = mass[i]
+                            rstar = rad[i]
+                            etaStar = eta[i]
                     break
             mcurve[j] = mstar
             rcurve[j] = rstar
             etaCurve[j] = etaStar
+            TDcurve[j] = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
             if mstar < mRef1 and mRef1 > 0.0:
                 jRef1 += 1
 
@@ -160,28 +172,33 @@ class tov:
                 j += 1
             else:
                 break
-        if mRef1 > 0.0:
+
+        if mRef1 > 0.0 and mass_max > mRef1:
             massTerm = (mRef1 - mcurve[jRef1]) / (mcurve[jRef1] - mcurve[jRef1-1])
             radiusRef1 = (rcurve[jRef1] - rcurve[jRef1-1]) * massTerm + rcurve[jRef1]
             etaRef1 = (etaCurve[jRef1] - etaCurve[jRef1-1]) * massTerm + etaCurve[jRef1]
             tidalDeformabilityRef1 = self.loveElectric(l, mRef1, radiusRef1, etaRef1, tdFlag = True)
-        if mRef2 > 0.0:
+        else:
+            tidalDeformabilityRef1 = 0.0
+
+        if mRef2 > 0.0  and mass_max > mRef2:
             massTerm = (mRef2 - mcurve[jRef2]) / (mcurve[jRef2] - mcurve[jRef2-1])
             radiusRef2 = (rcurve[jRef2] - rcurve[jRef2-1]) * massTerm + rcurve[jRef2]
             etaRef2 = (etaCurve[jRef2] - etaCurve[jRef2-1]) * massTerm + etaCurve[jRef2]
-            
             tidalDeformabilityRef2 = self.loveElectric(l, mRef2, radiusRef2, etaRef2, tdFlag = True)
+        else:
+            tidalDeformabilityRef2 = 0.0
 
         rcurve=[x / 1.0e5 for x in rcurve]
         mcurve=[x / cgs.Msun for x in mcurve]
         if mRef1 > 0.0 and mRef2 < 0.0:
-            return mcurve[:j], rcurve[:j], rhocs[:j], tidalDeformabilityRef1
+            return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef1
         elif mRef1 > 0.0 and mRef2 > 0.0:
-            return mcurve[:j], rcurve[:j], rhocs[:j], tidalDeformabilityRef1, tidalDeformabilityRef2
+            return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef1, tidalDeformabilityRef2
         elif mRef1 < 0.0 and mRef2 > 0.0:
-            return mcurve[:j], rcurve[:j], rhocs[:j], tidalDeformabilityRef2
+            return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef2
 
-        return mcurve[:j], rcurve[:j], rhocs[:j]
+        return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j]
 
 
     def loveElectric(self, l, mass, radius, eta, tdFlag = False):
