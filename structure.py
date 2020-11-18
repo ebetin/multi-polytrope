@@ -146,8 +146,8 @@ class structurePolytrope:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
-        t = tov(self.eos)
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
+        t = tov(self.eos, rhocs)
 
         assert isinstance(l, int)
 
@@ -317,8 +317,8 @@ class structurePolytropeWithCEFT:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
-        t = tov(self.eos)
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
+        t = tov(self.eos, rhocs)
 
         assert isinstance(l, int)
 
@@ -487,8 +487,8 @@ class structureC2AGKNV:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
-        t = tov(self.eos)
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
+        t = tov(self.eos, rhocs)
 
         assert isinstance(l, int)
 
@@ -641,8 +641,8 @@ class structureC2AGKNVwithCEFT:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0):
-        t = tov(self.eos)
+    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
+        t = tov(self.eos, rhocs)
 
         assert isinstance(l, int)
 

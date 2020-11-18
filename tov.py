@@ -22,8 +22,9 @@ import math
 
 class tov:
 
-    def __init__(self, peos):
+    def __init__(self, peos, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
         self.physical_eos = peos
+        self.rhocs = rhocs
 
     def tov(self, y, r):
         P, m = y
@@ -53,7 +54,8 @@ class tov:
     def mass_radius(self, N = 200):
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        rhocs = np.logspace(14.3, 15.8, N)
+        #rhocs = np.logspace(14.3, 15.8, N)
+        rhocs = self.rhocs
         mass_max = 0.0
         j = 0
 
@@ -129,7 +131,8 @@ class tov:
         etaCurve = np.zeros(N)
         TDcurve = np.zeros(N)
         # rhoS = 10**14.427817280025156, 1.2rhoS = 10**14.46920996518338, 10**15.6 ~ 14.9rhoS
-        rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
+        #rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
+        rhocs = self.rhocs
         #np.logspace(14.427817280025156, 15.6, N) #TODO lower limit
         mass_max = 0.0
         j = 0

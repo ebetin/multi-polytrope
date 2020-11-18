@@ -523,9 +523,9 @@ def myloglike(cube):
     if flag_TOV:
         if flag_GW: # with tidal deformabilities
             #print(mass1_GW170817, mass2_GW170817)
-            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun)
+            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
         else: # without
-            struc.tov()
+            struc.tov(rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
 
         # Maximum mass [Msun]
         mmax = struc.maxmass
@@ -904,9 +904,9 @@ while again:
             mass1_GW170817 = (1.0 + q)**0.2 / q**0.6 * Mc
             mass2_GW170817 = mass1_GW170817 * q
 
-            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun)
+            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
         else: # without
-            struc.tov()
+            struc.tov(rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
 
         # Maximum mass [Msun]
         mmax = struc.maxmass
