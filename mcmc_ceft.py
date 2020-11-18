@@ -148,11 +148,11 @@ parameters2 = []
 
 Ngrid = args.ngrid
 param_indices = {
-        'mass_grid' :np.linspace(0.5, 3.0,   Ngrid),
-        'eps_grid':  np.logspace(2.0, 4.3, Ngrid),
-        'nsat_long_grid': np.linspace(1.1, 45.0, Ngrid), #TODO limits
-        'nsat_short_grid': np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS), 100), #TODO
-        'mass_TD_grid' :np.linspace(0.5, 3.0,   Ngrid),
+        'mass_grid':       np.linspace(0.5, 3.0,   Ngrid),
+        'eps_grid':        np.logspace(2.0, 4.3, Ngrid),
+        'nsat_long_grid':  np.linspace(1.1, 45.0, Ngrid), #TODO limits
+        'nsat_short_grid': np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS), 100) / cgs.rhoS, #TODO
+        #'mass_TD_grid':    np.linspace(0.5, 3.0,   Ngrid),
                }
 
 #add M-R grid
@@ -218,7 +218,7 @@ for ir, nsat  in enumerate(param_indices['nsat_short_grid']):
     ci += 1
 
 #add M-TD grid
-for im, mass  in enumerate(param_indices['mass_TD_grid']):
+for im, mass  in enumerate(param_indices['mass_grid']):
     parameters2.append('TD_'+str(im))
     param_indices['TD_'+str(im)] = ci
     ci += 1
@@ -350,6 +350,21 @@ def myprior(cube):
 # probability function
 linf = np.inf
 
+################################################
+#constant variables
+
+# Transition ("matching") densities (g/cm^3)
+trans_points  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+
+# Parameter of the cEFT EoS
+gamma  = 4.0 / 3.0                    # unitless
+
+# Perturbative QCD parameter, see Fraga et al. (2014, arXiv:1311.5154) for details
+muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
+
+const_params = trans_points + [gamma] + [muQCD]
+
+################################################
 
 icalls = 0
 def myloglike(cube):
@@ -399,7 +414,8 @@ def myloglike(cube):
     # nuclear EoS
 
     # Transition ("matching") densities (g/cm^3)
-    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+    #trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+    trans = trans_points[:]
 
     ################################################## 
     # interpolated EoS
@@ -447,7 +463,7 @@ def myloglike(cube):
     # low-density cEFT EoS
 
     # Parameters of the cEFT EoS
-    gamma  = 4.0 / 3.0                    # unitless
+    #gamma  = 4.0 / 3.0                    # unitless
     alphaL = cube[0]                      # untiless
     etaL   = cube[1]                      # untiless
     lowDensity = [gamma, alphaL, etaL]
@@ -458,7 +474,7 @@ def myloglike(cube):
 
     # Perturbative QCD parameters, see Fraga et al. (2014, arXiv:1311.5154) for details
     X = cube[2]
-    muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
+    #muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
     highDensity = [muQCD, X]
 
 
@@ -498,12 +514,11 @@ def myloglike(cube):
         mass2_GW170817 = mass1_GW170817 * cube[ci+1]
 
     ci += 2
-
+    mpi_print("params", cube)
     # solve structure 
     if debug:
+        mpi_print("params", cube)
         mpi_print("TOV...")
-        
-    mpi_print("params", cube)
 
     if flag_TOV:
         if flag_GW: # with tidal deformabilities
@@ -700,7 +715,7 @@ def myloglike(cube):
         ic = param_indices['TD_0'] #starting index
         mpi_print("building M-TD curve from EoS... (starts from ic = {}".format(ic))
 
-    for im, mass in enumerate(param_indices['mass_TD_grid']):
+    for im, mass in enumerate(param_indices['mass_grid']):
         ic = param_indices['TD_' + str(im)] #this is the index pointing to correct position in cube
 
         if flag_TOV:
@@ -759,11 +774,11 @@ def lnprob(cube):
 ##################################################
 # MCMC sample
 
-
 ndim = len(parameters)
 nwalkers = args.walkers * ndim
 
 import random
+random.seed(args.seed)
 again = True
 
 while again:
@@ -807,7 +822,8 @@ while again:
     # nuclear EoS
 
     # Transition ("matching") densities (g/cm^3)
-    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+    #trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+    trans = trans_points[:]
 
     ################################################## 
     # interpolated EoS
@@ -848,10 +864,9 @@ while again:
             speed2.append(cube[ci]) 
             ci += 1
 
-
     ################################################## 
     # low-density cEFT EoS
-    gamma  = 4.0 / 3.0                    # unitless
+    #gamma  = 4.0 / 3.0                    # unitless
     lowDensity = [gamma, aL, eL]
 
 
@@ -859,7 +874,7 @@ while again:
     # high-density pQCD EoS
 
     # Perturbative QCD parameters, see Fraga et al. (2014, arXiv:1311.5154) for details
-    muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
+    #muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
     highDensity = [muQCD, X]
 
 
@@ -897,7 +912,7 @@ while again:
         mmax = struc.maxmass
 
         if flag_GW:
-            if mmax < 2.0**0.2:
+            if mmax < 2.0**0.2 * 1.000:
                 again = True
                 continue
         
@@ -970,7 +985,7 @@ if False:
     
 
 #parallel v3.0-dev
-if False:
+if True:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
@@ -991,6 +1006,16 @@ if False:
         # initialize sampler
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
         result = sampler.run_mcmc(p0, Nsteps, progress=True)
+
+    import h5py
+    hf = h5py.File(filename, 'a')
+    group = hf.get('mcmc')
+    group.create_dataset('mass_grid', data=param_indices['mass_grid'])
+    group.create_dataset('eps_grid', data=param_indices['eps_grid'])
+    group.create_dataset('nsat_long_grid', data=param_indices['nsat_long_grid'])
+    group.create_dataset('nsat_short_grid', data=param_indices['nsat_short_grid'])
+    group.create_dataset('const_params', data=const_params)
+    hf.close()
 
 
 # serial version emcee v2.2
