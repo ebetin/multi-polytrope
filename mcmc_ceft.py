@@ -514,7 +514,7 @@ def myloglike(cube):
         mass2_GW170817 = mass1_GW170817 * cube[ci+1]
 
     ci += 2
-    mpi_print("params", cube)
+
     # solve structure 
     if debug:
         mpi_print("params", cube)
