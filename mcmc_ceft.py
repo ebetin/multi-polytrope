@@ -352,7 +352,7 @@ linf = np.inf
 
 
 icalls = 0
-def myloglike(cube, m2=False):
+def myloglike(cube):
     """
         General likelihood function that builds the EoS and solves TOV-structure
         equations for it.
@@ -763,68 +763,197 @@ def lnprob(cube):
 ndim = len(parameters)
 nwalkers = args.walkers * ndim
 
-#initial guess #TODO randomness?!?
+import random
+again = True
 
-if eos_model == 0:
-    if eos_Nsegment == 2: #(trope = 2)
-        if phaseTransition == 0:
-            pinit = [1.4, 0.9, 1.2,
-            3.3, 1.186, 0.85, 2.01, 2.14, 1.49127976, 2.0, 1.6, 1.6, 
-            1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.18M_sun, no PT, Lambda_1.4 ~ 365
+while again:
+    again = False
 
-    elif eos_Nsegment == 3: #(trope = 3)
-        if phaseTransition == 0:
-            pinit = [1.4, 0.9, 2.0,
-            2.7, 3.57470224, 26.0, 1.186, 0.85, 2.01, 2.14, 1.49127976,
-            2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.18M_sun, no PT, Lambda_1.4 ~ 360
-        elif phaseTransition == 1:
-            pinit = [1.4, 0.9, 1.16,
-            3.57470224, 26.0, 1.186, 0.85, 2.01, 2.14, 1.49127976, 2.0, 1.6,
-            1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.22M_sun, PT1, Lambda_1.4 ~ 365
+    #cEFT params
+    aL = random.uniform(1.17, 1.61)
+    eL = random.uniform(0.6,  1.15)
+    while not check_cEFT(aL, eL):
+        aL = random.uniform(1.17, 1.61)
+        eL = random.uniform(0.6,  1.15)
 
-    elif eos_Nsegment == 4: #(trope = 4)
-        if phaseTransition == 0:
-            pinit = [1.4, 0.9, 2.0, 5.0,
-            2.4, 3.57470224, 26.40907385, 1.31246422, 1.186, 0.85, 2.01, 2.14,
-            1.49127976, 2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.17M_sun, no PT, Lambda_1.4 ~ 355
-        elif phaseTransition == 1:
-            pinit = [1.4, 0.9, 2.0,
-            3.2, 3.57470224, 26.40907385, 1.31246422, 1.186, 0.85, 2.01, 2.14, 1.49127976,
-            2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
-        elif phaseTransition == 2:
-            pinit = [1.4, 0.9, 2.0,
-            2.4, 3.57470224, 8.30907385, 19.41246422, 1.186, 0.85, 2.01, 2.14, 1.49127976,
-            2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.22M_sun, PT2, Lambda_1.4 ~ 380
+    #pQCD param
+    X     = random.uniform(1.0, 4.0)
 
-    elif eos_Nsegment == 5: #(trope = 5)
-        if phaseTransition == 1:
-            pinit = [1.4, 0.9, 2.0, 5.0,
-            2.6, 3.57470224, 25.00907385, 1.4, 1.31246422, 1.186, 0.85, 2.01, 2.14, 1.49127976,
-            2.0, 1.6, 1.6, 1.6, 1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3
-            ,]
-            # ~2.18M_sun, PT1, Lambda_1.4 ~ 355
-elif eos_model == 1:
-    if eos_Nsegment == 5:
-        pinit = [1.4865523829955367, 0.9995340881195034, 3.6559940088883254, 0.24592036437764148,
-        0.1719255229319667, 0.23523954777721498, 0.5839528932326065, 0.3189239489027702,
-        0.11013280100224387, 1.186, 0.8803599491981124, 1.85, 1.85, 1.85, 1.85, 1.6, 1.6, 1.6,
-        1.4, 1.0, 1.6, 1.8, 1.4, 1.4, 1.3,]
+    list1 = [aL, eL, X]
+    list2 = []
+
+    if eos_model == 0: #polytropic model
+        if phaseTransition > 0:
+            PTrans = 1
+        else:
+            PTrans = 0
+
+        for i in range(eos_Nsegment - 2 - PTrans): # gamma
+            list2.append(random.uniform(0.0, 10.0))
+
+        for i in range(eos_Nsegment - 1): # delta n_B
+            list2.append(random.uniform(0.0, 43.0))
+
+    elif eos_model == 1: #c_s^2 model
+        for i in range(eos_Nsegment - 2): # delta mu_B
+            list2.append(random.uniform(0.0, 1.8))
+
+        for i in range(eos_Nsegment - 2): # c_s^2
+            list2.append(random.uniform(0.0, 1.0))
+
+    cube = list1 + list2
+
+    ################################################## 
+    # nuclear EoS
+
+    # Transition ("matching") densities (g/cm^3)
+    trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+
+    ################################################## 
+    # interpolated EoS
+ 
+    # general running index that maps cube array to real EoS parameters
+    ci = 3
+
+    if eos_model == 0:
+        # Polytropic exponents excluding the first two ones
+        gammas = []  
+        for itrope in range(eos_Nsegment-2):
+            if itrope + 1 != phaseTransition:
+                gammas.append(cube[ci])
+                ci += 1
+            else:
+                gammas.append(0.0)
+
+        # Transition ("matching") densities (g/cm^3)
+        for itrope in range(eos_Nsegment-1):
+            if debug:
+                print("loading trans from cube #{}".format(ci))
+            trans.append(trans[-1] + cgs.rhoS * cube[ci]) 
+            ci += 1
+    elif eos_model == 1:
+        # Matching chemical potentials (GeV)
+        mu_deltas = []  
+        for itrope in range(eos_Nsegment-2):
+            if debug:
+                mpi_print("loading mu_deltas from cube #{}".format(ci))
+            mu_deltas.append(cube[ci])
+            ci += 1
+
+        speed2 = []
+        # Speed of sound squareds (unitless)
+        for itrope in range(eos_Nsegment-2):
+            if debug:
+                mpi_print("loading speed2 from cube #{}".format(ci))
+            speed2.append(cube[ci]) 
+            ci += 1
 
 
-#initialize small Gaussian ball around the initial point
-p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
+    ################################################## 
+    # low-density cEFT EoS
+    gamma  = 4.0 / 3.0                    # unitless
+    lowDensity = [gamma, aL, eL]
+
+
+    ################################################## 
+    # high-density pQCD EoS
+
+    # Perturbative QCD parameters, see Fraga et al. (2014, arXiv:1311.5154) for details
+    muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
+    highDensity = [muQCD, X]
+
+
+    # Check that last transition (matching) point is large enough
+    if nQCD(muQCD, X) * cgs.mB <= trans[-1]:
+        again = True
+        continue
+
+    ##################################################
+    # build neutron star structure 
+    # Construct the EoS
+    if eos_model == 0:
+        struc = structure_poly(gammas, trans, lowDensity, highDensity)
+    elif eos_model == 1:
+        struc = structure_c2(mu_deltas, speed2, trans, lowDensity, highDensity)
+
+    # Is the obtained EoS realistic, e.g. causal?
+    if not struc.realistic:
+        again = True
+        continue
+
+    if flag_TOV:
+        if flag_GW: # with tidal deformabilities
+            #GW170817
+            Mc             = random.uniform(1.000, 1.372)
+            q              = random.uniform(0.0, 1.0)
+            mass1_GW170817 = (1.0 + q)**0.2 / q**0.6 * Mc
+            mass2_GW170817 = mass1_GW170817 * q
+
+            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun)
+        else: # without
+            struc.tov()
+
+        # Maximum mass [Msun]
+        mmax = struc.maxmass
+
+        if flag_GW:
+            if mmax < 2.0**0.2:
+                again = True
+                continue
+        
+            while mmax < ( (1.0 + q)**0.2 / q**0.6 * Mc ):
+                #GW170817
+                Mc = random.uniform(1.000, 1.372)
+                q  = random.uniform(0.0, 1.0)
+        else:
+            Mc = 1.0129494423462766
+            q  = 1.0
+    else:
+        mmax = 10.0
+        Mc   = 1.0129494423462766
+        q    = 1.0
+
+    if mmax < 1.0129494423462766:
+        again = True
+        continue
+
+    #mass measurements
+    Mm1   = random.uniform(1.0, min(mmax, 4.0))
+    Mm2   = random.uniform(1.0, min(mmax, 4.0))
+
+    #M-R measurements
+    MR01  = random.uniform(1.0, min(mmax, 2.5))  #M_1702 [Msun]
+    MR02  = random.uniform(0.5, min(mmax, 2.7))  #M_6304 [Msun]
+    MR03  = random.uniform(0.5, min(mmax, 2.0))  #M_6397 [Msun]
+    MR04  = random.uniform(0.5, min(mmax, 2.8))  #M_M28 [Msun]
+    MR05  = random.uniform(0.5, min(mmax, 2.5))  #M_M30 [Msun]
+    MR06  = random.uniform(0.5, min(mmax, 2.7))  #M_X7 [Msun]
+    MR07  = random.uniform(0.5, min(mmax, 2.7))  #M_X5 [Msun]
+    MR08  = random.uniform(0.5, min(mmax, 2.5))  #M_wCen [Msun]
+    MR09  = random.uniform(0.8, min(mmax, 2.4))  #M_M13 [Msun]
+    MR10  = random.uniform(0.8, min(mmax, 2.5))  #M_1724 [Msun]
+    MR11  = random.uniform(0.8, min(mmax, 2.5))  #M_1810 [Msun]
+    MR12  = random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))  #M_0437
+
+    list3 = [Mc, q, Mm1, Mm2, MR01, MR02, MR03, MR04, MR05, MR06, MR07, MR08, MR09, MR10, MR11, MR12]
+
+    #initial point
+    pinit = cube + list3
+
+    #initialize small Gaussian ball around the initial point
+    p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
+
+    #testing these starting values
+    for i in range(nwalkers):
+        cubbe = p0[i]
+
+        if not np.isfinite( lnprob(cubbe)[0] ):
+            again = True
+            break
+
+print("JAAHAS", nwalkers, again)
+print(p0[-1])
+raw_input("Press Enter to continue ...")
 
 Nsteps = args.nsteps
 
@@ -845,7 +974,7 @@ if False:
     
 
 #parallel v3.0-dev
-if True:
+if False:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
     from schwimmbad import MPIPool
