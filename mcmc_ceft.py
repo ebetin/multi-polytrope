@@ -951,10 +951,6 @@ while again:
             again = True
             break
 
-print("JAAHAS", nwalkers, again)
-print(p0[-1])
-raw_input("Press Enter to continue ...")
-
 Nsteps = args.nsteps
 
 ##################################################
