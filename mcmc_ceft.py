@@ -982,6 +982,16 @@ if False:
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
 
     result = sampler.run_mcmc(p0, Nsteps)
+
+    import h5py
+    hf = h5py.File(filename, 'a')
+    group = hf.get('mcmc')
+    group.create_dataset('mass_grid', data=param_indices['mass_grid'])
+    group.create_dataset('eps_grid', data=param_indices['eps_grid'])
+    group.create_dataset('nsat_long_grid', data=param_indices['nsat_long_grid'])
+    group.create_dataset('nsat_short_grid', data=param_indices['nsat_short_grid'])
+    group.create_dataset('const_params', data=const_params)
+    hf.close()
     
 
 #parallel v3.0-dev
