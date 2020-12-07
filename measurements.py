@@ -171,7 +171,13 @@ def interp_MR(string):
     data = data.clip(min=0)
     datasum = sum(sum(data))
     data = [[x / datasum for x in subs] for subs in data]
-    return interp2d(rval, mval, data)#, kind='cubic')#XXX
+
+    interp_res = interp2d(rval, mval, data), kind='cubic')
+
+    if interp_res <= 0.0:
+        return 0.0
+    else:
+        return interp_res
 
 # Measurements from Steiner et al 2018, arXiv:1709.05013
 SHB18_6304_He = deepcopy(interp_MR("SHB18_6304_He"))    # NGC 6304, helium
