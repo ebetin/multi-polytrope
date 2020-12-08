@@ -22,7 +22,6 @@ from measurements import SHB18_6397_He #6397 measurement
 from measurements import SHB18_M28_He  #M28 measurement
 from measurements import SHB18_M30_H   #M30 measurement
 from measurements import SHB18_X7_H    #X7 measurement
-from measurements import SHB18_X5_H    #X5 measurement
 from measurements import SHB18_wCen_H  #wCen measurement
 from measurements import SHS18_M13_H   #M13 measurement
 from measurements import NKS15_1724    #1724 measurement
@@ -55,7 +54,8 @@ def mpi_print(*args):
 from input_parser import parse_cli
 args = parse_cli()
 
-np.random.seed(args.seed) #for reproducibility
+if args.seed != 0:
+    np.random.seed(args.seed) #for reproducibility
 
 if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
@@ -122,7 +122,6 @@ parameters.append("mass_6397")
 parameters.append("mass_M28")
 parameters.append("mass_M30")
 parameters.append("mass_X7")
-parameters.append("mass_X5")
 parameters.append("mass_wCen")
 parameters.append("mass_M13")
 parameters.append("mass_1724")
@@ -322,24 +321,23 @@ def myprior(cube):
     ci += 2
 
     # M measurements
-    lps[ci]   =  check_uniform(cube[ci], 1.0, 4.0)   # 2.01 NS TODO limits
-    lps[ci+1] =  check_uniform(cube[ci+1], 1.0, 4.0) # 2.14 NS TODO limits
+    lps[ci]   =  check_uniform(cube[ci], 1.1, 4.0)   # 2.01 NS TODO limits
+    lps[ci+1] =  check_uniform(cube[ci+1], 1.1, 4.0) # 2.14 NS TODO limits
 
     ci += 2
 
     # M-R measurements
-    lps[ci+0]  = check_uniform(cube[ci],    1.0, 2.5)  #M_1702 [Msun]
+    lps[ci]  = check_uniform(cube[ci],    1.0, 2.5)  #M_1702 [Msun]
     lps[ci+1]  = check_uniform(cube[ci+1],  0.5, 2.7)  #M_6304 [Msun]
     lps[ci+2]  = check_uniform(cube[ci+2],  0.5, 2.0)  #M_6397 [Msun]
     lps[ci+3]  = check_uniform(cube[ci+3],  0.5, 2.8)  #M_M28 [Msun]
     lps[ci+4]  = check_uniform(cube[ci+4],  0.5, 2.5)  #M_M30 [Msun]
     lps[ci+5]  = check_uniform(cube[ci+5],  0.5, 2.7)  #M_X7 [Msun]
-    lps[ci+6]  = check_uniform(cube[ci+6],  0.5, 2.7)  #M_X5 [Msun]
-    lps[ci+7]  = check_uniform(cube[ci+7],  0.5, 2.5)  #M_wCen [Msun]
-    lps[ci+8]  = check_uniform(cube[ci+8],  0.8, 2.4)  #M_M13 [Msun]
-    lps[ci+9]  = check_uniform(cube[ci+9],  0.8, 2.5)  #M_1724 [Msun]
-    lps[ci+10] = check_uniform(cube[ci+10], 0.8, 2.5)  #M_1810 [Msun]
-    lps[ci+11] = check_uniform(cube[ci+11], 1.0129494423462766, 2.2792157996697235)  #M_0437 [Msun]
+    lps[ci+6]  = check_uniform(cube[ci+6],  0.5, 2.5)  #M_wCen [Msun]
+    lps[ci+7]  = check_uniform(cube[ci+7],  0.8, 2.4)  #M_M13 [Msun]
+    lps[ci+8]  = check_uniform(cube[ci+8],  0.8, 2.5)  #M_1724 [Msun]
+    lps[ci+9]  = check_uniform(cube[ci+9], 0.8, 2.5)  #M_1810 [Msun]
+    lps[ci+10] = check_uniform(cube[ci+10], 1.0129494423462766, 2.2792157996697235)  #M_0437 [Msun]
 
     return np.sum(lps)
 
@@ -560,16 +558,15 @@ def myloglike(cube):
         mass_M28  = cube[ci+3]
         mass_M30  = cube[ci+4]
         mass_X7   = cube[ci+5]
-        mass_X5   = cube[ci+6]
-        mass_wCen = cube[ci+7]
-        mass_M13  = cube[ci+8]
-        mass_1724 = cube[ci+9]
-        mass_1810 = cube[ci+10]
-        mass_0437 = cube[ci+11]
+        mass_wCen = cube[ci+6]
+        mass_M13  = cube[ci+7]
+        mass_1724 = cube[ci+8]
+        mass_1810 = cube[ci+9]
+        mass_0437 = cube[ci+10]
 
         # All stars have to be lighter than the max mass limit
         masses = [ mass_1702, mass_6304, mass_6397, mass_M28,
-                   mass_M30, mass_X7, mass_X5, mass_wCen, mass_M13,
+                   mass_M30, mass_X7, mass_wCen, mass_M13,
                    mass_1724, mass_1810, mass_0437, ]
 
         if any(m > mmax for m in masses):
@@ -600,10 +597,6 @@ def myloglike(cube):
         # X7 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
         rad_X7 = struc.radius_at(mass_X7)
         logl += measurement_MR(mass_X7, rad_X7, SHB18_X7_H)
-
-        # X5 with H atmosphere from Steiner et al 2018, arXiv:1709.05013
-        rad_X5 = struc.radius_at(mass_X5)
-        logl += measurement_MR(mass_X5, rad_X5, SHB18_X5_H)
 
         # wCen with H atmosphere from Steiner et al 2018, arXiv:1709.05013
         rad_wCen = struc.radius_at(mass_wCen)
@@ -778,7 +771,8 @@ ndim = len(parameters)
 nwalkers = args.walkers * ndim
 
 import random
-random.seed(args.seed)
+if args.seed != 0:
+    random.seed(args.seed)
 again = True
 
 while again:
@@ -943,14 +937,13 @@ while again:
     MR04  = random.uniform(0.5, min(mmax, 2.8))  #M_M28 [Msun]
     MR05  = random.uniform(0.5, min(mmax, 2.5))  #M_M30 [Msun]
     MR06  = random.uniform(0.5, min(mmax, 2.7))  #M_X7 [Msun]
-    MR07  = random.uniform(0.5, min(mmax, 2.7))  #M_X5 [Msun]
-    MR08  = random.uniform(0.5, min(mmax, 2.5))  #M_wCen [Msun]
-    MR09  = random.uniform(0.8, min(mmax, 2.4))  #M_M13 [Msun]
-    MR10  = random.uniform(0.8, min(mmax, 2.5))  #M_1724 [Msun]
-    MR11  = random.uniform(0.8, min(mmax, 2.5))  #M_1810 [Msun]
-    MR12  = random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))  #M_0437
+    MR07  = random.uniform(0.5, min(mmax, 2.5))  #M_wCen [Msun]
+    MR08  = random.uniform(0.8, min(mmax, 2.4))  #M_M13 [Msun]
+    MR09  = random.uniform(0.8, min(mmax, 2.5))  #M_1724 [Msun]
+    MR10  = random.uniform(0.8, min(mmax, 2.5))  #M_1810 [Msun]
+    MR11  = random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))  #M_0437
 
-    list3 = [Mc, q, Mm1, Mm2, MR01, MR02, MR03, MR04, MR05, MR06, MR07, MR08, MR09, MR10, MR11, MR12]
+    list3 = [Mc, q, Mm1, Mm2, MR01, MR02, MR03, MR04, MR05, MR06, MR07, MR08, MR09, MR10, MR11]
 
     #initial point
     pinit = cube + list3
