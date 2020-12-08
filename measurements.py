@@ -172,7 +172,7 @@ def interp_MR(string):
     datasum = sum(sum(data))
     data = [[x / datasum for x in subs] for subs in data]
 
-    interp_res = interp2d(rval, mval, data), kind='cubic')
+    interp_res = interp2d(rval, mval, data, kind='cubic')
 
     if interp_res <= 0.0:
         return 0.0
