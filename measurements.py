@@ -38,67 +38,67 @@ def read_hist2d_GW(f, dataset, path, xdir, ydir):
         dset = f
     else:
         dset = f[dataset]
-    data = dset[path].value
+    data = dset[path][()]
 
     data = data.T #need to transpose
 
-    xval = dset[xdir].value
-    yval = dset[ydir].value
+    xval = dset[xdir][()]
+    yval = dset[ydir][()]
 
     return data, xval, yval
 
 # read o2scl hist2d object
 def read_hist2d_nicer(f):
     dset = f["hist2d"]
-    data = dset['weights'].value
+    data = dset['weights'][()]
     data = data.T #need to transpose
 
-    xval = dset['x_bins'].value
-    yval = dset['y_bins'].value
+    xval = dset['x_bins'][()]
+    yval = dset['y_bins'][()]
 
     return data, xval, yval
 
 # read o2scl hist2d object
 def read_hist2d(f):
     dset = f["hist2_table"]
-    data = dset['data/avgs'].value
+    data = dset['data/avgs'][()]
     data = data.T #need to transpose
 
-    xval = dset['xval'].value
-    yval = dset['yval'].value
+    xval = dset['xval'][()]
+    yval = dset['yval'][()]
 
     return data, xval, yval
 
 # read o2scl hist2d object
 def read_hist2d_old(f):
     dset = f["mcarlo"]
-    data = dset['data/weights'].value
+    data = dset['data/weights'][()]
     data = data.T #need to transpose
 
-    xval = dset['xval'].value
-    yval = dset['yval'].value
+    xval = dset['xval'][()]
+    yval = dset['yval'][()]
 
     return data, xval, yval
 
 # read o2scl rescaled object
 def read_rescaled(f):
     dset = f["rescaled"]
-    data = dset['data/like'].value
+    data = dset['data/like'][()]
     data = data.T #need to transpose
 
-    xval = dset['xval'].value
-    yval = dset['yval'].value
+    xval = dset['xval'][()]
+    yval = dset['yval'][()]
 
     return data, xval, yval
 
 # read o2scl rescaled object
 def read_rescaled_old(f):
     dset = f["rescaled_0"]
-    data = dset['data/like'].value
+    data = dset['data/like'][()]
     data = data.T #need to transpose
 
-    xval = dset['xval'].value
-    yval = dset['yval'].value
+    xval = dset['xval'][()]
+    yval = dset['yval'][()]
 
     return data, xval, yval
 
