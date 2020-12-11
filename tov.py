@@ -146,11 +146,21 @@ class tov:
             etaStar = eta[-1]
             for i, p in reversed(list(enumerate(press))):
                 if p > 0.0:
-                    tmp = p / (press[i-1]- p)
+                    if i == ( len(press) - 1 ):
+                        break
+                    if i > 0:
+                        if press[i-1] == p:
+                            continue
+                    else:
+                        mstar = mass[-1]
+                        rstar = rad[-1]
+                        etaStar = eta[-1]
+                        break
+                    tmp = p / (press[i-1] - p)
                     mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
                     rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
                     etaStar = eta[i] - (eta[i-1] - eta[i]) * tmp
-                    if rstar < rad[i] or i == ( len(press)-1 ):
+                    if rstar < rad[i]:
                         mstar = mass[i]
                         rstar = rad[i]
                         etaStar = eta[i]
