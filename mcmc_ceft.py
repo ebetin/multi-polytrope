@@ -135,7 +135,7 @@ mpi_print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/C{}_{}_{}-s{}".format(eos_model, eos_Nsegment, phaseTransition, args.seed)
+prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-n{}".format(eos_model, eos_Nsegment, phaseTransition, args.seed, args.walkers, args.ngrid, args.nsteps)
 
 
 ##################################################
