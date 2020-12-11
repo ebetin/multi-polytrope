@@ -683,7 +683,7 @@ def myloglike(cube):
 
         blobs[icP] = press * confacinv
         blobs[icE] = edens * confacinv * cgs.c**2
-        blobs[icG] = edens / press * speed2
+        blobs[icG] = edens * cgs.c**2 / press * speed2
         blobs[icC2] = speed2
         blobs[icPfd] = press / pSB_csg( muB )
 
@@ -1008,7 +1008,7 @@ if True:
         
         # initialize sampler
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
-        result = sampler.run_mcmc(p0, Nsteps, progress=True)
+        result = sampler.run_mcmc(p0, Nsteps, progress=False)
 
     import h5py
     hf = h5py.File(filename, 'a')
