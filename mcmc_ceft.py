@@ -146,11 +146,12 @@ prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-n{}".format(eos_model, eos_Nsegment, p
 parameters2 = []
 
 Ngrid = args.ngrid
+Ngrid2 = 100
 param_indices = {
         'mass_grid':       np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':        np.logspace(2.0, 4.3, Ngrid),
         'nsat_long_grid':  np.linspace(1.1, 45.0, Ngrid), #TODO limits
-        'nsat_short_grid': np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS), 100) / cgs.rhoS, #TODO
+        'nsat_short_grid': np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS), Ngrid2) / cgs.rhoS, #TODO
         #'mass_TD_grid':    np.linspace(0.5, 3.0,   Ngrid),
                }
 
@@ -259,6 +260,32 @@ elif eos_model == 1:
     # solved squared speed of sound
     parameters2.append('c2_param')
     param_indices['c2_param'] = ci+10
+
+ci = ci+11
+
+#radii
+parameters2.append('r1702')
+param_indices['r1702'] = ci
+parameters2.append('r6304')
+param_indices['r6304'] = ci+1
+parameters2.append('r6397')
+param_indices['r6397'] = ci+2
+parameters2.append('rM28')
+param_indices['rM28'] = ci+3
+parameters2.append('rM30')
+param_indices['rM30'] = ci+4
+parameters2.append('rX7')
+param_indices['rX7'] = ci+5
+parameters2.append('rwCen')
+param_indices['rwCen'] = ci+6
+parameters2.append('rM13')
+param_indices['rM13'] = ci+7
+parameters2.append('r1724')
+param_indices['r1724'] = ci+8
+parameters2.append('r1810')
+param_indices['r1810'] = ci+9
+parameters2.append('r0437')
+param_indices['r0437'] = ci+10
 
 mpi_print("Parameters to be only stored (blobs):")
 mpi_print(len(parameters2))
@@ -746,6 +773,20 @@ def myloglike(cube):
         # Solved mu and c2 (starting point of the last segment)
         blobs[ic+1] = struc.muSolved
         blobs[ic+2] = struc.c2Solved
+
+    #radii
+    ic = param_indices['r1702'] #this is the index pointing to correct position in cube
+    blobs[ic]    = rad_1702
+    blobs[ic+1]  = rad_6304
+    blobs[ic+2]  = rad_6397
+    blobs[ic+3]  = rad_M28
+    blobs[ic+4]  = rad_M30
+    blobs[ic+5]  = rad_X7
+    blobs[ic+6]  = rad_wCen
+    blobs[ic+7]  = rad_M13
+    blobs[ic+8]  = rad_1724
+    blobs[ic+9]  = rad_1810
+    blobs[ic+10] = rad_0437
 
     return logl, blobs
 
