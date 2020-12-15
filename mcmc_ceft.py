@@ -768,7 +768,7 @@ def myloglike(cube):
     if eos_model == 0:
         # First and second gamma
         blobs[ic+1] = struc.gammasSolved[0]
-        blobs[ic+1] = struc.gammasSolved[1]
+        blobs[ic+2] = struc.gammasSolved[1]
     elif eos_model == 1:
         # Solved mu and c2 (starting point of the last segment)
         blobs[ic+1] = struc.muSolved
