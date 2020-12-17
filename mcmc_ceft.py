@@ -812,6 +812,7 @@ ndim = len(parameters)
 nwalkers = args.walkers * ndim
 
 import random
+from polytropes import cEFT
 if args.seed != 0:
     random.seed(args.seed)
 again = True
@@ -819,6 +820,14 @@ again = True
 while again:
     again = False
 
+    ##################################################
+    # nuclear EoS
+
+    # Transition ("matching") densities (g/cm^3)
+    #trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
+    trans = trans_points[:]
+
+    ##################################################
     #cEFT params
     aL = random.uniform(1.17, 1.61)
     eL = random.uniform(0.6,  1.15)
@@ -829,7 +838,16 @@ while again:
     #pQCD param
     X     = random.uniform(1.0, 4.0)
 
+    ##################################################
+    # cEFT and pQCD params
     list1 = [aL, eL, X]
+
+    ##################################################
+    # low-density cEFT EoS
+    lowDensity = [gamma, aL, eL]
+
+    ##################################################
+    # interpolation-model parameters
     list2 = []
 
     if eos_model == 0: #polytropic model
@@ -845,20 +863,27 @@ while again:
             list2.append(random.uniform(0.0, 43.0))
 
     elif eos_model == 1: #c_s^2 model
+        ceftEoS = cEFT(lowDensity)
+        pr0 = ceftEoS.pressure(trans[1])
+        e0 = ceftEoS.edens(trans[1])
+        n0 = trans[1]
+        mu0 = cgs.mB * ( e0 * cgs.c**2 + pr0 ) / ( n0 * cgs.eV ) * 1.0e-9
         for i in range(eos_Nsegment - 2): # delta mu_B
-            list2.append(random.uniform(0.0, 1.8))
+            if i == 0:
+                summa = 0.0
+            else:
+                summa = sum(list2[-i:])
+
+            muDmax = min( 1.8, muQCD - mu0 - summa )
+            if muDmax <= 0.0:
+                list2.append(random.uniform(0.0, 1.8))
+            else:
+                list2.append(random.uniform(0.0, muDmax))
 
         for i in range(eos_Nsegment - 2): # c_s^2
             list2.append(random.uniform(0.0, 1.0))
 
     cube = list1 + list2
-
-    ################################################## 
-    # nuclear EoS
-
-    # Transition ("matching") densities (g/cm^3)
-    #trans  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
-    trans = trans_points[:]
 
     ################################################## 
     # interpolated EoS
@@ -898,11 +923,6 @@ while again:
                 mpi_print("loading speed2 from cube #{}".format(ci))
             speed2.append(cube[ci]) 
             ci += 1
-
-    ################################################## 
-    # low-density cEFT EoS
-    #gamma  = 4.0 / 3.0                    # unitless
-    lowDensity = [gamma, aL, eL]
 
 
     ################################################## 
@@ -1003,7 +1023,7 @@ while again:
 Nsteps = args.nsteps
 
 ##################################################
-#serial v3.0-dev
+#serial v3.0
 if False:
 
     #output
@@ -1028,7 +1048,7 @@ if False:
     hf.close()
     
 
-#parallel v3.0-dev
+#parallel v3.0
 if True:
     import os
     os.environ["OMP_NUM_THREADS"] = "1"    
