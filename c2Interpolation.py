@@ -33,7 +33,7 @@ class c2AGKNV:
     #     muList: list of matching chemical potentials (GeV)
     #     c2List: list of matching speed of sound squares (unitless)
     #     lowDensity: physical quantities at the starting point of the interpolation
-    def __init__(self, muList, c2List, lowDensity, approx = False):
+    def __init__(self, muList, c2List, lowDensity, approx = False, rhoHigh = 30.0 ):
         self.muList = muList
         self.c2List = c2List
 
@@ -54,7 +54,7 @@ class c2AGKNV:
 
         if approx:
             N1 = 500 # If one wants to be (very) save, use N = 2,000 (10,000) #TODO is this ok?
-            listRho1 = np.linspace(self.rho0, 45.0 * cgs.rhoS, N1)
+            listRho1 = np.linspace(self.rho0, rhoHigh * cgs.rhoS, N1)
             listP1 = np.empty(N1)
             listE1 = np.empty(N1)
             listC2inv1 = np.empty(N1)
@@ -200,7 +200,6 @@ class c2AGKNV:
                     f2 = (termZ + 0j)**(-1.0 - aiNegative)
                     f3 = pi / sin(-pi * aiNegative)
                     f = f + f1 * f2 * f3
-                    #print(f2, termZ, aiNegative)
                 except:#else:
                     f = np.inf
 
@@ -259,7 +258,7 @@ class c2AGKNV:
         low = self.rhoMu(self.muList[index - 1]) * self.pressurePartial(self.muList[index - 1], index)
 
         if np.isinf(high) and np.isinf(low):
-            return np.inf # TODO is this ok?
+            return np.inf # indefinite
         else:
             return self.GeV * np.float64(high - low) * self.mB_inv
 
@@ -402,24 +401,28 @@ class c2AGKNV:
 
 
     def pressure_edens(self, edens):
-        #edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
+        if self.approx:
+            return np.interp(edens, self.listELong, self.listPLong)
+        else:
+            edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
 
-        #if edensGeV < 0.7:
-        #    rhoEstimate = edensGeV + 0.05
-        #else:
-        #    rhoEstimate = 0.4 * edensGeV + 0.5
+            #if edensGeV < 0.7:
+            #    rhoEstimate = edensGeV + 0.05
+            #else:
+            #    rhoEstimate = 0.4 * edensGeV + 0.5
 
-        #rho = fsolve(self.edens, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
-        #rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+            #rho = fsolve(self.edens, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
+            rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
 
-        #return self.pressure(rho)
-        return np.interp(edens, self.listELong, self.listPLong)
+            return self.pressure(rho)
 
     def tov(self, press):
-        #eden      = self.edens_inv(press)
-        #speed2inv = 1.0 / self.speed2(press)
-        eden      = np.interp(press, self.listPLong, self.listELong)
-        speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+        if self.approx:
+            eden      = np.interp(press, self.listPLong, self.listELong)
+            speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+        else:
+            eden      = self.edens_inv(press)
+            speed2inv = 1.0 / self.speed2(press)
 
         return eden, speed2inv
 

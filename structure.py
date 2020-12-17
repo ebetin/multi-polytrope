@@ -462,7 +462,7 @@ class structureC2AGKNV:
 
         else:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh, approx = True )
+            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh, approx = True, rhoHigh = transitionsSaturation[-1] )
 
             # Combining EoSs
             combinedEoS = [crustEoS, gandolfiEoS, c2EoS, qcdEoS]
@@ -615,7 +615,7 @@ class structureC2AGKNVwithCEFT:
 
         else:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = True )
+            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = True, rhoHigh = transitionsSaturation[-1] )
 
             # Combining EoSs
             combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
