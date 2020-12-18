@@ -151,7 +151,7 @@ param_indices = {
         'mass_grid':       np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':        np.logspace(2.0, 4.3, Ngrid),
         'nsat_long_grid':  np.linspace(1.1, 45.0, Ngrid), #TODO limits
-        'nsat_short_grid': np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS), Ngrid2) / cgs.rhoS, #TODO
+        'nsat_short_grid': np.logspace(np.log10(1.1*cgs.rhoS), np.log10(12.0*cgs.rhoS), Ngrid2) / cgs.rhoS, #TODO
         #'mass_TD_grid':    np.linspace(0.5, 3.0,   Ngrid),
                }
 
