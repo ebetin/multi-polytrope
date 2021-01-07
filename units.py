@@ -107,4 +107,4 @@ Enuc = 16.0e6 * eV
 
 #computational constants
 ##################################################
-epsilonGamma = 1.0e-4
+#epsilonGamma = 1.0e-6#1.0e-4
