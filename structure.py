@@ -115,10 +115,10 @@ class structurePolytrope:
                 self.trans.append( transitionsPoly[i] )
 
             # Fix the first transition continuity constant (unitless)
-            if 1.0 - cgs.epsilonGamma < gammasAll[0] < 1.0 + cgs.epsilonGamma:
-                self.tropes[0].a = ( gandolfiEnergyDensityHigh - gandolfiPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
-            else:
-                self.tropes[0].a = ( gandolfiEnergyDensityHigh - gandolfiPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
+            try:
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
+            except:
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
 
             # Create polytropic EoS
             polytropicEoS = polytrope( self.tropes, self.trans )
@@ -286,10 +286,10 @@ class structurePolytropeWithCEFT:
                 self.trans.append( transitionsPoly[i] )
 
             # Fix the first transition continuity constant (unitless)
-            if 1.0 - cgs.epsilonGamma < gammasAll[0] < 1.0 + cgs.epsilonGamma:
-                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
-            else:
+            try:
                 self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
+            except:
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
 
             # Create polytropic EoS
             polytropicEoS = polytrope( self.tropes, self.trans )

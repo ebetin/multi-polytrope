@@ -44,24 +44,21 @@ class monotrope:
     #energy density eps(rho) (NB g/cm^3, not erg/(cm s^2)!)
     #  edens: energy density (g/cm^3)
     #  rho: mass density (g/cm^3)
-    def edens(self, rho):
-        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
-            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho
-        else:
-            return (1.0 + self.a) * rho + (self.K / (self.G - 1.0)) * rho**self.G
-
+    def edens(self, rho, e = 0.0):
+        try:
+            return (1.0 + self.a) * rho + (self.K / (self.G - 1.0)) * rho**self.G - e
+        except:
+            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
 
     #energy density eps(P) (NB g/cm^3, not erg/(cm s^2)!)
     #  edens: energy density (g/cm^3)
     #  pressure (Ba)
     def edens_inv(self, pressure, e = 0):
         rho = self.rho(pressure)
-
-        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
-            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
-        else:
+        try:
             return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits ) - e
-
+        except:
+            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
 
     #for inverse functions lets define rho(P)
     #  press: pressure (Ba)
@@ -77,22 +74,22 @@ class monotrope:
 
     # First derivative of the energy density with respect to the (baryon) number density (1/cm^3) multiplied by c^2
     def Dedens(self, rho):
-        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
-            return (self.K * (log(rho / cgs.mB) + 1.0) + 1.0 + self.a) * cgs.mB * self.cgsunits
-        else:
+        try:
             return ( 1.0 + self.a + self.G / (self.G - 1.0) * self.K * rho**(self.G-1.0) ) * cgs.mB * self.cgsunits
+        except:
+            return (self.K * (log(rho / cgs.mB) + 1.0) + 1.0 + self.a) * cgs.mB * self.cgsunits
 
     # Energy density (g/cm^3) as a function of the mass density (g/cm^3)
     def edens_rho(self, rho, e = 0):
         pressure = self.pressure(rho)
 
-        if 1.0 - cgs.epsilonGamma < self.G < 1.0 + cgs.epsilonGamma:
-            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
-        else:
+        try:
             return (1.0 + self.a) * rho + pressure / ( (self.G - 1.0) * self.cgsunits ) - e
+        except:
+            return (self.K * log(rho / cgs.mB) + 1.0 + self.a) * rho - e
 
     def pressure_edens(self, edens):
-        rho = fsolve(self.edens_rho, 2.0 * cgs.rhoS, args = edens)[0]
+        rho = fsolve(self.edens, 2.0 * cgs.rhoS, args = edens)[0]
 
         return self.pressure(rho)
 
@@ -124,7 +121,6 @@ class polytrope:
             else:
                 transition = 0.0
 
-
             ed = trope.edens(transition) 
             pr = trope.pressure(transition)
 
@@ -139,8 +135,17 @@ class polytrope:
     #  m: monotrope after the matching point
     #  tr: transtion mass density (g/cm^3)
     def _ai(self, pm, m, tr):
-        pmG1 = 1.0 - cgs.epsilonGamma < pm.G < 1.0 + cgs.epsilonGamma
-        mG1 = 1.0 - cgs.epsilonGamma < m.G < 1.0 + cgs.epsilonGamma
+        try:
+            1.0 / (pm.G - 1.0)
+            pmG1 = False
+        except:
+            pmG1 = True
+
+        try:
+            1.0 / (m.G - 1.0)
+            mG1 = False
+        except:
+            mG1 = True
 
         if pmG1 and mG1:
             return pm.a
@@ -238,6 +243,7 @@ class polytrope:
 
     def pressure_edens(self, edens):
         trope = self._find_interval_given_energy_density(edens)
+
         return trope.pressure_edens(edens)
 
     def tov(self, press):

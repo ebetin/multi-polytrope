@@ -31,11 +31,10 @@ def causalityPolytropes(gammas, transitions, lowDensity):
 
 
         # Matching ("transition") energy densities
-        if 1.0 - cgs.epsilonGamma < gammas[k-1] < 1.0 + cgs.epsilonGamma:
-            e.append(p[k] * log(rhoo[k] / rhoo[k-1]) + e[k-1] * rhoo[k] / rhoo[k-1] )
-
-        else:
+        try:
             e.append(p[k] / (gammas[k-1] - 1.0) + (e[k-1] - p[k-1] / (gammas[k-1] - 1.0)) * (rhoo[k] / rhoo[k-1]))
+        except:
+            e.append(p[k] * log(rhoo[k] / rhoo[k-1]) + e[k-1] * rhoo[k] / rhoo[k-1] )
 
         
         # Speed of sound before a transition
