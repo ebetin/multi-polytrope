@@ -76,11 +76,13 @@ flag_TOV   = True # calculating MR curve
 flag_GW    = True # using GW170817 event as a constrain (NB usable if flag_TOV = True)
 flag_Mobs  = True # using mass measurement data (NB usable if flag_TOV = True)
 flag_MRobs = True # using mass-radius observations (NB usable if flag_TOV = True)
+flagSubConformal = args.subconf # discarding subconformal (c_s^2 > 1/3) EoSs (default: False)
 
 ##################################################
 # conersion factor
 confacinv = 1000.0 / cgs.GeVfm_per_dynecm
 confac = cgs.GeVfm_per_dynecm * 0.001
+d3 = 1.0 / 3.0
 
 ##################################################
 #auto-generated parameter names for c2 interpolation
@@ -338,7 +340,10 @@ def myprior(cube):
         for itrope in range(eos_Nsegment-2):
             if debug:
                 mpi_print("prior for c^2 from cube #{}".format(ci))
-            lps[ci] = check_uniform(cube[ci], 0.0, 1.0)  #c_i^2 [unitless]
+            if flagSubConformal:
+                lps[ci] = check_uniform(cube[ci], 0.0, d3)   #c_i^2 [unitless]
+            else:
+                lps[ci] = check_uniform(cube[ci], 0.0, 1.0)  #c_i^2 [unitless]
             ci += 1
 
     # TD measurements
@@ -382,7 +387,7 @@ linf = np.inf
 trans_points  = [0.1 * cgs.rhoS, 1.1 * cgs.rhoS] #[0.9e14, 1.1 * cgs.rhoS] #starting point BTW 1.0e14 ~ 0.4*rhoS #TODO is the crust-core transtion density ok?
 
 # Parameter of the cEFT EoS
-gamma  = 4.0 / 3.0                    # unitless
+gamma  = 4.0 * d3                    # unitless
 
 # Perturbative QCD parameter, see Fraga et al. (2014, arXiv:1311.5154) for details
 muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
@@ -463,7 +468,7 @@ def myloglike(cube):
         # Transition ("matching") densities (g/cm^3)
         for itrope in range(eos_Nsegment-1):
             if debug:
-                print("loading trans from cube #{}".format(ci))
+                mpi_print("loading trans from cube #{}".format(ci))
             trans.append(trans[-1] + cgs.rhoS * cube[ci]) 
             ci += 1
     elif eos_model == 1:
@@ -526,6 +531,12 @@ def myloglike(cube):
     if not struc.realistic:
         logl = -linf
         return logl, blobs
+
+    # Discard subconformal EoSs
+    if flagSubConformal:
+        if 3.0 * struc.speed2max > 1.0:
+            logl = -linf
+            return logl, blobs
 
     ################################################## 
     # measurements & constraints
@@ -875,13 +886,19 @@ while again:
                 summa = sum(list2[-i:])
 
             muDmax = min( 1.8, muQCD - mu0 - summa )
-            if muDmax <= 0.0:
-                list2.append(random.uniform(0.0, 1.8))
+            if i==0 and flagSubConformal:
+                list2.append(random.uniform(0.0, 0.01))
             else:
-                list2.append(random.uniform(0.0, muDmax))
+                if muDmax <= 0.0:
+                    list2.append(random.uniform(0.0, 1.8))
+                else:
+                    list2.append(random.uniform(0.0, muDmax))
 
         for i in range(eos_Nsegment - 2): # c_s^2
-            list2.append(random.uniform(0.0, 1.0))
+            if flagSubConformal:
+                list2.append(random.uniform(0.2, d3))
+            else:
+                list2.append(random.uniform(0.0, 1.0))
 
     cube = list1 + list2
 
@@ -951,11 +968,20 @@ while again:
         again = True
         continue
 
+    # Discard subconformal EoSs
+    if flagSubConformal:
+        if 3.0 * struc.speed2max > 1.0:
+            again = True
+            continue
+
     if flag_TOV:
         if flag_GW: # with tidal deformabilities
             #GW170817
             Mc             = random.uniform(1.000, 1.372)
-            q              = random.uniform(0.0, 1.0)
+            if flagSubConformal:
+                q  = random.uniform(0.8, 1.0)
+            else:
+                q  = random.uniform(0.0, 1.0)
             mass1_GW170817 = (1.0 + q)**0.2 / q**0.6 * Mc
             mass2_GW170817 = mass1_GW170817 * q
 
@@ -974,7 +1000,10 @@ while again:
             while mmax < ( (1.0 + q)**0.2 / q**0.6 * Mc ):
                 #GW170817
                 Mc = random.uniform(1.000, 1.372)
-                q  = random.uniform(0.0, 1.0)
+                if flagSubConformal:
+                    q  = random.uniform(0.8, 1.0)
+                else:
+                    q  = random.uniform(0.0, 1.0)
         else:
             Mc = 1.0129494423462766
             q  = 1.0
@@ -1010,7 +1039,10 @@ while again:
     pinit = cube + list3
 
     #initialize small Gaussian ball around the initial point
-    p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
+    if flagSubConformal:
+        p0 = [pinit + 0.0001*np.random.randn(ndim) for i in range(nwalkers)]
+    else:
+        p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
 
     #testing these starting values
     for i in range(nwalkers):

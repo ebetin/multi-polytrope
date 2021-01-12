@@ -59,6 +59,12 @@ def parse_cli():
             type=int,
             help='Walker multiplier (default: 2)')
 
+    parser.add_argument('--subconf', 
+            dest='subconf',
+            default=False,
+            type=bool,
+            help='Discarding subconformal (c_s^2 > 1/3) EoSs (default: False)')
+
     args = parser.parse_args()
 
 
