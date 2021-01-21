@@ -13,6 +13,8 @@ from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causal
 from c2Interpolation import matchC2AGKNV, c2AGKNV
 
 
+approx_rhoHigh = 12.0
+
 class structurePolytrope:
 
     def __init__(self, gammasKnown, transitions, lowDensity, QCD):
@@ -462,7 +464,7 @@ class structureC2AGKNV:
 
         else:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh, approx = True, rhoHigh = transitionsSaturation[-1] )
+            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh, approx = True, rhoHigh = approx_rhoHigh )
 
             # Combining EoSs
             combinedEoS = [crustEoS, gandolfiEoS, c2EoS, qcdEoS]
@@ -474,6 +476,8 @@ class structureC2AGKNV:
             test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
 
             self.speed2max = max(c2Known)
+            if self.speed2max < self.c2Solved:
+                self.speed2max = self.c2Solved
             if self.speed2max < speed2pQCD:
                 self.speed2max = speed2pQCD
 
@@ -615,7 +619,7 @@ class structureC2AGKNVwithCEFT:
 
         else:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = True, rhoHigh = transitionsSaturation[-1] )
+            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = True, rhoHigh = approx_rhoHigh )
 
             # Combining EoSs
             combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
@@ -627,6 +631,8 @@ class structureC2AGKNVwithCEFT:
             test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
 
             self.speed2max = max(c2Known)
+            if self.speed2max < self.c2Solved:
+                self.speed2max = self.c2Solved
             if self.speed2max < speed2pQCD:
                 self.speed2max = speed2pQCD
 

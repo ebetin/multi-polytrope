@@ -28,6 +28,9 @@ class tov:
 
     def tov(self, y, r):
         P, m = y
+        if P < 0.0:
+            return [-10.0, 0.0]
+
         eden = self.physical_eos.edens_inv( P )
 
         dPdr = -cgs.G*(eden + P/cgs.c**2)*(m + 4.0*pi*r**3*P/cgs.c**2)
@@ -42,7 +45,7 @@ class tov:
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r[0]**3*eden
 
-        psol = odeint(self.tov, [P, m], r, rtol=1.0e-4, atol=1.0e-4)
+        psol = odeint(self.tov, [P, m], r, rtol=1.0e-6, atol=1.0e-6)
 
         #sol = solve_ivp(
         #        self.tov,
@@ -88,6 +91,9 @@ class tov:
     # TOV [see Oppenheimer & Volkoff (1939), Phys. Rev. 55, 374] and (electric) Love number [see arXiv:1404.6798] solver
     def tovLove(self, r, y, l):
         P, m, eta = y
+        if P < 0.0:
+            return [-10.0, 0.0, 0.0]
+
         eden, cS2Inv = self.physical_eos.tov( P )
 
         ## Temp constant
@@ -116,10 +122,9 @@ class tov:
                 (1e0, 17e5),
                 [P, m, eta], 
                 args=(1.0 * l, ), 
-                rtol=1.0e-4, 
+                rtol=1.0e-6,
                 atol=1.0e-6,
-                #max_step = 1000,
-                method = 'LSODA' #TODO is this ok?
+                method = 'LSODA'
                 )
 
         return psol.t[:], psol.y[0], psol.y[1], psol.y[2]

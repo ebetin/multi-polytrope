@@ -53,7 +53,7 @@ class c2AGKNV:
         self.approx = approx
 
         if approx:
-            N1 = 500 # If one wants to be (very) save, use N = 2,000 (10,000) #TODO is this ok?
+            N1 = 2000 # If one wants to be (very) save, use N = 2,000 (10,000) #TODO is this ok?
             listRho1 = np.linspace(self.rho0, rhoHigh * cgs.rhoS, N1)
             listP1 = np.empty(N1)
             listE1 = np.empty(N1)
@@ -339,7 +339,7 @@ class c2AGKNV:
 
                     return fun(pressure)
                 except:
-                    rho = fsolve(self.pressure, 35.0*cgs.rhoS, args = pressure)[0]
+                    rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
 
                     return rho
             else:
@@ -352,11 +352,16 @@ class c2AGKNV:
 
     # Speed of sound squared (unitless) as a function of the pressure (Ba)
     def speed2(self, pressure, muB = 0.0):
-        rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
+        try:
+            rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
+        except:
+            rho = self.rho(pressure, False)
+
         if muB == 0.0:
             mu = self.chemicalPotential(rho) # chem.pot. (GeV)
         else:
             mu = muB
+
         index = self.indexRho(rho)
 
         numerator = self.c2List[index - 1] * ( self.muList[index] - mu ) 
@@ -402,7 +407,12 @@ class c2AGKNV:
 
     def pressure_edens(self, edens):
         if self.approx:
-            return np.interp(edens, self.listELong, self.listPLong)
+            try:
+                return np.interp(edens, self.listELong, self.listPLong)
+            except:
+                edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
+                rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+                return self.pressure(rho)
         else:
             edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
 
@@ -418,8 +428,12 @@ class c2AGKNV:
 
     def tov(self, press):
         if self.approx:
-            eden      = np.interp(press, self.listPLong, self.listELong)
-            speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+            try:
+                eden      = np.interp(press, self.listPLong, self.listELong)
+                speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+            except:
+                eden      = self.edens_inv(press)
+                speed2inv = 1.0 / self.speed2(press)
         else:
             eden      = self.edens_inv(press)
             speed2inv = 1.0 / self.speed2(press)

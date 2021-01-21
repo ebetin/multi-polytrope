@@ -941,7 +941,6 @@ while again:
             speed2.append(cube[ci]) 
             ci += 1
 
-
     ################################################## 
     # high-density pQCD EoS
 
@@ -977,7 +976,7 @@ while again:
     if flag_TOV:
         if flag_GW: # with tidal deformabilities
             #GW170817
-            Mc             = random.uniform(1.000, 1.372)
+            Mc = random.uniform(1.000, 1.372)
             if flagSubConformal:
                 q  = random.uniform(0.8, 1.0)
             else:
@@ -1017,40 +1016,87 @@ while again:
         continue
 
     #mass measurements
-    Mm1   = random.uniform(1.0, min(mmax, 4.0))
-    Mm2   = random.uniform(1.0, min(mmax, 4.0))
+    Mm1   = random.uniform(1.1, min(mmax, 4.0))
+    Mm2   = random.uniform(1.1, min(mmax, 4.0))
 
     #M-R measurements
-    MR01  = random.uniform(1.0, min(mmax, 2.5))  #M_1702 [Msun]
-    MR02  = random.uniform(0.5, min(mmax, 2.7))  #M_6304 [Msun]
-    MR03  = random.uniform(0.5, min(mmax, 2.0))  #M_6397 [Msun]
-    MR04  = random.uniform(0.5, min(mmax, 2.8))  #M_M28 [Msun]
-    MR05  = random.uniform(0.5, min(mmax, 2.5))  #M_M30 [Msun]
-    MR06  = random.uniform(0.5, min(mmax, 2.7))  #M_X7 [Msun]
-    MR07  = random.uniform(0.5, min(mmax, 2.5))  #M_wCen [Msun]
-    MR08  = random.uniform(0.8, min(mmax, 2.4))  #M_M13 [Msun]
-    MR09  = random.uniform(0.8, min(mmax, 2.5))  #M_1724 [Msun]
-    MR10  = random.uniform(0.8, min(mmax, 2.5))  #M_1810 [Msun]
-    MR11  = random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))  #M_0437
+    for i in range(1000):
+        MR01  = random.uniform(1.0, min(mmax, 2.5)) #M_1702 [Msun]
+        rad_MR01 = struc.radius_at(MR01)
+        if np.isfinite( measurement_MR(MR01, rad_MR01, NSK17) ):
+            break
 
+    for i in range(1000):
+        MR02  = random.uniform(0.5, min(mmax, 2.7))  #M_6304 [Msun]
+        rad_MR02 = struc.radius_at(MR02)
+        if np.isfinite( measurement_MR(MR02, rad_MR02, SHB18_6304_He) ):
+            break
+
+    for i in range(1000):
+        MR03  = random.uniform(0.5, min(mmax, 2.0))  #M_6397 [Msun]
+        rad_MR03 = struc.radius_at(MR03)
+        if np.isfinite( measurement_MR(MR03, rad_MR03, SHB18_6397_He) ):
+            break
+
+    for i in range(1000):
+        MR04  = random.uniform(0.5, min(mmax, 2.8))  #M_M28 [Msun]
+        rad_MR04 = struc.radius_at(MR04)
+        if np.isfinite( measurement_MR(MR04, rad_MR04, SHB18_M28_He) ):
+            break
+
+    for i in range(1000):
+        MR05  = random.uniform(0.5, min(mmax, 2.5))  #M_M30 [Msun]
+        rad_MR05 = struc.radius_at(MR05)
+        if np.isfinite( measurement_MR(MR05, rad_MR05, SHB18_M30_H) ):
+            break
+
+    for i in range(1000):
+        MR06  = random.uniform(0.5, min(mmax, 2.7))  #M_X7 [Msun]
+        rad_MR06 = struc.radius_at(MR06)
+        if np.isfinite( measurement_MR(MR06, rad_MR06, SHB18_X7_H) ):
+            break
+
+    for i in range(1000):
+        MR07  = random.uniform(0.5, min(mmax, 2.5))  #M_wCen [Msun]
+        rad_MR07 = struc.radius_at(MR07)
+        if np.isfinite( measurement_MR(MR07, rad_MR07, SHB18_wCen_H) ):
+            break
+
+    for i in range(1000):
+        MR08  = random.uniform(0.8, min(mmax, 2.4))  #M_M13 [Msun]
+        rad_MR08 = struc.radius_at(MR08)
+        if np.isfinite( measurement_MR(MR08, rad_MR08, SHS18_M13_H) ):
+            break
+
+    for i in range(1000):
+        MR09  = random.uniform(0.8, min(mmax, 2.5))  #M_1724 [Msun]
+        rad_MR09 = struc.radius_at(MR09)
+        if np.isfinite( measurement_MR(MR09, rad_MR09, NKS15_1724) ):
+            break
+
+    for i in range(1000):
+        MR10  = random.uniform(0.8, min(mmax, 2.5))  #M_1810 [Msun]
+        rad_MR10 = struc.radius_at(MR10)
+        if np.isfinite( measurement_MR(MR10, rad_MR10, NKS15_1810) ):
+            break
+
+    for i in range(1000):
+        MR11  = random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))  #M_0437
+        rad_MR11 = struc.radius_at(MR11)
+        if np.isfinite( measurement_MR(MR11, rad_MR11, NICER_0437) ):
+
+            break
     list3 = [Mc, q, Mm1, Mm2, MR01, MR02, MR03, MR04, MR05, MR06, MR07, MR08, MR09, MR10, MR11]
 
     #initial point
     pinit = cube + list3
 
-    #initialize small Gaussian ball around the initial point
-    if flagSubConformal:
-        p0 = [pinit + 0.0001*np.random.randn(ndim) for i in range(nwalkers)]
-    else:
-        p0 = [pinit + 0.001*np.random.randn(ndim) for i in range(nwalkers)]
-
-    #testing these starting values
+    p0 = []
     for i in range(nwalkers):
-        cubbe = p0[i]
-
-        if not np.isfinite( lnprob(cubbe)[0] ):
-            again = True
-            break
+        pi = pinit + 0.001*np.random.randn(ndim)
+        while not np.isfinite( lnprob(pi)[0] ):
+            pi = pinit + 0.001*np.random.randn(ndim)
+        p0.append(pi)
 
 Nsteps = args.nsteps
 
