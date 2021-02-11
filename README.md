@@ -3,7 +3,7 @@
 Run sampler with
 
 ```bash
-mpirun -n X python3 multin_poly_ceft.py --nsteps 100 --dir chains --nseg 4 --ngrid 50 --model 1
+mpirun -n X python3 mcmc_ceft.py --nsteps 100 --dir chains --nseg 4 --ngrid 50 --model 1
 ```
 
 See `input_parser.py` for more run time options.
