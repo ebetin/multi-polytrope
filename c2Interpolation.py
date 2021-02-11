@@ -417,11 +417,11 @@ class c2AGKNV:
     def pressure_edens(self, edens):
         if self.approx:
             try:
-                if edens <= self.listELong:
+                if edens <= self.listELong[-1]:
                     return np.interp(edens, self.listELong, self.listPLong)
                 else:
                     edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
-                    rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+                    rho = fsolve(self.edens, self.listELong[-1], args = edens)[0]
                     return self.pressure(rho)
             except:
                 edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
