@@ -318,9 +318,18 @@ class c2AGKNV:
         if approx == 0:
             rho = self.rho(pressure, False) # mass density (g/cm^3)
         elif approx == 1:
-            rho = self.rho(pressure, True) # mass density (g/cm^3)
+            if pressure <= self.listPLong[-1]:
+                rho = self.rho(pressure, True) # mass density (g/cm^3)
+            else:
+                rho = self.rho(pressure, False) # mass density (g/cm^3)
         else:
-            rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
+            if self.approx:
+                if pressure <= self.listPLong[-1]:
+                    rho = self.rho(pressure, self.approx) # mass density (g/cm^3)
+                else:
+                    rho = self.rho(pressure, False) # mass density (g/cm^3)
+            else:
+                rho = self.rho(pressure, False) # mass density (g/cm^3)
 
         if muB == 0.0:
             mu = self.chemicalPotential(rho) * self.GeV # chem.pot. (ergs)
@@ -408,7 +417,12 @@ class c2AGKNV:
     def pressure_edens(self, edens):
         if self.approx:
             try:
-                return np.interp(edens, self.listELong, self.listPLong)
+                if edens <= self.listELong:
+                    return np.interp(edens, self.listELong, self.listPLong)
+                else:
+                    edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
+                    rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+                    return self.pressure(rho)
             except:
                 edensGeV =  edens * self.cgsunits / cgs.GeVfm_per_dynecm
                 rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
@@ -422,7 +436,7 @@ class c2AGKNV:
             #    rhoEstimate = 0.4 * edensGeV + 0.5
 
             #rho = fsolve(self.edens, rhoEstimate * cgs.mB * 1.0e39, args = edens)[0]
-            rho = fsolve(self.edens, cgs.rhoS, args = edens)[0]
+            rho = fsolve(self.edens, 1.1*cgs.rhoS, args = edens)[0]
 
             return self.pressure(rho)
 

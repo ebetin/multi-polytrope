@@ -547,7 +547,7 @@ class structureC2AGKNV:
 
 class structureC2AGKNVwithCEFT:
 
-    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD):
+    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD, approximation = False):
         # Equation of state of the crust
         crustEoS = SLyCrust
 
@@ -619,7 +619,7 @@ class structureC2AGKNVwithCEFT:
 
         else:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = True, rhoHigh = approx_rhoHigh )
+            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = approximation, rhoHigh = approx_rhoHigh )
 
             # Combining EoSs
             combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
