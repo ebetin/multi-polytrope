@@ -51,7 +51,7 @@ def parse_cli():
             dest='model', 
             default=0,
             type=int,
-            help='Interpolation model (poly = 0, c2 = 1)')
+            help='Interpolation model [poly = 0 (default), c2 = 1]')
 
     parser.add_argument('-w','--walkers', 
             dest='walkers', 
@@ -64,6 +64,12 @@ def parse_cli():
             default=False,
             type=bool,
             help='Discarding subconformal (c_s^2 > 1/3) EoSs (default: False)')
+
+    parser.add_argument('-c','--ceft',
+            dest='ceft',
+            default='HLPS+',
+            type=str,
+            help='cEFT model [HLPS, HLPS3, HLPS+ (default)]')
 
     args = parser.parse_args()
 
