@@ -18,7 +18,7 @@ c    = 2.99792458e10    # speed of light
 G    = 6.6730831e-8     # gravitational constant
 me   = 9.1093897e-28    # mass of electron
 mp   = 1.6726231e-24    # mass of proton
-mn   = 1.6749286e-24    # mass of neutron
+#mn   = 1.6749286e-24    # mass of neutron
 mmu  = 1.8835327e-25    # mass of muon
 kB   = 1.380658e-16     # Boltzmann constant
 hP   = 6.6260755e-27    # Planck cosntant
@@ -28,6 +28,9 @@ eC   = 4.8032068e-10    # elementary charge
 mH   = 1.6733e-24       # mass of hydrogen atom
 eV   = 1.602177e-12     # electron volt
 pc   = 3.08567758149e18 # parsec
+
+mn = 939.565e6 * eV / c**2 # mass of neutron, 939.565 MeV
+hbar = 197.327e-7 * eV / c # reduced Planck constant, 197.327 MeV*fm
 
 
 #plasma electron relativity temperature
@@ -94,7 +97,8 @@ Msun   = 1.988435e33
 #kg_per_Msun    = 1.988435e30
 
 #baryon mass
-mB = (mp + mn) * 0.5
+mB = mn#(mp + mn) * 0.5
+mBinv = 1.0 / mB
 
 #saturation density
 nS = 0.16e39
