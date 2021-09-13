@@ -2,7 +2,7 @@ import sys
 import os
 import numpy as np
 import units as cgs
-from math import pi
+from math import pi, log
 from polytropes import monotrope, polytrope
 from crust import SLyCrust
 from eoslib import get_eos, glue_crust_and_core, eosLib
@@ -15,8 +15,12 @@ try:
 except:
     from scipy.special import factorial2
 
-import math
-
+###################################################
+#constans
+Msun_inv = 1.0 / cgs.Msun
+c2inv = 1.0 / cgs.c**2
+inv3 = 0.333333333333333333333333333333
+press_min = 6.08173e-15 * cgs.GeVfm_per_dynecm * 0.001  # TODO
 
 #--------------------------------------------------
 
@@ -30,11 +34,13 @@ class tov:
         P, m = y
         if P < 0.0:
             return [-10.0, 0.0]
+        elif P < press_min:
+            return [-P, 0., 0.]
 
         eden = self.physical_eos.edens_inv( P )
 
-        dPdr = -cgs.G*(eden + P/cgs.c**2)*(m + 4.0*pi*r**3*P/cgs.c**2)
-        dPdr = dPdr/(r*(r - 2.0*cgs.G*m/cgs.c**2))
+        dPdr = -cgs.G*(eden + P*c2inv)*(m + 4.0*pi*r**3*P*c2inv)
+        dPdr /= r*(r - 2.0*cgs.G*m*c2inv)
         dmdr = 4.0*pi*r**2*eden
 
         return [dPdr, dmdr]
@@ -47,17 +53,13 @@ class tov:
 
         psol = odeint(self.tov, [P, m], r, rtol=1.0e-6, atol=1.0e-6)
 
-        #sol = solve_ivp(
-        #        self.tov,
-
-
         return r, psol[:,0], psol[:,1]
 
 
     def mass_radius(self, N = 200):
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        #rhocs = np.logspace(14.3, 15.8, N)
+
         rhocs = self.rhocs
         mass_max = 0.0
         j = 0
@@ -65,13 +67,13 @@ class tov:
         for rhoc in rhocs:
             rad, press, mass = self.tovsolve(rhoc)
 
-            rad  /= 1.0e5 #cm to km
-            mass /= cgs.Msun
+            rad  *= 1.0e-5 #cm to km
+            mass *= Msun_inv
 
             mstar = mass[-1]
             rstar = rad[-1]
             for i, p in enumerate(press):
-                if p > 0.0:
+                if p > press_min:
                     tmp = p / (press[i-1]- p)
                     mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
                     rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
@@ -87,28 +89,55 @@ class tov:
         return mcurve[:j], rcurve[:j], rhocs[:j]
 
 
-
     # TOV [see Oppenheimer & Volkoff (1939), Phys. Rev. 55, 374] and (electric) Love number [see arXiv:1404.6798] solver
     def tovLove(self, r, y, l):
         P, m, eta = y
         if P < 0.0:
-            return [-10.0, 0.0, 0.0]
+            return [-1.e8, 0.0, 0.0]
+        #elif P < press_min:
+        #    return [-P, 0., 0.]
 
         eden, cS2Inv = self.physical_eos.tov( P )
 
         ## Temp constant
         rInv = 1.0 / r
-        cL2Inv = 1.0 / cgs.c**2
-        compactness = cgs.G * m * cL2Inv * rInv
-        f = 1.0 / (1.0 - 2.0 * compactness)
-        A = 2.0 * f * ( 1.0 - 3.0 * compactness - 2.0 * pi * cgs.G * cL2Inv * r**2 * (eden + 3.0 * cL2Inv * P) )
-        B = f * ( l * (l + 1.0) - 4.0 * pi * cgs.G * cL2Inv * r**2 * (eden + cL2Inv * P) * (3.0 + cS2Inv))
+        tmp = 4.0 * pi * r**2
+        coeff = tmp * cgs.G * c2inv
+        compactness = cgs.G * m * c2inv * rInv
+        pc2inv = c2inv * P
 
-        dPdr = -cgs.G*(eden + P*cL2Inv)*(m + 4.0*pi*r**3*P*cL2Inv) * rInv**2 * f
-        dmdr = 4.0*pi*r**2*eden
-        detadr = ( B - A * eta - eta * (eta - 1.0) ) * rInv
+        f = 1.0 / (1.0 - 2.0 * compactness)
+        A = 2.0 * f * ( 1.0 - 3.0 * compactness - 0.5 * coeff * (eden + 3.0 * pc2inv) )
+        B = f * ( l * (l + 1.0) - coeff * (eden + pc2inv) * (3.0 + cS2Inv))
+
+        dPdr = -cgs.G * (eden + pc2inv) * (m * rInv + tmp * pc2inv) * rInv * f
+        dmdr = tmp * eden
+        detadr = ( B - eta * (eta + A - 1.0) ) * rInv
 
         return [dPdr, dmdr, detadr]
+
+    def tovLove_inv(self, P, y, l):
+        r, m, eta = y
+
+        eden, cS2Inv = self.physical_eos.tov( P )
+
+        ## Temp constant
+        rInv = 1.0 / r
+        tmp = 4.0 * pi * r**2
+        coeff = tmp * cgs.G * c2inv
+        compactness = cgs.G * m * c2inv * rInv
+        pc2inv = c2inv * P
+
+        f = 1.0 / (1.0 - 2.0 * compactness)
+        A = 2.0 * f * ( 1.0 - 3.0 * compactness - 0.5 * coeff * (eden + 3.0 * pc2inv) )
+        B = f * ( l * (l + 1.0) - coeff * (eden + pc2inv) * (3.0 + cS2Inv))
+
+        dPdr = -cgs.G * (eden + pc2inv) * (m * rInv + tmp * pc2inv) * rInv * f
+        drdP = 1.0 / dPdr
+        dmdr = tmp * eden
+        detadr = ( B - eta * (eta + A - 1.0) ) * rInv
+
+        return [drdP, dmdr * drdP, detadr * drdP]
 
     def tovLoveSolve(self, rhoc, l):
         r = 1.0
@@ -116,7 +145,10 @@ class tov:
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r**3*eden
         eta = 1.0 * l
-
+        def neg_press(r, y, l):
+            return y[0] - press_min
+        neg_press.terminal = True
+        neg_press.direction = -1
         psol = solve_ivp(
                 self.tovLove,
                 (1e0, 17e5),
@@ -124,33 +156,34 @@ class tov:
                 args=(1.0 * l, ), 
                 rtol=1.0e-6,
                 atol=1.0e-6,
-                method = 'LSODA'
+                method = 'LSODA',
+                events = neg_press
                 )
 
+        # radius (cm), pressure (Ba), mass (g), eta (-)
         return psol.t[:], psol.y[0], psol.y[1], psol.y[2]
-
     
-    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 100):#TODO optimal value of N
+    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 100):
+        rhocs = self.rhocs
+        N = len(rhocs)
+
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
         etaCurve = np.zeros(N)
         TDcurve = np.zeros(N)
-        # rhoS = 10**14.427817280025156, 1.2rhoS = 10**14.46920996518338, 10**15.6 ~ 14.9rhoS
-        #rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
-        rhocs = self.rhocs
-        #np.logspace(14.427817280025156, 15.6, N) #TODO lower limit
+
         mass_max = 0.0
         j = 0
         jRef1 = 0
         jRef2 = 0
-
         for rhoc in rhocs:
             rad, press, mass, eta = self.tovLoveSolve(rhoc, l)
             mstar = mass[-1]
             rstar = rad[-1]
             etaStar = eta[-1]
+            '''
             for i, p in reversed(list(enumerate(press))):
-                if p > 0.0:
+                if p > press_min:
                     if i == ( len(press) - 1 ):
                         break
                     if i > 0:
@@ -175,6 +208,7 @@ class tov:
                             rstar = rad[i]
                             etaStar = eta[i]
                     break
+            '''
             mcurve[j] = mstar
             rcurve[j] = rstar
             etaCurve[j] = etaStar
@@ -207,8 +241,9 @@ class tov:
         else:
             tidalDeformabilityRef2 = 0.0
 
-        rcurve=[x / 1.0e5 for x in rcurve]
-        mcurve=[x / cgs.Msun for x in mcurve]
+        rcurve=[x * 1.0e-5 for x in rcurve]
+        mcurve=[x * Msun_inv for x in mcurve]
+
         if mRef1 > 0.0 and mRef2 < 0.0:
             return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef1
         elif mRef1 > 0.0 and mRef2 > 0.0:
@@ -221,31 +256,43 @@ class tov:
 
     def loveElectric(self, l, mass, radius, eta, tdFlag = False):
         # Temp constants
-        compactness = 2.0 * cgs.G * mass / (radius * cgs.c**2)
-        coeff = 2.0 * compactness / (1.0 - compactness)
+        compactness = 2.0 * cgs.G * mass * c2inv / radius
+        comp_inv1 = 1.0 / (compactness - 1.0)
+        coeff = 2.0 * compactness * comp_inv1
 
-        # Hypergeometric functions
-        A1 = hyp2f1(-1.0*l, 2.0-1.0*l, -2.0*l, compactness)
-        B1 = hyp2f1(1.0*l+1.0, 1.0*l+3.0, 2.0*l+2.0, compactness)
+        if l==2:
+            comp_log1 = log(1.0 - compactness)
+            comp6_inv = 1.0 / compactness**6
+            tmp = -2.5 * compactness * comp6_inv
 
-        # Derivatives of the hypergeometric functions multiplicated by the radius
-        DA1 = 0.5 * compactness * (1.0*l - 2.0) * hyp2f1(1.0-1.0*l, 3.0-1.0*l, 1.0-2.0*l, compactness)
-        DB1 = -0.5 * compactness * (1.0*l + 3.0) * hyp2f1(1.0*l+2.0, 1.0*l+4.0, 2.0*l+3.0, compactness)
+            B1 = (compactness - 2.0) * compactness * (compactness * (6.0 + compactness) - 6.0 ) * comp_inv1**2 + 12.0 * comp_log1
+            DB1 = compactness * (-60.0 + 150.0 * compactness - 110.0 * compactness**2 + 15.0 * compactness**3 + 3.0 * compactness**4) * comp_inv1**3 + 60.0 * comp_log1
 
-        love = 0.5 * ( DA1 - (eta - 1.0*l - coeff) * A1 ) / ( (eta + 1.0*l + 1.0 - coeff) * B1 - DB1 )
-        
+            love = -0.5 * (eta - 2.0 + coeff)
+            love /= ( (eta + 3.0 + coeff) * B1 - DB1 ) * tmp
+        else:
+            # Hypergeometric functions
+            A1 = hyp2f1(-1.0*l, 2.0-1.0*l, -2.0*l, compactness)
+            B1 = hyp2f1(1.0*l+1.0, 1.0*l+3.0, 2.0*l+2.0, compactness)
+
+            # Derivatives of the hypergeometric functions multiplicated by the radius
+            DA1 = 0.5 * compactness * (1.0*l - 2.0) * hyp2f1(1.0-1.0*l, 3.0-1.0*l, 1.0-2.0*l, compactness)
+            DB1 = -0.5 * compactness * (1.0*l + 3.0) * hyp2f1(1.0*l+2.0, 1.0*l+4.0, 2.0*l+3.0, compactness)
+
+            love = 0.5 * ( DA1 - (eta - 1.0*l + coeff) * A1 )
+            love /= (eta + 1.0*l + 1.0 + coeff) * B1 - DB1
+
         if tdFlag:
+            if l == 2:
+                return (21.0 + inv3) * compactness * comp6_inv * love
             return 2.0 * love * pow(0.5 * compactness, -2.0*l-1.0) / factorial2(2*l-1)
 
-        else:
-            return love
+        return love
 
 
     def tidalDeformability(self, m1, m2, lambda1, lambda2):
-        #if lambda1 > 1e10 or lambda2 > 1e10:
-        #    return np.inf
-        #else:
-        return 16.0 / 13.0 * ( (m1 + 12.0 * m2) * m1**4 * lambda1 + (m2 + 12.0 * m1) * m2**4 * lambda2 ) / (m1 + m2)**5
+        # 16/13 ~ 1.23076923077
+        return 1.23076923077 * ( (m1 + 12.0 * m2) * m1**4 * lambda1 + (m2 + 12.0 * m1) * m2**4 * lambda2 ) / (m1 + m2)**5
 
 
 #--------------------------------------------------
