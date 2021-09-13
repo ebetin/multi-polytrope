@@ -145,7 +145,7 @@ def interp_MR(string):
         fname = 'mrdata/nks15/1810b.o2'
         dataset = "mcarlo"
         #path = 'data/weights'
-    elif string == "NICER_0437":
+    elif string == "NICER_0030":
         fname = 'mrdata/nicer2020/0030_st_pst.o2'
         dataset = "weights"
     elif string == "NSK17":
@@ -191,7 +191,7 @@ NKS15_1724 = deepcopy(interp_MR("NKS15_1724"))        # 4U 1724-307
 NKS15_1810 = deepcopy(interp_MR("NKS15_1810"))        # SAX J1810.8-260
 
 # NICER
-NICER_0437 = deepcopy(interp_MR("NICER_0437"))
+NICER_0030 = deepcopy(interp_MR("NICER_0030"))
 
 # Values from Nattila et al 2017 for 4U 1702-429, arXiv:1709.09120
 NSK17 = deepcopy(interp_MR("NSK17"))
@@ -204,16 +204,28 @@ def measurement_M(mass, par):
 
     return skewnorm.logpdf(mass, shape, loc, scale)
 
-# Values from Antoniadis et al 2013 for J0348+0432, arXiv:1304.6875
-J0348 = {    "loc": 1.9680226480964658,
-           "shape": 2.0180547504576896,
-           "scale": 0.06613638253163863,
+# Values from Antoniadis et al. 2013 for J0348+0432, arXiv:1304.6875
+#J0348 = {    "loc": 1.9680226480964658,
+#           "shape": 2.0180547504576896,
+#           "scale": 0.06613638253163863,
+#        }
+J0348 = {    "loc": 2.01,
+           "shape": 0,
+           "scale": 0.04,
         }
 
-# Values from Cromartie et al 2019 for J0740+6620, arXiv:1904.06759
-J0740 = {    "loc": 2.0494842569774145,
-           "shape": 1.7069401394167225,
-           "scale": 0.13147902131189182,
+
+
+# Values from Cromartie et al. 2020 for J0740+6620, arXiv:1904.06759
+#J0740 = {    "loc": 2.0494842569774145,
+#           "shape": 1.7069401394167225,
+#           "scale": 0.13147902131189182,
+#        }
+
+# Values from Fonseca et al. 2021 for J0740+6620 arXiv:2104.00880
+J0740 = {    "loc": 2.08,
+           "shape": 0,
+           "scale": 0.07,
         }
 
 # log likelihood function for TD measurements
