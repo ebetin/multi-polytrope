@@ -92,8 +92,13 @@ def positiveLatentHeat(pieces, transitions):
         pressureLow = pieces[q].pressure(transitions[q+1])
         pressureHigh = pieces[q+1].pressure(transitions[q+1])
 
+        # TODO OLD CODE, Should one use this instead?
         # The pressure of the low density site should be greater or equal to the pressure of the high desity EoS. Nevertheless, due to possible rounding errors etc. some extra buffer is also included.
-        if pressureLow > (1.0 + 1.49e-08) * pressureHigh or pressureLow < 0.0 or pressureHigh < 0.0:
+        #if pressureLow < (1.0 - 2.e-08) * pressureHigh or pressureLow < 0.0 or pressureHigh < 0.0:
+
+        # Just check that the pressures at matching points are non-negative and continues
+        # (within (small) numerical error)
+        if pressureLow < 0.0 or pressureHigh < 0.0 or not abs(pressureHigh - pressureLow) < 1.e-6 * pressureHigh:
             return False
 
     return True
