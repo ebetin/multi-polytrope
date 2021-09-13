@@ -1,10 +1,17 @@
 import numpy
 from scipy.optimize import fsolve
 
-from numpy import log, pi
-#from math import log, pi
+from math import log, pi
 
 import units as cgs
+
+#######################################
+#constants
+muNNNLOstop = 2.739512831322249
+pi2inv = 1.0 / pi**2
+inv3 = 0.3333333333333333333333333 #1.0 / 3.0
+c2inv = 1.0 / cgs.c**2
+#######################################
 
 class Error(Exception):
     """Base class for other exceptions"""
@@ -69,7 +76,7 @@ class matchPolytopesWithLimits:
     #   gammaUnknown: Two (still) unknown gammas,  [gamma_0,gamma_1]
     def solveGamma(self, gammaUnknown):
         # Scaling factor
-        denominator = 1.0 / (self.e0 * cgs.c**2)
+        denominator = c2inv / self.e0
 
         # Scaled pressure and energy density at the starting density
         p = [self.p0 * denominator]
@@ -160,6 +167,32 @@ class matchPolytopesWithLimits:
             print()
 
 
+# Stefan-Boltzmann limit (GeV^4) as a function of the baryon chemical potential (GeV)
+def pSB(mu):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        return 0.75 * pi2inv * (mu * inv3)**4
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
+
+#TODO maybe one need to fix this?
+# Stefan-Boltzmann limit (Ba) as a function of the baryon chemical potential (GeV)
+def pSB_csg(mu):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        return pSB(mu) * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
+
+#-----------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------
+
 # Perturbative QCD results, see Fraga et al. (2014) arXiv:1311.5154
 # NB One should use values mu > 2.0 Gev and 1 <= X <= 4!
 #   mu: Baryon chemical potential
@@ -192,34 +225,11 @@ def ab(x, flag):
         print("In function ab(x, flag), the parameter 'flag' has an incorrect entry!")
 
 
-# Stefan-Boltzmann limit (GeV^4) as a function of the baryon chemical potential (GeV)
-def pSB(mu):
-    try:
-        if mu <= 0.0:
-            raise NonpositiveChemicalPotential
-
-        return 0.75 / pi**2 * (mu / 3.0)**4
-
-    except NonpositiveChemicalPotential:
-        print("Chemical potential is nonpositive!")
-
-#TODO maybe one need to fix this?
-# Stefan-Boltzmann limit (Ba) as a function of the baryon chemical potential (GeV)
-def pSB_csg(mu):
-    try:
-        if mu <= 0.0:
-            raise NonpositiveChemicalPotential
-
-        return pSB(mu) * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
-
-    except NonpositiveChemicalPotential:
-        print("Chemical potential is nonpositive!")
-
 # Pressure (difference) (Ba) as a function of the baryon chemical potential (GeV)
 #   params: High-density parameters [X, muFin]
 #     mu: Baryon chemical potential (GeV)
 #     x: Perturbatice QCD parameter related to renormalization scale
-def pQCD(mu, x, p=0):
+def pQCD_pocket(mu, x, p=0):
     try:
         if mu <= 0.0:
             raise NonpositiveChemicalPotential
@@ -238,6 +248,335 @@ def pQCD(mu, x, p=0):
         print("Pressure is nonpositive!")
 
 
+# Number density (difference) (1/cm^3) as a function of the baryon chemical potential (GeV)
+# NB Number density = dP/d{mu}
+#   params: High-density parameters [X, muFin]
+#     mu: Baryon chemical potential (GeV)
+#     x: Perturbatice QCD parameter related to renormalization scale
+def nQCD_pocket(mu, x, rhoo=0):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        c = 0.9008
+
+        density1 = (mu * inv3)**3 * pi2inv * (c - ab(x, 1) / (mu - ab(x, 2)))
+        density2 = pSB(mu) * ab(x, 1) / (mu - ab(x, 2))**2
+        density = density1 + density2
+
+        if density <= 0.0 and rhoo==0:
+            raise NonpositiveNumberDensity
+
+        return density * cgs.GeV3_to_fm3 * 1.0e39 - rhoo
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
+    except NonpositiveNumberDensity:
+        print("Baryon number density is nonpositive!")
+
+
+# "Energy" density (difference) (NB g/cm^3, not erg/cm^3) as a function of the baryon chemical potential (GeV)
+# NB energy density = mu * n - p for baryonic matter
+#   params: High-density parameters [X, muFin]
+#     mu: Baryon chemical potential (GeV)
+#     x: Perturbatice QCD parameter related to renormalization scale
+def eQCD_pocket(mu, x, e=0):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        energy = (mu * 1.0e9 * cgs.eV) * nQCD_pocket(mu, x) - pQCD_pocket(mu, x)
+
+        if energy < 0.0 and e==0:
+            raise NonpositiveEnergyDensity
+
+        return energy * c2inv - e
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
+    except NonpositiveEnergyDensity:
+        print("Energy density is nonpositive!")
+
+
+# Pressure (Ba) as a function of function of the "energy" density (g/cm^3)
+#   e: Energy density
+#   x: Perturbatice QCD parameter related to renormalization scale
+def pQCD_energy_pocket(e, x):
+    try:
+        if e <= 0.0:
+            raise NonpositiveEnergyDensity
+
+        mu = fsolve(eQCD_pocket, 2.6, args = (x, e))[0]
+
+        return pQCD_pocket(mu, x)
+
+    except NonpositiveEnergyDensity:
+        print("Energy density is nonpositive!")
+
+
+# Pressure (Ba) as a function of function of the baryon number density (1/cm^3)
+#   rhoo: Baryon number density
+#   x: Perturbatice QCD parameter related to renormalization scale
+def pQCD_density_pocket(rhoo, x):
+    try:
+        if rhoo <= 0.0:
+            raise NonpositiveNumberDensity
+
+        mu = fsolve(nQCD_pocket, 2.6, args = (x, rhoo))[0]
+
+        return pQCD_pocket(mu, x)
+
+    except NonpositiveNumberDensity:
+        print("Baryon number density is nonpositive!")
+
+# Number density (1/cm^3) as a function of the pressure (Ba)
+#   p: Pressure
+#   x: Perturbatice QCD parameter related to renormalization scale
+def nQCD_pressure_pocket(p, x):
+    try:
+        if p <= 0.0:
+            raise NonpositivePressure
+
+        mu = fsolve(pQCD_pocket, 2.6, args = (x, p))[0]
+
+        return nQCD_pocket(mu, x)
+
+    except NonpositivePressure:
+        print("Pressure is nonpositive!")
+
+
+# "Energy" density (g/cm^3) as a function of the baryon number density (1/cm^3)
+#   rhoo: Baryon number density
+#   x: Perturbatice QCD parameter related to renormalization scale
+def eQCD_density_pocket(rhoo, x):
+    try:
+        if rhoo <= 0.0:
+            raise NonpositiveNumberDensity
+
+        mu = fsolve(nQCD_pocket, 2.6, args = (x, rhoo))[0]
+
+        return eQCD_pocket(mu, x)
+
+    except NonpositiveNumberDensity:
+        print("Baryon number density is nonpositive!")
+
+
+# "Energy" density (g/cm^3) as a function of the pressure (Ba)
+#   p: Pressure
+#   x: Perturbatice QCD parameter related to renormalization scale
+def eQCD_pressure_pocket(p, x):
+    try:
+        if p <= 0.0:
+            raise NonpositivePressure
+
+        mu = fsolve(pQCD_pocket, 2.6, args = (x, p))[0]
+
+        return eQCD_pocket(mu, x)
+
+    except NonpositivePressure:
+        print("Pressure is nonpositive!")
+
+
+# Old quark matter EoS from perturbative QCD
+class qcd_pocket:
+
+    def __init__(self, x):
+        # x: pQCD scale parameter, see arXiv:1311.5154 for details
+        self.X = x
+        self.a = ab(x, 1)
+        self.b = ab(x, 2)
+        self.c1 = 0.9008
+
+    # Pressure (Ba) as a function of mass density (g/cm^3)
+    def pressure(self, rhoo):
+        try:
+            if rhoo <= 0.0:
+                raise NonpositiveNumberDensity
+
+            mu = fsolve(nQCD_pocket, 2.6, args = (self.X, rhoo / cgs.mB))[0]
+
+            return pQCD_pocket(mu, self.X)
+
+        except NonpositiveNumberDensity:
+            print("Baryon number density is nonpositive!")
+
+    #vectorized version
+    def pressures(self, rhos):
+        press = []
+        for rho in rhos:
+            pr = self.pressure(rho / cgs.mB)
+            press.append( pr )
+        return press
+
+    # Energy density (g/cm^3) as a function of pressure (Ba)
+    def edens_inv(self, press):
+        try:
+            if press <= 0.0:
+                raise NonpositivePressure
+
+            mu = fsolve(pQCD_pocket, 2.6, args = (self.X, press))[0]
+
+            return eQCD_pocket(mu, self.X)
+
+        except NonpositivePressure:
+            print("Pressure is nonpositive!")
+
+    # Energy density (g/cm^3) as a function of mass density (g/cm^3)
+    def edens(self, rhoo):
+        try:
+            if rhoo <= 0.0:
+                raise NonpositiveNumberDensity
+
+            mu = fsolve(nQCD_pocket, 2.6, args = (self.X, rhoo / cgs.mB))[0]
+
+            return eQCD_pocket(mu, self.X)
+
+        except NonpositiveNumberDensity:
+            print("Baryon number density is nonpositive!")
+
+    # Baryon mass density (g/cm^3) as a function of pressure (Ba)
+    def rho(self, press):
+        try:
+            if press <= 0.0:
+                raise NonpositivePressure
+
+            mu = fsolve(pQCD_pocket, 2.6, args = (self.X, press))[0]
+
+            return nQCD_pocket(mu, self.X) * cgs.mB
+
+        except NonpositivePressure:
+            print("Pressure is nonpositive!")
+
+    # Square of the speed of sound (unitless)
+    def speed2(self, press):
+        try:
+            if press <= 0.0:
+                raise NonpositivePressure
+
+            mu = fsolve(pQCD_pocket, 2.6, args = (self.X, press))[0]
+
+            numerator = ( self.a * (4.0 * self.b - 3.0 * mu) + 4.0 * self.c1 * (self.b - mu)**2 ) * (self.b - mu)
+            denominator = 2.0 * ( 6.0 * self.c1 * (self.b - mu)**3 + self.a * (6.0 * self.b**2 - 8.0 * self.b * mu + 3.0 * mu**2) )
+
+            return numerator / denominator
+
+        except NonpositivePressure:
+            print("Pressure is nonpositive!")
+
+    def speed2_rho(self, rho):
+        press = self.pressure(rho)
+        return self.speed2(press)
+
+    def gammaFunction(self, rho, flag = 1):
+        press = self.pressure(rho)
+        edens = self.edens_inv(press) * cgs.c**2.0
+        speed2 = self.speed2(press)
+
+        if flag == 1: # d(ln p)/d(ln n)
+            return ( edens + press ) * speed2 / press
+        else: # d(ln p)/d(ln eps)
+            return edens * speed2 / press
+
+    def pressure_edens(self, edens):
+        try:
+            if edens <= 0.0:
+                raise NonpositivePressure
+
+            mu = fsolve(eQCD_pocket, 2.6, args = (self.X, edens))[0]
+
+            return pQCD_pocket(mu, self.X)
+
+        except NonpositivePressure:
+            print("Pressure is nonpositive!")
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#NNNLO results
+
+def alpha_s(mu, x):
+    tmp = 2.0 * log( 0.8818342151675485 * mu * x )
+    tmp9_inv = 1.0 / ( 9.0 * tmp )
+
+    return 4.0 * pi * ( 1.0 - 7.111111111111111 * tmp9_inv * log(tmp) ) * tmp9_inv
+
+def p_norm(a_s, x):
+    p_n = 1.0 - 0.637 * a_s
+    p_n -= ( 0.875 + 0.912 * log(x) + 0.304 * log(a_s) ) * a_s**2
+    p_n += 0.4848163545236859 * a_s**3
+
+    return p_n
+
+def p_norm_derva(a_s, x):
+    p_n_derva = - 0.637 - ( 2.054 + 1.824 * log(x) + 0.608 * log(a_s) ) * a_s
+    p_n_derva += 1.4544490635710576 * a_s**2
+
+    return p_n_derva
+
+def alpha_s_derva(mu, x):
+    tmp = log(x * mu * inv3)
+    tmp2 = 1.9457221667250986 + 2.0 * tmp
+
+    asd = 4.412881861832576 * log(tmp2) - 5.585053606381853 * tmp - 7.639922233058851
+    asd /= mu * tmp2**3
+
+    return asd
+
+# Pressure (difference) (Ba) as a function of the baryon chemical potential (GeV)
+#   params: High-density parameters [X, muFin]
+#     mu: Baryon chemical potential (GeV)
+#     x: Perturbatice QCD parameter related to renormalization scale
+def pQCD(mu, x, p=0):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        a_s = alpha_s(mu, x)
+        p_n = p_norm(a_s, x)
+
+        if p_n <= 0.0 and p == 0:
+            raise NonpositivePressure
+
+        return pSB(mu) * p_n * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm - p
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
+    except NonpositivePressure:
+        print("Pressure is nonpositive!")
+
+
+# Number density (GeV^3) as a function of the baryon chemical potential (GeV)
+# NB Number density = dP/d{mu}
+#   params: High-density parameters [X, muFin]
+#     mu: Baryon chemical potential (GeV)
+#     x: Perturbatice QCD parameter related to renormalization scale
+def nQCD_nu(mu, x):
+    try:
+        if mu <= 0.0:
+            raise NonpositiveChemicalPotential
+
+        a_s = alpha_s(mu, x)
+        a_s_derva = alpha_s_derva(mu, x)
+
+        p_n = p_norm(a_s, x)
+        p_n_derva = p_norm_derva(a_s, x)
+
+        pSB_derva = (mu * inv3)**3 * pi2inv
+        p_SB = 0.75 * mu * inv3 * pSB_derva#0.75 * pi2inv * (mu * inv3)**4
+
+        density = pSB_derva * p_n
+        density += p_SB * p_n_derva * a_s_derva
+
+        if density <= 0.0:
+            raise NonpositiveNumberDensity
+
+        return density
+
+    except NonpositiveChemicalPotential:
+        print("Chemical potential is nonpositive!")
+    except NonpositiveNumberDensity:
+        print("Baryon number density is nonpositive!")
+
+
 # Number density (difference) (1/cm^3) as a function of the baryon chemical potential (GeV) 
 # NB Number density = dP/d{mu}
 #   params: High-density parameters [X, muFin]
@@ -247,12 +586,8 @@ def nQCD(mu, x, rhoo=0):
     try:   
         if mu <= 0.0:
             raise NonpositiveChemicalPotential
- 
-        c = 0.9008
 
-        density1 = (mu / 3.0)**3 / pi**2 * (c - ab(x, 1) / (mu - ab(x, 2))) 
-        density2 = pSB(mu) * ab(x, 1) / (mu - ab(x, 2))**2
-        density = density1 + density2
+        density = nQCD_nu(mu, x)
 
         if density <= 0.0 and rhoo==0:
             raise NonpositiveNumberDensity
@@ -280,7 +615,7 @@ def eQCD(mu, x, e=0):
         if energy < 0.0 and e==0:
             raise NonpositiveEnergyDensity
 
-        return energy / cgs.c**2 - e
+        return energy * c2inv - e
 
     except NonpositiveChemicalPotential:
         print("Chemical potential is nonpositive!")
@@ -296,7 +631,7 @@ def pQCD_energy(e, x):
         if e <= 0.0:
             raise NonpositiveEnergyDensity
 
-        mu = fsolve(eQCD, 2.6, args = (x, e))[0]
+        mu = fsolve(eQCD, muNNNLOstop, args = (x, e))[0]
 
         return pQCD(mu, x)
 
@@ -312,7 +647,7 @@ def pQCD_density(rhoo, x):
         if rhoo <= 0.0:
             raise NonpositiveNumberDensity
 
-        mu = fsolve(nQCD, 2.6, args = (x, rhoo))[0]
+        mu = fsolve(nQCD, muNNNLOstop, args = (x, rhoo))[0]
 
         return pQCD(mu, x)
 
@@ -327,7 +662,7 @@ def nQCD_pressure(p, x):
         if p <= 0.0:
             raise NonpositivePressure
 
-        mu = fsolve(pQCD, 2.6, args = (x, p))[0]
+        mu = fsolve(pQCD, muNNNLOstop, args = (x, p))[0]
 
         return nQCD(mu, x)
 
@@ -343,7 +678,7 @@ def eQCD_density(rhoo, x):
         if rhoo <= 0.0:
             raise NonpositiveNumberDensity
 
-        mu = fsolve(nQCD, 2.6, args = (x, rhoo))[0]
+        mu = fsolve(nQCD, muNNNLOstop, args = (x, rhoo))[0]
 
         return eQCD(mu, x)
 
@@ -359,7 +694,7 @@ def eQCD_pressure(p, x):
         if p <= 0.0:
             raise NonpositivePressure
 
-        mu = fsolve(pQCD, 2.6, args = (x, p))[0]
+        mu = fsolve(pQCD, muNNNLOstop, args = (x, p))[0]
 
         return eQCD(mu, x)
 
@@ -367,15 +702,24 @@ def eQCD_pressure(p, x):
         print("Pressure is nonpositive!")
 
 
-# Quark matter EoS from perturbative QCD
+# NNNLO-quark-matter EoS from perturbative QCD
 class qcd:
 
     def __init__(self, x):
         # x: pQCD scale parameter, see arXiv:1311.5154 for details
         self.X = x
-        self.a = ab(x, 1)
-        self.b = ab(x, 2)
-        self.c1 = 0.9008
+
+    def press_edens_c2(self, rhoo):
+        try:
+            if rhoo <= 0.0:
+                raise NonpositiveNumberDensity
+
+            mu = fsolve(nQCD, muNNNLOstop, args = (self.X, rhoo / cgs.mB))[0]
+
+            return pQCD(mu, self.X), eQCD(mu, self.X), self.speed2_mu(mu)
+
+        except NonpositiveNumberDensity:
+            print("Baryon number density is nonpositive!")
 
     # Pressure (Ba) as a function of mass density (g/cm^3)
     def pressure(self, rhoo):
@@ -383,7 +727,7 @@ class qcd:
             if rhoo <= 0.0:
                 raise NonpositiveNumberDensity
 
-            mu = fsolve(nQCD, 2.6, args = (self.X, rhoo / cgs.mB))[0]
+            mu = fsolve(nQCD, muNNNLOstop, args = (self.X, rhoo / cgs.mB))[0]
 
             return pQCD(mu, self.X)
 
@@ -404,7 +748,7 @@ class qcd:
             if press <= 0.0:
                 raise NonpositivePressure
 
-            mu = fsolve(pQCD, 2.6, args = (self.X, press))[0]
+            mu = fsolve(pQCD, muNNNLOstop, args = (self.X, press))[0]
 
             return eQCD(mu, self.X)
 
@@ -417,7 +761,7 @@ class qcd:
             if rhoo <= 0.0:
                 raise NonpositiveNumberDensity
 
-            mu = fsolve(nQCD, 2.6, args = (self.X, rhoo / cgs.mB))[0]
+            mu = fsolve(nQCD, muNNNLOstop, args = (self.X, rhoo / cgs.mB))[0]
 
             return eQCD(mu, self.X)
 
@@ -430,7 +774,7 @@ class qcd:
             if press <= 0.0:
                 raise NonpositivePressure
 
-            mu = fsolve(pQCD, 2.6, args = (self.X, press))[0]
+            mu = fsolve(pQCD, muNNNLOstop, args = (self.X, press))[0]
 
             return nQCD(mu, self.X) * cgs.mB
 
@@ -443,15 +787,54 @@ class qcd:
             if press <= 0.0:
                 raise NonpositivePressure
 
-            mu = fsolve(pQCD, 2.6, args = (self.X, press))[0]
+            mu = fsolve(pQCD, muNNNLOstop, args = (self.X, press))[0]
 
-            numerator = ( self.a * (4.0 * self.b - 3.0 * mu) + 4.0 * self.c1 * (self.b - mu)**2 ) * (self.b - mu)
-            denominator = 2.0 * ( 6.0 * self.c1 * (self.b - mu)**3 + self.a * (6.0 * self.b**2 - 8.0 * self.b * mu + 3.0 * mu**2) )
-
-            return numerator / denominator
+            return self.speed2_mu(mu)
 
         except NonpositivePressure:
             print("Pressure is nonpositive!")
+
+    def speed2_mu(self, mu):
+        a_s = alpha_s(mu, self.X)
+        p_n = p_norm(a_s, self.X)
+
+        xlog = log(self.X)
+        alpha_s_log = log(a_s)
+
+        muinv3 = mu * inv3
+        pSB_derva2 = muinv3**2 * pi2inv
+        pSB_derva = pSB_derva2 * muinv3
+        p_SB = 0.75 * pSB_derva2 * muinv3 #0.75 * pi2inv * (mu * inv3)**4#pSB(mu)
+
+        #p_norm_derva = - 0.637 - ( 2.054 + 0.608 * alpha_s_log ) * a_s + 1.4544490635710576 * a_s**2 - 1.824 * a_s * xlog
+        p_n_derva = p_norm_derva(a_s, self.X)
+
+        p_norm_derva2 = - 2.6620000000000004 + 2.9088981271421153 * a_s
+        p_norm_derva2 -= 0.608 * log(a_s) + 1.824 * log(self.X)
+
+        tmp3log = log(self.X * muinv3)
+        tmp2 = 1.9457221667250986 + 2.0 * tmp3log
+        tmp2log = log(tmp2)
+        tmp2_mu_inv = 1.0 / ( mu * tmp2**3 )
+        alpha_s_derva = ( 4.412881861832576 * tmp2log - 5.585053606381853 * tmp3log - 7.639922233058851 ) * tmp2_mu_inv
+        #a_s_derva = alpha_s_derva(mu, x)
+
+        alpha_s_derva2 = ( 58.66350055865166 + ( 48.48702149593025 + 11.170107212763707 * tmp3log ) * tmp3log - ( 35.06353322870223 + 8.825763723665151 * tmp3log ) * tmp2log ) * (tmp2_mu_inv * tmp2)**2
+
+        density = pSB_derva * p_n
+        density += p_SB * p_n_derva * alpha_s_derva
+        #density = nQCD_nu(mu, x)
+
+        density_derva = pSB_derva2 * p_n
+        density_derva += 2.0 * pSB_derva * p_n_derva * alpha_s_derva
+        density_derva += p_SB * p_norm_derva2 * alpha_s_derva**2
+        density_derva += p_SB * p_n_derva * alpha_s_derva2
+
+        return density / ( mu * density_derva )
+
+    def speed2_rho(self, rho):
+        press = self.pressure(rho)
+        return self.speed2(press)
 
     def gammaFunction(self, rho, flag = 1):
         press = self.pressure(rho)
@@ -468,7 +851,7 @@ class qcd:
             if edens <= 0.0:
                 raise NonpositivePressure
 
-            mu = fsolve(eQCD, 2.6, args = (self.X, edens))[0]
+            mu = fsolve(eQCD, muNNNLOstop, args = (self.X, edens))[0]
 
             return pQCD(mu, self.X)
 
