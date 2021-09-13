@@ -1,25 +1,56 @@
 import numpy as np
-from scipy import interpolate
-#from math import pi
-from numpy import pi
+from scipy.optimize import fsolve
 
-
+# Units
 import units as cgs
-from polytropes import monotrope, polytrope, doubleMonotrope, combiningEos, cEFT
-from crust import SLyCrust
+
+# EoSs models
+from polytropes import monotrope
+from polytropes import polytrope
+from polytropes import doubleMonotrope
+from polytropes import combiningEos
+from polytropes import cEFT
+from polytropes import cEFT_r4
+from crust import BPS_crust
+from pQCD import qcd
+from c2Interpolation import matchC2AGKNV
+from c2Interpolation import c2AGKNV
+
+# pQCD related functions
+from pQCD import matchPolytopesWithLimits 
+from pQCD import pQCD
+from pQCD import eQCD
+from pQCD import nQCD
+
+# TOV solver
 from tov import tov
-from pQCD import qcd, matchPolytopesWithLimits, pQCD, eQCD, nQCD
-from tests import causalityPolytropes, hydrodynamicalStabilityPolytropes, causalityPerturbativeQCD, positiveLatentHeat, causalityDoubleMonotrope
-from c2Interpolation import matchC2AGKNV, c2AGKNV
 
+# Tests
+from tests import causalityPolytropes
+from tests import hydrodynamicalStabilityPolytropes
+from tests import causalityPerturbativeQCD
+from tests import positiveLatentHeat
+from tests import causalityDoubleMonotrope
 
+######################################################
+# Constants
 approx_rhoHigh = 12.0
+rhoS_inv = 1.0 / cgs.rhoS
+confacinv = 1000.0 / cgs.GeVfm_per_dynecm
+confac = cgs.GeVfm_per_dynecm * 0.001
+p_cc_xtol = 1.e-4
+density_min = 0.#6.38371e-12 * cgs.mB * 1.e39 # TODO
+
+# BPS crust
+crustEoS_BPS = BPS_crust()
+
+######################################################
 
 class structurePolytrope:
 
     def __init__(self, gammasKnown, transitions, lowDensity, QCD):
         # Equation of state of the crust
-        crustEoS = SLyCrust
+        crustEoS = crustEoS_BPS
 
         # QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
         a = lowDensity[0]
@@ -46,12 +77,15 @@ class structurePolytrope:
         gandolfiEoS = doubleMonotrope(tropesAlpha + tropesBeta, S, L, flagMuon=False, flagSymmetryEnergyModel=2, flagBetaEQ = True)
 
         # Causality test
-        testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[1])
+        testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[0])
+
+        testHydro = False
+        self.gammasSolved = None
 
         if testCausalityGandolfi:
             # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
-            gandolfiPressureHigh = gandolfiEoS.pressure(transitions[1])
-            gandolfiEnergyDensityHigh = gandolfiEoS.edens(transitions[1])
+            gandolfiPressureHigh = gandolfiEoS.pressure(transitions[0])
+            gandolfiEnergyDensityHigh = gandolfiEoS.edens(transitions[0])
             gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh]
 
             # Perturbative QCD EoS
@@ -66,9 +100,9 @@ class structurePolytrope:
 
 
             # Transition (matching) densities of the polytrypic EoS 
-            transitionsPoly = transitions[1:] # mass density
-            transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
-            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
+            transitionsPoly = transitions[:] # mass density
+            transitionsSaturation = [x * rhoS_inv for x in transitionsPoly] # number density
+            transitionsSaturation.append(nQCD(muQCD, X) * cgs.mB * rhoS_inv )
 
             # Determine polytropic exponents
             polyConditions = matchPolytopesWithLimits(gandolfiMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
@@ -80,28 +114,21 @@ class structurePolytrope:
             # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
             testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
 
-        else:
-            testHydro = False
-
+        testCausality = True
+        self.speed2max = 0.0
 
         if testHydro:
             # Check that the polytropi EoS is also causal
             testCausality, self.speed2max = causalityPolytropes(gammasAll, transitionsSaturation, gandolfiMatchingHigh)
 
-        else:
-            testCausality = True
-            self.speed2max = 0
+        self.tropes = None
+        self.trans  = None
+        self.eos = None
+        self.realistic = False
 
-        # Do not proceed if tested failed
-        if gammasAll == None or not testHydro or not testCausality:
-            self.tropes = None
-            self.trans  = None
-            self.eos = None
-            self.realistic = False
-
-        else:
+        if gammasAll is not None and testHydro and testCausality:
             # Polytropic constants
-            Ks = [gandolfiPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
+            Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
 
             for i in range(1, len(gammasAll)):
                 Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
@@ -118,33 +145,46 @@ class structurePolytrope:
 
             # Fix the first transition continuity constant (unitless)
             try:
-                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[0] - 1.0
             except:
-                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[0] / cgs.mB) ) / transitions[0] - 1.0
 
             # Create polytropic EoS
             polytropicEoS = polytrope( self.tropes, self.trans )
 
-            # Combining EoSs
-            combinedEoS = [crustEoS, gandolfiEoS, polytropicEoS, qcdEoS]
-            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+            # Transition between the crust and the core
+            # This has been approximated so that rho_crust(p_cc) = rho_ceft(p_cc)
+            def rho_diff(p):
+                global rho_cc_tmp
+                pp = p[0] * confac
+                rho_cc_tmp = crustEoS.rho(pp)
 
-            self.eos = combiningEos(combinedEoS, transitionPieces)
+                return rho_cc_tmp / ceftEoS.rho(pp) - 1.0
+
+            try:
+                p_cc = fsolve(rho_diff, 0.4, xtol=p_cc_xtol) * confac
+                self.rho_cc = crustEoS.rho(p_cc)[0]
+
+                # Combining EoSs
+                combinedEoS = [crustEoS, ceftEoS, polytropicEoS, qcdEoS]
+                transitionPieces = [density_min, self.rho_cc, transitions[0], rho_qcd]
+
+                self.eos = combiningEos(combinedEoS, transitionPieces)
 
 
-            # Is the pQCD EoS causal?
-            test3, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+                # Is the pQCD EoS causal?
+                test3, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
 
-            if self.speed2max < speed2pQCD and not testHydro:
-                self.speed2max = speed2pQCD
+                if self.speed2max < speed2pQCD and not testHydro:
+                    self.speed2max = speed2pQCD
 
-            # Is the latent heat between EoS pieces positive?
-            test4 = positiveLatentHeat(combinedEoS, transitionPieces)
+                # Is the latent heat between EoS pieces positive?
+                test4 = positiveLatentHeat(combinedEoS, transitionPieces)
 
-            if not test3 or not test4:
-                self.realistic = False
-            else:
-                self.realistic = True
+                if test3 and test4:
+                    self.realistic = True
+            except:
+                pass
 
 
     #solve TOV equations
@@ -204,25 +244,43 @@ class structurePolytrope:
 
 class structurePolytropeWithCEFT:
 
-    def __init__(self, gammasKnown, transitions, lowDensity, QCD):
+    def __init__(self, gammasKnown, transitions, lowDensity, QCD, CEFT_model = 'HLPS'):
         # Equation of state of the crust
-        crustEoS = SLyCrust #TODO does this need updating?
+        crustEoS = crustEoS_BPS
 
-        # cEFT EoS
-        gamma = lowDensity[0]
-        alphaL = lowDensity[1]
-        etaL = lowDensity[2]
+        if CEFT_model == 'HLPS' or CEFT_model == 'HLPS3':
+            # cEFT EoS parameters
+            gamma = lowDensity[0]
+            alphaL = lowDensity[1]
+            etaL = lowDensity[2]
 
-        # Form the bimonotropic EoS
-        ceftEoS = cEFT(lowDensity)
+            # Form the bimonotropic EoS
+            ceftEoS = cEFT(lowDensity)
 
-        # Causality test
-        testCausalityCEFT = True#XXX Squared speed of sound is small
+            # Causality test
+            testCausalityCEFT = True
+
+        elif CEFT_model == 'HLPS+':
+            # cEFT EoS parameters
+            gamma = lowDensity[0]
+            alphaL = lowDensity[1]
+            etaL = lowDensity[2]
+            zetaL = lowDensity[3]
+            rho0 = lowDensity[4]
+
+            # Form the bimonotropic EoS
+            ceftEoS = cEFT_r4(lowDensity)
+
+            # Causality test
+            testCausalityCEFT = ceftEoS.realistic
+
+        testHydro = False
+        gammasAll = None
 
         if testCausalityCEFT:
             # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
-            ceftPressureHigh = ceftEoS.pressure(transitions[1])
-            ceftEnergyDensityHigh = ceftEoS.edens(transitions[1])
+            ceftPressureHigh = ceftEoS.pressure(transitions[0])
+            ceftEnergyDensityHigh = ceftEoS.edens(transitions[0])
             ceftMatchingHigh = [ceftPressureHigh, ceftEnergyDensityHigh]
 
             # Perturbative QCD EoS
@@ -236,41 +294,33 @@ class structurePolytropeWithCEFT:
             qcdMathing = [qcdPressureLow, qcdEnergyDensityLow * cgs.c**2]
 
 
-            # Transition (matching) densities of the polytrypic EoS 
-            transitionsPoly = transitions[1:] # mass density
-            transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
-            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
+            # Transition (matching) densities of the polytrypic EoS
+            rho_qcd = nQCD(muQCD, X) * cgs.mB
+            transitionsPoly = transitions[:] # mass density
+            transitionsSaturation = [x * rhoS_inv for x in transitionsPoly] # number density
+            transitionsSaturation.append(rho_qcd * rhoS_inv )
 
             # Determine polytropic exponents
             polyConditions = matchPolytopesWithLimits(ceftMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
-
             gammasAll = polyConditions.GammaValues()
             self.gammasSolved = polyConditions.gammasSolved
 
-        
             # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
             testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
 
-        else:
-            testHydro = False
-
+        testCausality = True
+        self.speed2max = 0.0
 
         if testHydro:
             # Check that the polytropi EoS is also causal
             testCausality, self.speed2max = causalityPolytropes(gammasAll, transitionsSaturation, ceftMatchingHigh)
 
-        else:
-            testCausality = True
-            self.speed2max = 0
+        self.tropes = None
+        self.trans  = None
+        self.eos = None
+        self.realistic = False
 
-        # Do not proceed if tested failed
-        if gammasAll == None or not testHydro or not testCausality:
-            self.tropes = None
-            self.trans  = None
-            self.eos = None
-            self.realistic = False
-
-        else:
+        if gammasAll is not None and testHydro and testCausality:
             # Polytropic constants
             Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
 
@@ -289,33 +339,45 @@ class structurePolytropeWithCEFT:
 
             # Fix the first transition continuity constant (unitless)
             try:
-                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[1] - 1.0
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / (cgs.c**2 * (gammasAll[0] - 1.0)) ) / transitions[0] - 1.0
             except:
-                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[1] / cgs.mB) ) / transitions[1] - 1.0
+                self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[0] / cgs.mB) ) / transitions[0] - 1.0
 
             # Create polytropic EoS
             polytropicEoS = polytrope( self.tropes, self.trans )
 
-            # Combining EoSs
-            combinedEoS = [crustEoS, ceftEoS, polytropicEoS, qcdEoS]
-            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+            # Transition between the crust and the core
+            # This has been approximated so that rho_crust(p_cc) = rho_ceft(p_cc)
+            def rho_diff(p):
+                global rho_cc_tmp
+                pp = p[0] * confac
+                rho_cc_tmp = crustEoS.rho(pp)
 
-            self.eos = combiningEos(combinedEoS, transitionPieces)
+                return rho_cc_tmp / ceftEoS.rho(pp) - 1.0
 
+            try:
+                p_cc = fsolve(rho_diff, 0.4, xtol=p_cc_xtol) * confac
+                self.rho_cc = crustEoS.rho(p_cc)[0]
 
-            # Is the pQCD EoS causal?
-            test3, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+                # Combining EoSs
+                combinedEoS = [crustEoS, ceftEoS, polytropicEoS, qcdEoS]
+                transitionPieces = [density_min, self.rho_cc, transitions[0], rho_qcd]
 
-            if self.speed2max < speed2pQCD and not testHydro:
-                self.speed2max = speed2pQCD
+                self.eos = combiningEos(combinedEoS, transitionPieces)
 
-            # Is the latent heat between EoS pieces positive?
-            test4 = positiveLatentHeat(combinedEoS, transitionPieces)
+                # Is the pQCD EoS causal?
+                test3, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
 
-            if not test3 or not test4:
-                self.realistic = False
-            else:
-                self.realistic = True
+                if self.speed2max < speed2pQCD and not testHydro:
+                    self.speed2max = speed2pQCD
+
+                # Is the latent heat between EoS pieces positive?
+                test4 = positiveLatentHeat(combinedEoS, transitionPieces)
+
+                if test3 and test4:
+                    self.realistic = True
+            except:
+                pass
 
 
     #solve TOV equations
@@ -376,7 +438,7 @@ class structureC2AGKNV:
 
     def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD):
         # Equation of state of the crust
-        crustEoS = SLyCrust
+        crustEoS = crustEoS_BPS
 
         # QMC EoS, see Gandolfi et al. (2012, arXiv:1101.1921) for details
         a = lowDensity[0]
@@ -404,6 +466,12 @@ class structureC2AGKNV:
 
         # Causality test
         testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[1])
+
+        muAll = None
+        c2All = None
+        testC2Ok = False
+        self.muSolved = None
+        self.c2Solved = None
 
         if testCausalityGandolfi:
             # Pressure (Ba), energy density (g/cm^3), mass density (g/cm^3), and
@@ -437,8 +505,8 @@ class structureC2AGKNV:
 
             # Transition (matching) densities of the polytrypic EoS 
             transitionsPoly = transitions[1:] # mass density
-            transitionsSaturation = [x / cgs.rhoS for x in transitionsPoly] # number density
-            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
+            transitionsSaturation = [x * rhoS_inv for x in transitionsPoly] # number density
+            transitionsSaturation.append(nQCD(muQCD, X) * cgs.mB * rhoS_inv )
 
             # Check that the last known chemical potential is small enough
             if muQCD > muKnown[-1]:
@@ -452,42 +520,52 @@ class structureC2AGKNV:
 
                 self.muSolved = c2Conditions.muSolved
                 self.c2Solved = c2Conditions.c2Solved
-            else:
-                muAll = None
-                c2All = None
-                testC2Ok = False
 
-        # Do not proceed if tested failed
-        if muAll == None or c2All == None or not testC2Ok:
-            self.eos = None
-            self.realistic = False
+        self.eos = None
+        self.realistic = False
+        self.speed2max = 0.0
 
-        else:
+        if muAll is not None and c2All is not None and testC2Ok:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, gandolfiMatchingHigh, approx = True, rhoHigh = approx_rhoHigh )
+            rho_qcd = nQCD(muQCD, X) * cgs.mB
+            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = approximation, rhoHigh1 = approx_rhoHigh, rhoHigh2 = rho_qcd * rhoS_inv )
+            if approximation:
+                c2EoS.approximation()
 
-            # Combining EoSs
-            combinedEoS = [crustEoS, gandolfiEoS, c2EoS, qcdEoS]
-            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+            # Transition between the crust and the core
+            # This has been approximated so that rho_crust(p_cc) = rho_ceft(p_cc)
+            def rho_diff(p):
+                global rho_cc_tmp
+                pp = p[0] * confac
+                rho_cc_tmp = crustEoS.rho(pp)
 
-            self.eos = combiningEos(combinedEoS, transitionPieces)
+                return rho_cc_tmp / ceftEoS.rho(pp) - 1.0
 
-            # Is the pQCD EoS causal?
-            test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+            try:
+                p_cc = fsolve(rho_diff, 0.4, xtol=p_cc_xtol) * confac
+                self.rho_cc = crustEoS.rho(p_cc)[0]
 
-            self.speed2max = max(c2Known)
-            if self.speed2max < self.c2Solved:
-                self.speed2max = self.c2Solved
-            if self.speed2max < speed2pQCD:
-                self.speed2max = speed2pQCD
+                # Combining EoSs
+                combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
+                transitionPieces = [density_min, self.rho_cc, transitions[0], rho_qcd]
+                self.eos = combiningEos(combinedEoS, transitionPieces)
 
-            # Is the latent heat between EoS pieces positive?
-            test3 = positiveLatentHeat(combinedEoS, transitionPieces)
+                # Is the pQCD EoS causal?
+                test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
 
-            if not test2 or not test3:
-                self.realistic = False
-            else:
-                self.realistic = True
+                self.speed2max = max(c2Known)
+                if self.speed2max < self.c2Solved:
+                    self.speed2max = self.c2Solved
+                if self.speed2max < speed2pQCD:
+                    self.speed2max = speed2pQCD
+
+                # Are all matching point continues (within numerical erros)?
+                test3 = positiveLatentHeat(combinedEoS, transitionPieces)
+
+                if test2 and test3:
+                    self.realistic = True
+            except:
+                pass
 
 
     #solve TOV equations
@@ -547,41 +625,62 @@ class structureC2AGKNV:
 
 class structureC2AGKNVwithCEFT:
 
-    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD, approximation = False):
+    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD, approximation = False, CEFT_model = 'HLPS'):
         # Equation of state of the crust
-        crustEoS = SLyCrust
+        crustEoS = crustEoS_BPS
 
-        # cEFT EoS
-        gamma = lowDensity[0]
-        alphaL = lowDensity[1]
-        etaL = lowDensity[2]
+        if CEFT_model == 'HLPS' or CEFT_model == 'HLPS3':
+            # cEFT EoS parameters
+            gamma = lowDensity[0]
+            alphaL = lowDensity[1]
+            etaL = lowDensity[2]
 
-        # Form the bimonotropic EoS
-        ceftEoS = cEFT(lowDensity)
+            # Form the bimonotropic EoS
+            ceftEoS = cEFT(lowDensity)
 
-        # Causality test
-        testCausalityCEFT = True#XXX Squared speed of sound is small
+            # Causality test
+            testCausalityCEFT = True
+
+        elif CEFT_model == 'HLPS+':
+            # cEFT EoS parameters
+            gamma = lowDensity[0]
+            alphaL = lowDensity[1]
+            etaL = lowDensity[2]
+            zetaL = lowDensity[3]
+            rho0 = lowDensity[4]
+
+            # Form the bimonotropic EoS
+            ceftEoS = cEFT_r4(lowDensity)
+
+            # Causality test
+            testCausalityCEFT = ceftEoS.realistic
+
+        muAll = None
+        c2All = None
+        testC2Ok = False
+        self.muSolved = None
+        self.c2Solved = None
 
         if testCausalityCEFT:
             # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
-            ceftPressureHigh = ceftEoS.pressure(transitions[1])
-            ceftEnergyDensityHigh = ceftEoS.edens(transitions[1])
-            ceftDensityHigh = transitions[1]
-            ceftC2High = ceftEoS.speed2_rho(transitions[1])
+            ceftPressureHigh = ceftEoS.pressure(transitions[0])
+            ceftEnergyDensityHigh = ceftEoS.edens(transitions[0])
+            ceftDensityHigh = transitions[0]
+            ceftC2High = ceftEoS.speed2_rho(transitions[0])
             ceftMatchingHigh = [ceftPressureHigh, ceftEnergyDensityHigh, ceftDensityHigh, ceftC2High]
 
             # Determining matching chemical potentials
-            mu0 = cgs.mB * ( ceftEnergyDensityHigh * cgs.c**2 + ceftPressureHigh )
-            mu0 = mu0 / ( ceftDensityHigh * cgs.eV ) * 1.0e-9
-            muKnown = []
-            for mu in muDeltaKnown:
-                if len( muKnown ) == 0:
-                    muKnown.append( mu0 + mu )
+            mu0 = cgs.mB * ( ceftEnergyDensityHigh * cgs.c**2 + ceftPressureHigh ) * 1.0e-9
+            mu0 /= ceftDensityHigh * cgs.eV
+            muKnown = [None] * len(muDeltaKnown)
+            for i, mu in enumerate(muDeltaKnown):
+                if i == 0:
+                    muKnown[0] = mu0 + mu
                 else:
-                    muKnown.append( muKnown[-1] + mu )
+                    muKnown[i] = muKnown[i-1] + mu
+
             # Perturbative QCD EoS
-            muQCD = QCD[0]
-            X = QCD[1]
+            muQCD, X = QCD
             qcdEoS = qcd(X)
 
             # Pressure, energy density, and speed of sound squared at the beginning of the pQCD EoS
@@ -589,11 +688,6 @@ class structureC2AGKNVwithCEFT:
             qcdDensityLow = nQCD(muQCD, X) * cgs.mB
             qcdSpeed2Low = qcdEoS.speed2(qcdPressureLow)
             qcdMathing = [qcdPressureLow, qcdDensityLow, muQCD, qcdSpeed2Low]
-
-            # Transition (matching) densities of the c2 EoS
-            transitionsC2 = transitions[1:] # mass density
-            transitionsSaturation = [x / cgs.rhoS for x in transitionsC2] # number density
-            transitionsSaturation.append(nQCD(muQCD, X) * (cgs.mB / cgs.rhoS) )
 
             # Check that the last known chemical potential is small enough
             if muQCD > muKnown[-1]:
@@ -607,49 +701,58 @@ class structureC2AGKNVwithCEFT:
 
                 self.muSolved = c2Conditions.muSolved
                 self.c2Solved = c2Conditions.c2Solved
-            else:
-                muAll = None
-                c2All = None
-                testC2Ok = False
 
-        # Do not proceed if tested failed
-        if muAll == None or c2All == None or not testC2Ok:
-            self.eos = None
-            self.realistic = False
+        self.eos = None
+        self.realistic = False
+        self.speed2max = 0.0
 
-        else:
+        if muAll is not None and c2All is not None and testC2Ok:
             # Create c2 EoS
-            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = approximation, rhoHigh = approx_rhoHigh )
+            rho_qcd = nQCD(muQCD, X) * cgs.mB
+            c2EoS = c2AGKNV( muAll, c2All, ceftMatchingHigh, approx = approximation, rhoHigh1 = approx_rhoHigh, rhoHigh2 = rho_qcd * rhoS_inv )
+            if approximation:
+                c2EoS.approximation()
 
-            # Combining EoSs
-            combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
-            transitionPieces = [0.0] + transitions[:2] + [nQCD(muQCD, X) * cgs.mB]
+            # Transition between the crust and the core
+            # This has been approximated so that rho_crust(p_cc) = rho_ceft(p_cc)
+            def rho_diff(p):
+                global rho_cc_tmp
+                pp = p[0] * confac
+                rho_cc_tmp = crustEoS.rho(pp)
 
-            self.eos = combiningEos(combinedEoS, transitionPieces)
+                return rho_cc_tmp / ceftEoS.rho(pp) - 1.0
 
-            # Is the pQCD EoS causal?
-            test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
+            try:
+                p_cc = fsolve(rho_diff, 0.4, xtol=p_cc_xtol) * confac
+                self.rho_cc = crustEoS.rho(p_cc)[0]
 
-            self.speed2max = max(c2Known)
-            if self.speed2max < self.c2Solved:
-                self.speed2max = self.c2Solved
-            if self.speed2max < speed2pQCD:
-                self.speed2max = speed2pQCD
+                # Combining EoSs
+                combinedEoS = [crustEoS, ceftEoS, c2EoS, qcdEoS]
+                transitionPieces = [density_min, self.rho_cc, transitions[0], rho_qcd]
+                self.eos = combiningEos(combinedEoS, transitionPieces)
 
-            # Is the latent heat between EoS pieces positive?
-            test3 = positiveLatentHeat(combinedEoS, transitionPieces)
+                # Is the pQCD EoS causal?
+                test2, speed2pQCD = causalityPerturbativeQCD(qcdEoS, muQCD)
 
-            if not test2 or not test3:
-                self.realistic = False
-            else:
-                self.realistic = True
+                self.speed2max = max(c2Known)
+                if self.speed2max < self.c2Solved:
+                    self.speed2max = self.c2Solved
+                if self.speed2max < speed2pQCD:
+                    self.speed2max = speed2pQCD
+
+                # Are all matching point continues (within numerical erros)?
+                test3 = positiveLatentHeat(combinedEoS, transitionPieces)
+
+                if test2 and test3:
+                    self.realistic = True
+            except:
+                pass
 
 
 
     #solve TOV equations
     def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
         t = tov(self.eos, rhocs)
-
         assert isinstance(l, int)
 
         if m1 < 0.0 and m2 < 0.0:
@@ -794,5 +897,3 @@ if __name__ == "__main__":
     #plt.savefig('mr.pdf')
 
     test_tov()
-
-
