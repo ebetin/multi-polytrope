@@ -71,6 +71,12 @@ def parse_cli():
             type=str,
             help='cEFT model [HLPS, HLPS3, HLPS+ (default)]')
 
+    parser.add_argument('-x','--xmodel', 
+            dest='xmodel', 
+            default='uniform',
+            type=str,
+            help='Distribution for the pQCD parameter X [uniform (default), log-uniform, log-normal]')
+
     args = parser.parse_args()
 
 
