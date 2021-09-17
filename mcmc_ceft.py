@@ -13,6 +13,7 @@ from structure import structureC2AGKNVwithCEFT as structure_c2 # c2 interpolatio
 from structure import structurePolytropeWithCEFT as structure_poly # polytropes
 import units as cgs
 from pQCD import nQCD, pSB_csg
+from c2Interpolation import c2AGKNV
 
 # measurements
 #--------------------------------------------------
@@ -62,34 +63,78 @@ if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
 ##################################################
 # global flags for different run modes
-eos_Nsegment = args.eos_nseg #polytrope order
-debug = args.debug  #flag for additional debug printing
-phaseTransition = args.ptrans #position of the 1st order transition
+
+# polytrope order
+eos_Nsegment = args.eos_nseg
+
+# flag for additional debug printing
+debug = args.debug
+
+# position of the 1st order transition
+# NB currently works only with polytropes TODO
+# after first two monotropes, 0: no phase transition
+# in other words, the first two monotrope do not behave
+# like a latent heat (ie. gamma != 0)
+phaseTransition = args.ptrans
+
+# interpolation model (Polytropic = 0, c_s^2 = 1)
 eos_model = args.model
+
+# cEFT model (HLPS, HLPS3, HLPS+)
 ceft_model = args.ceft
 
-
-#after first two monotropes, 0: no phase transition
-#in other words, the first two monotrope do not behave
-#like a latent heat (ie. gamma != 0)
+# PDF for the pQCD parameter X (uniform, log-uniform, log-normal)
+x_model = args.xmodel
 
 ##################################################
-flag_TOV   = True # calculating MR curve
-flag_GW    = True # using GW170817 event as a constrain (NB usable if flag_TOV = True)
-flag_Mobs  = True # using mass measurement data (NB usable if flag_TOV = True)
-flag_MRobs = True # using mass-radius observations (NB usable if flag_TOV = True)
-flagSubConformal = args.subconf # discarding subconformal (c_s^2 > 1/3) EoSs (default: False)
+# extra restrictions
+
+# calculating MR curve
+flag_TOV   = True
+
+# using GW170817 event as a constrain (NB usable if flag_TOV = True)
+flag_GW    = True
+
+# using mass measurement data (NB usable if flag_TOV = True)
+flag_Mobs  = True
+
+# using mass-radius observations (NB usable if flag_TOV = True)
+flag_MRobs = True
+
+# discarding subconformal (c_s^2 > 1/3) EoSs (default: False)
+flagSubConformal = args.subconf
 
 ##################################################
 # conversion factor
+
+# Ba (= g/cm/s^2 = .1 Pa) -> Mev/fm^3
 confacinv = 1000.0 / cgs.GeVfm_per_dynecm
+
+# MeV/fm^3 -> Ba
 confac = cgs.GeVfm_per_dynecm * 0.001
+
+# (g/cm/s)^2 -> GeV [chemical potential related]
 mB_nu = cgs.mB * cgs.erg_per_kev * 1.0e-6
+
+# Inversed satuaration density (cm^3/g)
 rhoS_inv = 1.0 / cgs.rhoS
+
+# Inversed speed of sound square (s^2/cm^2)
 c2inv = 1.0 / cgs.c**2
+
+# Mev/fm^3 -> g/cm^3
 confacC2inv = confac * c2inv
+
+# Inversed pi square
 pi2inv = 1.0 / math.pi**2
-inv3 = 0.3333333333333333333333333 #1.0 / 3.0
+
+# 1/3
+inv3 = 0.3333333333333333333333333
+
+##################################################
+# Perturbative QCD parameter, see e.g. Fraga et al. (2014, arXiv:1311.5154) for details
+# Transition (matching) chemical potential (GeV) between interpolated and pQCD parts
+muQCD = 2.74  # 2.739512831322249
 
 ##################################################
 #auto-generated parameter names for c2 interpolation
@@ -155,7 +200,7 @@ mpi_print(parameters)
 
 
 n_params = len(parameters)
-prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-n{}-{}".format(eos_model, eos_Nsegment, phaseTransition, args.seed, args.walkers, args.ngrid, args.nsteps, ceft_model)
+prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-n{}-{}-{}".format(eos_model, eos_Nsegment, phaseTransition, args.seed, args.walkers, args.ngrid, args.nsteps, ceft_model, x_model)
 
 
 ##################################################
@@ -166,14 +211,14 @@ prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-n{}-{}".format(eos_model, eos_Nsegment
 parameters2 = []
 
 Ngrid = args.ngrid
-Ngrid2 = 100
-# TODO check these!
+Ngrid2 = 109#1081 # TODO value?
+# TODO check short!
 param_indices = {
         'mass_grid':       np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':        np.logspace(2.0, 4.3, Ngrid),
         'nsat_long_grid':  np.linspace(1.0, 50.0, Ngrid),
         'nsat_short_grid': np.linspace(1.2, 12., Ngrid2),
-        #'nsat_short_grid': np.logspace(math.log10(1.0*cgs.rhoS), math.log10(12.0*cgs.rhoS), Ngrid2) * rhoS_inv, # TODO only TOV
+        #'nsat_short_grid': np.logspace(math.log10(1.2*cgs.rhoS), math.log10(12.0*cgs.rhoS), Ngrid2) * rhoS_inv, # TODO only TOV
                }
 
 #add M-R grid
@@ -318,6 +363,19 @@ mpi_print("Parameters to be only stored (blobs):")
 mpi_print(len(parameters2))
 n_blobs = len(parameters2)
 
+######################################################################
+from scipy.optimize import brentq
+from pQCD import nQCD_nu_wo_errors
+
+def rho_qcd(x, mu):
+    return nQCD_nu_wo_errors(mu, x)
+
+# Smallest realistic value for the scale parameter X of the NNNLO pQCD calculations
+# (For detail, see Fraga et al. (2014, arXiv:1311.5154) as well)
+x_min = brentq(rho_qcd, .5, 1., args=(muQCD,))
+# x_min_ln = math.log(x_min)
+######################################################################
+
 #5D distribution of the cEFT fit parameters
 if ceft_model == 'HLPS+':
     from scipy.stats import multivariate_normal as mvn
@@ -338,10 +396,11 @@ linf = np.inf
 
 ##################################################
 # Prior function; changes from [0,1] to whatever physical lims
-#def myprior(cube, ndim, nparams):
+
 def myprior(cube):
     lps = np.zeros_like(cube)
 
+    ##################################################################################
     # Parameters of the cEFT EoS
     if ceft_model == 'HLPS':
         lps[0] = check_uniform(cube[0], 1.17, 1.61) #alphaL [unitless]
@@ -365,18 +424,35 @@ def myprior(cube):
 
         ci = 5
 
-    # Scale parameter (X) of the perturbative QCD, see Fraga et al. (2014, arXiv:1311.5154) for details
-    if cube[ci] <= 0:
+    ##################################################################################
+    # Unitless scale parameter (X) of the NNNLO pQCD calculations, arXix:2103.05658
+    # (For detail, see Fraga et al. (2014, arXiv:1311.5154) as well)
+
+    if cube[ci] <= x_min:
+        # Returns -inf if rhoo <= 0
         lps[ci] = -linf
     else:
-        lnc = math.log( cube[ci] )
-        # TODO update final version of the prior of X
-        #lps[ci] = 0.1912556 - lnc - 4.605453 * ( lnc - 0.8017141 )**2 #X [unitless]
-        #Above, mu = 0.8017141355849453 and sigma = 0.329495
-        #Below, mu = 0.80 and sigma = 0.33
-        lps[ci] = 0.1897241 - lnc - 4.5913682 * ( lnc - 0.80 )**2  # X [unitless]
+        if x_model = 'log_normal':
+            # Truncated log-normal distribution demanding X > x_min
+            # Params: mu = 0.576702101863589, sigma = 0.8075029237121397
+            # Median = 2, mean = 2.7238, var = 5.73697, mode = 0.927411
+            # NB assumed that muQCD = 2.74 GeV!
+            lnc = math.log( cube[ci] )
+            lps[ci] = -0.5833457860175315 - lnc - 0.7667994583650043 * (lnc - 0.576702101863589)**2
+        elif x_model = 'log_uniform':
+            # Log-uniform distribution from x_min to 10
+            lnc = math.log( cube[ci] )
+            # lps[ci] = -lnc - math.log( 2.302585092994046 - x_min_ln )
+            lps[ci] = 0.991987995279329 - lnc  # NB assuming muQCD = 2.74 GeV!
+        elif x_model = 'uniform':
+            # Uniform distribution from x_min to 10
+            lps[c1] = check_uniform(cube[ci], x_min, 10.)
 
     ci += 1
+
+    ##################################################################################
+    # Interpolation parameters
+    # eos_models: polytropic (0) and c2 (1)
 
     if eos_model == 0:
         # Polytropic exponents excluding the first two ones
@@ -395,14 +471,14 @@ def myprior(cube):
             lps[ci] = check_uniform(cube[ci], 0.0, 43.0)  #delta_ni [rhoS]
             ci += 1
     elif eos_model == 1:
-        # Chemical potential depths
+        # Chemical potential intervalss
         for itrope in range(eos_Nsegment-2):
             if debug:
                 mpi_print("prior for mu_delta from cube #{}".format(ci))
             lps[ci] = check_uniform(cube[ci], 0.0, 1.8)  #delta_mui [GeV]
             ci += 1
 
-        # Matching speed of sound squared excluding the last one
+        # Matching speed of sound squared excluding the last (=pQCD) one
         for itrope in range(eos_Nsegment-2):
             if debug:
                 mpi_print("prior for c^2 from cube #{}".format(ci))
@@ -412,33 +488,60 @@ def myprior(cube):
                 lps[ci] = check_uniform(cube[ci], 0.0, 1.0)  #c_i^2 [unitless]
             ci += 1
 
+    ##################################################################################
     # TD measurements
-    # TODO check tha this is correct, and note 90% credible intervals!
-    lps[ci] = 6.4864681454271168 - 1.35277172696e6 * ( cube[ci] - 1.186 )**2
+
+    # Chirp-mass distibution of the GW170817 event, see arXiv:1805.11579
+    # 1.186 +- 0.001 M_Sun (90%), assumed to be normal
+    lps[ci] = 6.486468145459291 - 1.3527717270480054e6 * ( cube[ci] - 1.186 )**2
+
+    # Mass ratio (GW170817), m_2 / m_1 s.t. m_1 >= m_2
     lps[ci+1] = check_uniform(cube[ci+1], 0.0, 1.0)
 
     ci += 2
 
+    ##################################################################################
     # M measurements
-    # TODO check these distributions!
-    lps[ci]   = 2.2999373 - 312.5 * ( cube[ci] - 2.01 )**2 # 2.01 +- 0.04, normal
-    lps[ci+1] = 1.7403215 - 102.0408163 * ( cube[ci+1] - 2.08 )**2 # 2.08 +- 0.07, normal
+
+    # PSR J0348+0432, M = 2.01 +- 0.04 M_Sun (68.27%), normal distro, arXiv:1304.6875
+    lps[ci]   = 2.2999372916635283 - 312.5 * ( cube[ci] - 2.01 )**2
+
+    # PSR J0740+6620, M = 2.08 +- 0.07 M_Sun (68.3%), normal distro, arXiv:2104.00880
+    lps[ci+1] = 1.7403215037281052 - 102.0408163265306 * ( cube[ci+1] - 2.08 )**2
 
     ci += 2
 
+    ##################################################################################
     # M-R measurements
-    lps[ci]  = check_uniform(cube[ci],    1.0, 2.5)  #M_1702 [Msun]
-    lps[ci+1]  = check_uniform(cube[ci+1],  0.5, 2.7)  #M_6304 [Msun]
-    lps[ci+2]  = check_uniform(cube[ci+2],  0.5, 2.0)  #M_6397 [Msun]
-    lps[ci+3]  = check_uniform(cube[ci+3],  0.5, 2.8)  #M_M28 [Msun]
-    lps[ci+4]  = check_uniform(cube[ci+4],  0.5, 2.5)  #M_M30 [Msun]
-    lps[ci+5]  = check_uniform(cube[ci+5],  0.5, 2.7)  #M_X7 [Msun]
-    lps[ci+6]  = check_uniform(cube[ci+6],  0.5, 2.5)  #M_wCen [Msun]
-    lps[ci+7]  = check_uniform(cube[ci+7],  0.8, 2.4)  #M_M13 [Msun]
-    lps[ci+8]  = check_uniform(cube[ci+8],  0.8, 2.5)  #M_1724 [Msun]
-    lps[ci+9]  = check_uniform(cube[ci+9], 0.8, 2.5)  #M_1810 [Msun]
-    lps[ci+10] = check_uniform(cube[ci+10], 1.0129494423462766, 2.2792157996697235)  #M_0030 [Msun]
-    # TODO include newest NICER measurement too!
+
+    # 4U 1702-429, arXiv:1709.09120
+    lps[ci]  = check_uniform(cube[ci], 1.0, 2.5)
+
+    # arXiv:1709.05013
+    # NGC 6304, helium atmosphere
+    lps[ci+1]  = check_uniform(cube[ci+1], 0.5, 2.7)
+    # NGC 6397, helium atmosphere
+    lps[ci+2]  = check_uniform(cube[ci+2], 0.5, 2.0)
+    # M28, helium atmosphere
+    lps[ci+3]  = check_uniform(cube[ci+3], 0.5, 2.8)
+    # M30, hydrogen atmosphere
+    lps[ci+4]  = check_uniform(cube[ci+4], 0.5, 2.5)
+    # 47 Tuc X7, hydrogen atmosphere
+    lps[ci+5]  = check_uniform(cube[ci+5], 0.5, 2.7)
+    # wCen, hydrogen atmosphere
+    lps[ci+6]  = check_uniform(cube[ci+6], 0.5, 2.5)
+
+    # M13, hydrogen atmosphere, arXiv:1803.00029
+    lps[ci+7]  = check_uniform(cube[ci+7], 0.8, 2.4)
+
+    # arXiv:1509.06561
+    # 4U 1724-307
+    lps[ci+8]  = check_uniform(cube[ci+8], 0.8, 2.5)
+    # SAX J1810.8-260
+    lps[ci+9]  = check_uniform(cube[ci+9], 0.8, 2.5)
+
+    # J0030+0451, arXiv:TODO
+    lps[ci+10] = check_uniform(cube[ci+10], 1.0129494423462766, 2.2792157996697235)
 
     return np.sum(lps)
 
@@ -460,10 +563,6 @@ elif ceft_model == 'HLPS+':
     trans_points = [1.21875 * cgs.rhoS]  # g/cm^3
     trans_points_s = [1.21875]  # n_s
 
-# Perturbative QCD parameter, see e.g. Fraga et al. (2014, arXiv:1311.5154) for details
-# TODO will this be our new value?!?
-muQCD = 2.739512831322249 # Transition (matching) chemical potential where pQCD starts (GeV)
-
 # Collection of constant variables
 if ceft_model == 'HLPS':
     const_params = trans_points_s + [gamma] + [muQCD]
@@ -484,22 +583,29 @@ def myloglike(cube):
         ## cEFT parameters:
         0 alpha
         1 eta
+        (2 gamma)
+        (3 zeta)
+        (4 rho0)
 
         #pQCD parameters:
-        3 X
+        2/3/5 X
 
         #interpolation parameters:
-        matching chemical potentials
+        matching polytropic exponents
+        matching density intervals
+        OR
+        matching chemical-potential intercals
         matching speed of sound squared
 
         # Measurement parameters:
         mass of individual objects
+        TD data from GW170817 event
+        mass-radius data
 
 
     """
     ##################################################
     # initialization
-    #print("CUBE", cube)
     blobs = np.zeros(n_blobs)
     logl = 0.0 #total likelihood
 
@@ -507,7 +613,7 @@ def myloglike(cube):
         global icalls
         icalls += 1
         mpi_print(icalls, cube)
-    #print("KKL",logl, ceft_model)
+
     ################################################## 
     # cEFT low-density EOS parameters
     if ceft_model == 'HLPS' or ceft_model == 'HLPS3':
@@ -574,20 +680,20 @@ def myloglike(cube):
     # low-density cEFT EoS
 
     # Parameters of the cEFT EoS
-    #gamma  = 4.0 / 3.0                    # unitless
-    alphaL = cube[0]                      # untiless
-    etaL   = cube[1]                      # untiless
+    # gamma  = 4.0 / 3.0  # unitless
+    alphaL = cube[0]  # untiless
+    etaL   = cube[1]  # untiless
 
     if ceft_model == 'HLPS':
-        gamma = 4.0 * inv3 # unitless
+        gamma = 4.0 * inv3  # unitless
         lowDensity = [gamma, alphaL, etaL]
     elif ceft_model == 'HLPS3':
-        gamma = cube[2] # unitless
+        gamma = cube[2]  # unitless
         lowDensity = [gamma, alphaL, etaL]
     elif ceft_model == 'HLPS+':
         gamma = cube[2]  # unitless
-        zetaL = cube[3] # unitless
-        rho0 = cube[4]  # unitless
+        zetaL = cube[3]  # unitless
+        rho0 = cube[4]   # unitless
         lowDensity = [gamma, alphaL, etaL, zetaL, rho0]
 
 
@@ -601,9 +707,8 @@ def myloglike(cube):
         X = cube[3]
     elif ceft_model == 'HLPS+':
         X = cube[5]
-    #muQCD = 2.6 # Transition (matching) chemical potential where pQCD starts (GeV)
-    highDensity = [muQCD, X]
 
+    highDensity = [muQCD, X]
 
     # Check that last transition (matching) point is large enough
     if debug:
@@ -615,7 +720,8 @@ def myloglike(cube):
         return logl, blobs
 
     ##################################################
-    # build neutron star structure 
+    # build neutron star structure
+
     # Construct the EoS
     if debug:
         mpi_print("Structure...")
@@ -640,7 +746,7 @@ def myloglike(cube):
     ################################################## 
     # measurements & constraints
 
-    #Chirp mass (GW170817) [Msun]
+    # Chirp mass (GW170817) [Msun]
     if flag_GW and flag_TOV:
         # Masses GW170817
         mass1_GW170817 = (1.0 + cube[ci+1])**0.2 / (cube[ci+1])**0.6 * cube[ci]
@@ -654,9 +760,9 @@ def myloglike(cube):
         mpi_print("TOV...")
 
     if flag_TOV:
-        if flag_GW: # with tidal deformabilities
+        if flag_GW:  # with tidal deformabilities
             struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
-        else: # without
+        else:  # without
             struc.tov(rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
 
         # Maximum mass [Msun]
@@ -745,11 +851,11 @@ def myloglike(cube):
         rad_1810 = struc.radius_at(mass_1810)
         logl += measurement_MR(mass_1810, rad_1810, NKS15_1810)
 
-        # PSR J0030+0451 (NICER)
+        # PSR J0030+0451 (NICER), arXiv:TODO
         rad_0030 = struc.radius_at(mass_0030)
         logl += measurement_MR(mass_0030, rad_0030, NICER_0030)
 
-        # PSR J0740+6620 (NICER)
+        # PSR J0740+6620 (NICER), arXiv:TODO
         rad_6620 = struc.radius_at(m6620)
         #logl += measurement_MR(m6620, rad_6620, NICER_6620) #TODO add measurement data
 
@@ -766,13 +872,13 @@ def myloglike(cube):
 
     ic = 0
 
-    #build M-R curve
+    # build M-R curve
     if debug:
-        ic = param_indices['rad_0'] #starting index
+        ic = param_indices['rad_0']  # starting index
         mpi_print("building M-R curve from EoS... (starts from ic = {}".format(ic))
 
     for im, mass in enumerate(param_indices['mass_grid']):
-        ic = param_indices['rad_' + str(im)] #this is the index pointing to correct position in cube
+        ic = param_indices['rad_' + str(im)]  # this is the index pointing to correct position in cube
 
         if flag_TOV:
             blobs[ic] = struc.radius_at(mass) 
@@ -782,28 +888,26 @@ def myloglike(cube):
         if debug:
             mpi_print("im = {}, mass = {}, rad = {}, ic = {}".format(im, mass, blobs[ic], ic))
 
-    #build eps-P curve
+    # build eps-P curve
     if debug:
-        ic = param_indices['Peps_0'] #starting index
+        ic = param_indices['Peps_0']  # starting index
         mpi_print("building eps-P curve from EoS... (starts from ic = {}".format(ic))
 
     for ir, eps in enumerate(param_indices['eps_grid']):
-        ic = param_indices['Peps_'+str(ir)] #this is the index pointing to correct position in cube
+        ic = param_indices['Peps_'+str(ir)]  # this is the index pointing to correct position in cube
         blobs[ic] = struc.eos.pressure_edens( eps * confacC2inv ) * confacinv
 
         if debug:
             mpi_print("ir = {}, eps = {}, P = {}, ic = {}".format(ir, eps, blobs[ic], ic))
 
     ############################################
-    #build nsat long
-
-    from c2Interpolation import c2AGKNV
+    # build nsat long
 
     n_pieces = len(struc.eos.pieces)
     if n_pieces == 4:
-        eos_interp = struc.eos.pieces[2]#one cc-trans point
+        eos_interp = struc.eos.pieces[2]  # one cc-trans point
     elif n_pieces == 5:
-        eos_interp = struc.eos.pieces[3]#two cc-trans points
+        eos_interp = struc.eos.pieces[3]  # two cc-trans points
 
     def psb_cgs_new(mub):
         return 0.75 * pi2inv * (mub * inv3)**4 * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
@@ -1001,7 +1105,7 @@ def initial_point(nwalkers, ndim):
 
     # constants
     radius_cut = 17.  # max radius at M_TOV (km)
-    mass_cut = 1.85  # smallest acceptable TOV mass (M_sun)
+    mass_cut = 2.01  # smallest acceptable TOV mass (M_sun)
 
     # correct cEFT function
     if ceft_model == 'HLPS' or ceft_model == 'HLPS3':
@@ -1083,7 +1187,7 @@ def initial_point(nwalkers, ndim):
 
 
             # pQCD param
-            X     = np.random.uniform(1., 4.)#1.95, 2.1)  # TODO is this close to the max?
+            X = np.random.uniform(1., 4.)
 
             ##################################################
             # cEFT and pQCD params
@@ -1105,28 +1209,35 @@ def initial_point(nwalkers, ndim):
             # interpolation-model parameters
             list2 = []
 
-            if eos_model == 0: #polytropic model
+            if eos_model == 0:  # polytropic model
                 if phaseTransition > 0:
                     PTrans = 1
                 else:
                     PTrans = 0
 
-                for i in range(eos_Nsegment - 2 - PTrans): # gamma
-                    list2.append(np.random.uniform(0.0, 5.))
+                for i in range(eos_Nsegment - 2 - PTrans):  # gamma
+                    if i == 0:
+                        list2.append(np.random.uniform(1.0, 3.5))
+                    elif i == 1:
+                        list2.append(np.random.uniform(1.0, 2.5))
+                    else:
+                        list2.append(np.random.uniform(1.0, 2.))
 
                 trans_qcd = nQCD(muQCD, X) * cgs.mB / cgs.rhoS
                 trans_interp = trans_points[0] / cgs.rhoS
 
-                for i in range(eos_Nsegment - 1): # delta n_B
+                for i in range(eos_Nsegment - 1):  # delta n_B
                     summa = 0. if i == 0 else sum(list2[eos_Nsegment-2-PTrans:])
                     nb_max = min(43., trans_qcd - trans_interp - summa)
 
                     if i == 0:
-                        list2.append(np.random.uniform(0.0, 5.))
+                        list2.append(np.random.uniform(0.0, 4.))
+                    elif i == 1:
+                        list2.append(np.random.uniform(20.0, nb_max))
                     else:
                         list2.append(np.random.uniform(0.0, nb_max))
 
-            elif eos_model == 1: #c_s^2 model
+            elif eos_model == 1:  # c_s^2 model
                 if ceft_model == 'HLPS' or ceft_model == 'HLPS3':
                     ceftEoS = cEFT(lowDensity)
                 elif ceft_model == 'HLPS+':
@@ -1141,26 +1252,25 @@ def initial_point(nwalkers, ndim):
                 n0 = trans[0]
                 mu0 = cgs.mB * ( e0 * cgs.c**2 + pr0 ) / ( n0 * cgs.eV ) * 1.0e-9
 
-                for i in range(eos_Nsegment - 2): # delta mu_B
-                    if i == 0:
-                        summa = 0.0
-                    else:
-                        summa = sum(list2[-i:])
-
+                for i in range(eos_Nsegment - 2):  # delta mu_B
+                    summa = 0.0 if i == 0 else sum(list2[-i:])
                     muDmax = min( 1.8, muQCD - mu0 - summa )
-                    if i==0 and flagSubConformal:
-                        list2.append(np.random.uniform(0.0, 0.01))
-                    else:
-                        if muDmax <= 0.0:
-                            list2.append(np.random.uniform(0.0, 1.8))
-                        else:
-                            list2.append(np.random.uniform(0.0, muDmax))
 
-                for i in range(eos_Nsegment - 2): # c_s^2
-                    if flagSubConformal:
-                        list2.append(np.random.uniform(0.2, inv3))
+                    if i == 0 and flagSubConformal:
+                        list2.append(np.random.uniform(.04, .1))
+                    elif i == 0:
+                        list2.append(np.random.uniform(.1, .3))
                     else:
-                        list2.append(np.random.uniform(0.0, 1.0))
+                        list2.append(np.random.uniform(0.0, muDmax))
+
+                for i in range(eos_Nsegment - 2):  # c_s^2
+                    if flagSubConformal:
+                        list2.append(np.random.uniform(0.3, inv3))
+                    else:
+                        if i == 0:
+                            list2.append(np.random.uniform(.5, .7))
+                        else:
+                            list2.append(np.random.uniform(0.0, 1.))
 
             cube = list1 + list2
 
@@ -1239,6 +1349,9 @@ def initial_point(nwalkers, ndim):
                     again = True
                     continue
 
+            mmax = 10.0
+            Mc   = 1.186
+            q    = 1.0
             if flag_TOV:
                 if flag_GW: # with tidal deformabilities
                     #GW170817
@@ -1285,93 +1398,101 @@ def initial_point(nwalkers, ndim):
 
                         struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
 
-                else:
-                    Mc = 1.186
-                    q  = 1.0
-            else:
-                mmax = 10.0
-                Mc   = 1.186
-                q    = 1.0
+            # mass measurements
+            Mm1 = np.random.uniform(1.97, min(mmax, 2.05))
 
-            #mass measurements
-            Mm1   = np.random.uniform(1.85, min(mmax, 2.17))
+            #################################################
+            # M-R measurements
 
             try_count = 1000
-            #M-R measurements
+
+            # 4U 1702-429, arXiv:1709.09120
             for i in range(try_count):
-                MR01  = np.random.uniform(1.0, min(mmax, 2.5)) #M_1702 [Msun]
+                # mass [Msun]
+                MR01  = np.random.uniform(1.6, min(mmax, 2.0)) #M_1702 [Msun]
+                # radius [km]
                 rad_MR01 = struc.radius_at(MR01)
-                if np.isfinite( measurement_MR(MR01, rad_MR01, NSK17) ):
-                    break
-            if rad_MR01 >= radius_cut:
-                again = True
-                continue
 
+                if np.isfinite( measurement_MR(MR01, rad_MR01, NSK17) ) and rad_MR01 < radius_cut:
+                    break
+
+            # NGC 6304, helium atmosphere, arXiv:1709.05013
             for i in range(try_count):
-                MR02  = np.random.uniform(0.5, min(mmax, 2.7))  #M_6304 [Msun]
+                MR02  = np.random.uniform(0.7, min(mmax, 2.6))
                 rad_MR02 = struc.radius_at(MR02)
-                if np.isfinite( measurement_MR(MR02, rad_MR02, SHB18_6304_He) ):
+                if np.isfinite( measurement_MR(MR02, rad_MR02, SHB18_6304_He) ) and rad_MR02 < radius_cut:
                     break
 
+            # NGC 6397, helium atmosphere, arXiv:1709.05013
             for i in range(try_count):
-                MR03  = np.random.uniform(0.5, min(mmax, 2.0))  #M_6397 [Msun]
+                MR03  = np.random.uniform(1.5, min(mmax, 2.0))
                 rad_MR03 = struc.radius_at(MR03)
-                if np.isfinite( measurement_MR(MR03, rad_MR03, SHB18_6397_He) ):
+                if np.isfinite( measurement_MR(MR03, rad_MR03, SHB18_6397_He) ) and rad_MR03 < radius_cut:
                     break
 
+            # M28, helium atmosphere, arXiv:1709.05013
             for i in range(try_count):
-                MR04  = np.random.uniform(0.5, min(mmax, 2.8))  #M_M28 [Msun]
+                MR04  = np.random.uniform(1.5, min(mmax, 2.4))
                 rad_MR04 = struc.radius_at(MR04)
-                if np.isfinite( measurement_MR(MR04, rad_MR04, SHB18_M28_He) ):
+                if np.isfinite( measurement_MR(MR04, rad_MR04, SHB18_M28_He) ) and rad_MR04 < radius_cut:
                     break
 
+            # M30, hydrogen atmosphere, arXiv:1709.05013
             for i in range(try_count):
-                MR05  = np.random.uniform(0.5, min(mmax, 2.5))  #M_M30 [Msun]
+                MR05  = np.random.uniform(0.7, min(mmax, 2.0))
                 rad_MR05 = struc.radius_at(MR05)
-                if np.isfinite( measurement_MR(MR05, rad_MR05, SHB18_M30_H) ):
+                if np.isfinite( measurement_MR(MR05, rad_MR05, SHB18_M30_H) ) and rad_MR05 < radius_cut:
                     break
 
+            # 47 Tuc X7, hydrogen atmosphere, arXiv:1709.05013
             for i in range(try_count):
-                MR06  = np.random.uniform(0.5, min(mmax, 2.7))  #M_X7 [Msun]
+                MR06  = np.random.uniform(1.2, min(mmax, 1.9))
                 rad_MR06 = struc.radius_at(MR06)
-                if np.isfinite( measurement_MR(MR06, rad_MR06, SHB18_X7_H) ):
+                if np.isfinite( measurement_MR(MR06, rad_MR06, SHB18_X7_H) ) and rad_MR06 < radius_cut:
                     break
 
+            # wCen, hydrogen atmosphere, arXiv:1709.05013
             for i in range(try_count):
-                MR07  = np.random.uniform(0.5, min(mmax, 2.5))  #M_wCen [Msun]
+                MR07  = np.random.uniform(0.7, min(mmax, 2.0))
                 rad_MR07 = struc.radius_at(MR07)
-                if np.isfinite( measurement_MR(MR07, rad_MR07, SHB18_wCen_H) ):
+                if np.isfinite( measurement_MR(MR07, rad_MR07, SHB18_wCen_H) ) and rad_MR07 < radius_cut:
                     break
 
+            # M13, arXiv:1803.00029
             for i in range(try_count):
-                MR08  = np.random.uniform(0.8, min(mmax, 2.4))  #M_M13 [Msun]
+                MR08  = np.random.uniform(1.3, min(mmax, 1.9))
                 rad_MR08 = struc.radius_at(MR08)
-                if np.isfinite( measurement_MR(MR08, rad_MR08, SHS18_M13_H) ):
+                if np.isfinite( measurement_MR(MR08, rad_MR08, SHS18_M13_H) ) and rad_MR08 < radius_cut:
                     break
 
+            # 4U 1724-307, arXiv:1509.06561
             for i in range(try_count):
-                MR09  = np.random.uniform(0.8, min(mmax, 2.5))  #M_1724 [Msun]
+                MR09  = np.random.uniform(0.8, min(mmax, 1.9))
                 rad_MR09 = struc.radius_at(MR09)
-                if np.isfinite( measurement_MR(MR09, rad_MR09, NKS15_1724) ):
+                if np.isfinite( measurement_MR(MR09, rad_MR09, NKS15_1724) ) and rad_MR09 < radius_cut:
                     break
 
+            # SAX J1810.8-260, arXiv:1509.06561
             for i in range(try_count):
-                MR10  = np.random.uniform(0.8, min(mmax, 2.5))  #M_1810 [Msun]
+                MR10  = np.random.uniform(0.8, min(mmax, 1.9))
                 rad_MR10 = struc.radius_at(MR10)
-                if np.isfinite( measurement_MR(MR10, rad_MR10, NKS15_1810) ):
+                if np.isfinite( measurement_MR(MR10, rad_MR10, NKS15_1810) ) and rad_MR10 < radius_cut:
                     break
 
+            # J0030+0451, NICER, arXiv:TODO
             for i in range(try_count):
-                MR11  = np.random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))  #M_0030
+                # TODO optimal range
+                MR11  = np.random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))
                 rad_MR11 = struc.radius_at(MR11)
-                if np.isfinite( measurement_MR(MR11, rad_MR11, NICER_0030) ):
+                if np.isfinite( measurement_MR(MR11, rad_MR11, NICER_0030) ) and rad_MR11 < radius_cut:
                     break
 
+            # PSR J0740+6620
             for i in range(try_count):
-                Mm2   = np.random.uniform(1.8, min(mmax, 2.36)) # M_6620 TODO limits from data
+                Mm2   = np.random.uniform(2.01, min(mmax, 2.15)) # M_6620
                 rad_Mm2 = struc.radius_at(Mm2)
                 # TODO remove comments when we have the new dataset
-                #if np.isfinite( measurement_MR(Mm2, rad_Mm2, NICER_6620) ):
+                #if np.isfinite( measurement_MR(Mm2, rad_Mm2, NICER_6620) ) and rad_Mm2 < radius_cut:
                 #    break
                 break #TODO remove this line too
 
@@ -1380,12 +1501,18 @@ def initial_point(nwalkers, ndim):
             #initial point
             pinit = cube + list3
 
-            if not np.isfinite( lnprob(pinit)[0] ):
+            # final check that the point is realsitic
+            prob_density = lnprob(pinit)[0]
+
+            if not np.isfinite( prob_density ) or prob_density < -100:
                 again = True
                 continue
 
+            # generate a set of points around pinit
             pi_vec = [pinit] * nwalkers
             pi_vec = list( map(lambda z: z + 0.001 * np.random.randn(ndim), pi_vec) )
+
+            # split the set to all usable cores
             pi_vec = splitter(pi_vec, size)
 
         #parallellization
