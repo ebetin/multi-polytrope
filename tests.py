@@ -79,12 +79,13 @@ def causalityPerturbativeQCD(EOS, mu):
 
     if speed2 < 0.0:
         return False, 0
-
+    '''
     if speed2 > 1.0 / 3.0:
         return True, speed2
     else:
         return True, 1.0 / 3.0
-
+    '''
+    return True, speed2
 
 # Tests that latent heats are positive quantities 
 def positiveLatentHeat(pieces, transitions):
