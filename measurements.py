@@ -22,7 +22,6 @@ NSK17_old = { "rad_mean": 12.4,
           "mass_std": 0.2,
         }
 
-
 # log likelihood function for MR measurements
 def measurement_MR(mass, rad, density):
     fun = density(rad, mass)
@@ -39,8 +38,7 @@ def read_hist2d_GW(f, dataset, path, xdir, ydir):
     else:
         dset = f[dataset]
     data = dset[path][()]
-
-    data = data.T #need to transpose
+    data = data.T
 
     xval = dset[xdir][()]
     yval = dset[ydir][()]
@@ -51,7 +49,7 @@ def read_hist2d_GW(f, dataset, path, xdir, ydir):
 def read_hist2d_nicer(f):
     dset = f["hist2d"]
     data = dset['weights'][()]
-    data = data.T #need to transpose
+    data = data.T
 
     xval = dset['x_bins'][()]
     yval = dset['y_bins'][()]
@@ -62,7 +60,7 @@ def read_hist2d_nicer(f):
 def read_hist2d(f):
     dset = f["hist2_table"]
     data = dset['data/avgs'][()]
-    data = data.T #need to transpose
+    data = data.T
 
     xval = dset['xval'][()]
     yval = dset['yval'][()]
@@ -73,7 +71,7 @@ def read_hist2d(f):
 def read_hist2d_old(f):
     dset = f["mcarlo"]
     data = dset['data/weights'][()]
-    data = data.T #need to transpose
+    data = data.T
 
     xval = dset['xval'][()]
     yval = dset['yval'][()]
@@ -84,7 +82,7 @@ def read_hist2d_old(f):
 def read_rescaled(f):
     dset = f["rescaled"]
     data = dset['data/like'][()]
-    data = data.T #need to transpose
+    data = data.T
 
     xval = dset['xval'][()]
     yval = dset['yval'][()]
@@ -95,13 +93,12 @@ def read_rescaled(f):
 def read_rescaled_old(f):
     dset = f["rescaled_0"]
     data = dset['data/like'][()]
-    data = data.T #need to transpose
+    data = data.T
 
     xval = dset['xval'][()]
     yval = dset['yval'][()]
 
     return data, xval, yval
-
 
 # interpolating density function
 def interp_MR(string):
@@ -166,7 +163,6 @@ def interp_MR(string):
         data, rval, mval = read_rescaled(f)
     elif dataset == "rescaled_0":
         data, rval, mval = read_rescaled_old(f)
-    #data, rval, mval = read_hist2d(f, dataset, path, 'xval', 'yval')
 
     data = data.clip(min=0)
     datasum = sum(sum(data))
@@ -190,7 +186,7 @@ SHS18_M13_H = deepcopy(interp_MR("SHS18_M13_H"))        # M13, hydrogen
 NKS15_1724 = deepcopy(interp_MR("NKS15_1724"))        # 4U 1724-307
 NKS15_1810 = deepcopy(interp_MR("NKS15_1810"))        # SAX J1810.8-260
 
-# NICER
+# NICER, J0030+0451, arXiv:TODO
 NICER_0030 = deepcopy(interp_MR("NICER_0030"))
 
 # Values from Nattila et al 2017 for 4U 1702-429, arXiv:1709.09120
@@ -205,10 +201,12 @@ def measurement_M(mass, par):
     return skewnorm.logpdf(mass, shape, loc, scale)
 
 # Values from Antoniadis et al. 2013 for J0348+0432, arXiv:1304.6875
+# Skrewed distribution assumed
 #J0348 = {    "loc": 1.9680226480964658,
 #           "shape": 2.0180547504576896,
 #           "scale": 0.06613638253163863,
 #        }
+# Normal distribution asssumed
 J0348 = {    "loc": 2.01,
            "shape": 0,
            "scale": 0.04,
@@ -223,6 +221,7 @@ J0348 = {    "loc": 2.01,
 #        }
 
 # Values from Fonseca et al. 2021 for J0740+6620 arXiv:2104.00880
+# Normal distribution asssumed
 J0740 = {    "loc": 2.08,
            "shape": 0,
            "scale": 0.07,
@@ -246,3 +245,4 @@ def interp_TD(string):
     return interp2d(TD1val, TD2val, data, kind='cubic')
 
 GW170817 = deepcopy(interp_TD("GW170817"))
+
