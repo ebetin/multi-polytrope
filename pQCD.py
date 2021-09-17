@@ -576,6 +576,21 @@ def nQCD_nu(mu, x):
     except NonpositiveNumberDensity:
         print("Baryon number density is nonpositive!")
 
+def nQCD_nu_wo_errors(mu, x):
+    a_s = alpha_s(mu, x)
+    a_s_derva = alpha_s_derva(mu, x)
+
+    p_n = p_norm(a_s, x)
+    p_n_derva = p_norm_derva(a_s, x)
+
+    pSB_derva = (mu * inv3)**3 * pi2inv
+    p_SB = 0.75 * mu * inv3 * pSB_derva#0.75 * pi2inv * (mu * inv3)**4
+
+    density = pSB_derva * p_n
+    density += p_SB * p_n_derva * a_s_derva
+
+    return density
+
 
 # Number density (difference) (1/cm^3) as a function of the baryon chemical potential (GeV) 
 # NB Number density = dP/d{mu}
@@ -804,9 +819,8 @@ class qcd:
         muinv3 = mu * inv3
         pSB_derva2 = muinv3**2 * pi2inv
         pSB_derva = pSB_derva2 * muinv3
-        p_SB = 0.75 * pSB_derva2 * muinv3 #0.75 * pi2inv * (mu * inv3)**4#pSB(mu)
+        p_SB = 0.75 * pSB_derva2 * muinv3**2
 
-        #p_norm_derva = - 0.637 - ( 2.054 + 0.608 * alpha_s_log ) * a_s + 1.4544490635710576 * a_s**2 - 1.824 * a_s * xlog
         p_n_derva = p_norm_derva(a_s, self.X)
 
         p_norm_derva2 = - 2.6620000000000004 + 2.9088981271421153 * a_s
@@ -816,18 +830,16 @@ class qcd:
         tmp2 = 1.9457221667250986 + 2.0 * tmp3log
         tmp2log = log(tmp2)
         tmp2_mu_inv = 1.0 / ( mu * tmp2**3 )
-        alpha_s_derva = ( 4.412881861832576 * tmp2log - 5.585053606381853 * tmp3log - 7.639922233058851 ) * tmp2_mu_inv
-        #a_s_derva = alpha_s_derva(mu, x)
+        alpha_s_derva1 = ( 4.412881861832576 * tmp2log - 5.585053606381853 * tmp3log - 7.639922233058851 ) * tmp2_mu_inv
 
         alpha_s_derva2 = ( 58.66350055865166 + ( 48.48702149593025 + 11.170107212763707 * tmp3log ) * tmp3log - ( 35.06353322870223 + 8.825763723665151 * tmp3log ) * tmp2log ) * (tmp2_mu_inv * tmp2)**2
 
         density = pSB_derva * p_n
-        density += p_SB * p_n_derva * alpha_s_derva
-        #density = nQCD_nu(mu, x)
+        density += p_SB * p_n_derva * alpha_s_derva1
 
         density_derva = pSB_derva2 * p_n
-        density_derva += 2.0 * pSB_derva * p_n_derva * alpha_s_derva
-        density_derva += p_SB * p_norm_derva2 * alpha_s_derva**2
+        density_derva += 2.0 * pSB_derva * p_n_derva * alpha_s_derva1
+        density_derva += p_SB * p_norm_derva2 * alpha_s_derva1**2
         density_derva += p_SB * p_n_derva * alpha_s_derva2
 
         return density / ( mu * density_derva )
@@ -857,3 +869,17 @@ class qcd:
 
         except NonpositivePressure:
             print("Pressure is nonpositive!")
+
+if __name__ == "__main__":
+    # Ba -> Mev/fm^3
+    confacinv = 1000.0 / cgs.GeVfm_per_dynecm
+
+    # Reference chemical potential (GeV)
+    muQCD = 2.739512831322249
+
+    # List of pQCD scale parameters
+    x_list = [.6744593, .67524, .75, 1, 2, 4, 10, 100]
+
+    for item in x_list:
+        print("X:", round(item, 3), "\tn:", round(nQCD(muQCD, item) * cgs.mB / cgs.rhoS, 5), "\tp:", round(pQCD(muQCD, item) * confacinv, 2), "\tc2:", round(qcd(item).speed2_mu(muQCD), 5))
+
