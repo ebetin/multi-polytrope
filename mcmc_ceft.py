@@ -9,31 +9,35 @@ from scipy.stats import norm
 #  problem physics modules
 #--------------------------------------------------
 from priors import check_uniform, check_cEFT
-from structure import structureC2AGKNVwithCEFT as structure_c2 # c2 interpolation
-from structure import structurePolytropeWithCEFT as structure_poly # polytropes
+from structure import structureC2AGKNVwithCEFT as structure_c2      # c2 interpolation
+from structure import structurePolytropeWithCEFT as structure_poly  # polytropes
 import units as cgs
 from pQCD import nQCD, pSB_csg
 from c2Interpolation import c2AGKNV
 
 # measurements
 #--------------------------------------------------
+# MR data
 from measurements import measurement_MR
-from measurements import NSK17         #1702 measurement
-from measurements import SHB18_6304_He #6304 measurement
-from measurements import SHB18_6397_He #6397 measurement
-from measurements import SHB18_M28_He  #M28 measurement
-from measurements import SHB18_M30_H   #M30 measurement
-from measurements import SHB18_X7_H    #X7 measurement
-from measurements import SHB18_wCen_H  #wCen measurement
-from measurements import SHS18_M13_H   #M13 measurement
-from measurements import NKS15_1724    #1724 measurement
-from measurements import NKS15_1810    #1810 measurement
-from measurements import NICER_0030
+from measurements import NSK17          # 4U 1702-429
+from measurements import SHB18_6304_He  # NGC 6304, He
+from measurements import SHB18_6397_He  # NGC 6397, He
+from measurements import SHB18_M28_He   # M28, He
+from measurements import SHB18_M30_H    # M30, H
+from measurements import SHB18_X7_H     # X7, H
+from measurements import SHB18_wCen_H   # wCen, H
+from measurements import SHS18_M13_H    # M13, H
+from measurements import NKS15_1724     # 4U 1724-307
+from measurements import NKS15_1810     # SAX J1810.8-260
+from measurements import NICER_0030     # PSR J0030+0451 (NICER)
+from measurements import NICER_0740     # PSR J0740+6620 (NICER)
 
-from measurements import measurement_M
-from measurements import J0348
-from measurements import J0740
+# M data
+#from measurements import measurement_M
+#from measurements import J0348
+#from measurements import J0740
 
+# TD data
 from measurements import measurement_TD
 from measurements import GW170817
 
@@ -178,7 +182,7 @@ parameters.append("mass_ratio_GW170817")
 
 #finally add individual object masses (needed for measurements)
 parameters.append("mass_0432")
-parameters.append("mass_6620")
+parameters.append("mass_0740")
 
 parameters.append("mass_1702")
 
@@ -356,8 +360,8 @@ parameters2.append('r1810')
 param_indices['r1810'] = ci+9
 parameters2.append('r0030')
 param_indices['r0030'] = ci+10
-parameters2.append('r6620')
-param_indices['r6620'] = ci+11
+parameters2.append('r0740')
+param_indices['r0740'] = ci+11
 
 mpi_print("Parameters to be only stored (blobs):")
 mpi_print(len(parameters2))
@@ -432,21 +436,21 @@ def myprior(cube):
         # Returns -inf if rhoo <= 0
         lps[ci] = -linf
     else:
-        if x_model = 'log_normal':
+        if x_model == 'log_normal':
             # Truncated log-normal distribution demanding X > x_min
             # Params: mu = 0.576702101863589, sigma = 0.8075029237121397
             # Median = 2, mean = 2.7238, var = 5.73697, mode = 0.927411
             # NB assumed that muQCD = 2.74 GeV!
             lnc = math.log( cube[ci] )
             lps[ci] = -0.5833457860175315 - lnc - 0.7667994583650043 * (lnc - 0.576702101863589)**2
-        elif x_model = 'log_uniform':
+        elif x_model == 'log_uniform':
             # Log-uniform distribution from x_min to 10
             lnc = math.log( cube[ci] )
             # lps[ci] = -lnc - math.log( 2.302585092994046 - x_min_ln )
             lps[ci] = 0.991987995279329 - lnc  # NB assuming muQCD = 2.74 GeV!
-        elif x_model = 'uniform':
+        elif x_model == 'uniform':
             # Uniform distribution from x_min to 10
-            lps[c1] = check_uniform(cube[ci], x_min, 10.)
+            lps[ci] = check_uniform(cube[ci], x_min, 10.)
 
     ci += 1
 
@@ -540,7 +544,7 @@ def myprior(cube):
     # SAX J1810.8-260
     lps[ci+9]  = check_uniform(cube[ci+9], 0.8, 2.5)
 
-    # J0030+0451, arXiv:TODO
+    # J0030+0451, arXiv:1912.05705
     lps[ci+10] = check_uniform(cube[ci+10], 1.0129494423462766, 2.2792157996697235)
 
     return np.sum(lps)
@@ -778,9 +782,9 @@ def myloglike(cube):
     # and PSR J0740+6620 from Cromartie et al 2019 arXiv:1904.06759
     if flag_Mobs and flag_TOV:
         m0432 = cube[ci]
-        m6620 = cube[ci+1]
+        m0740 = cube[ci+1]
 
-        if m0432 > mmax or m6620 > mmax:
+        if m0432 > mmax or m0740 > mmax:
             logl = -linf
             return logl, blobs
 
@@ -851,13 +855,13 @@ def myloglike(cube):
         rad_1810 = struc.radius_at(mass_1810)
         logl += measurement_MR(mass_1810, rad_1810, NKS15_1810)
 
-        # PSR J0030+0451 (NICER), arXiv:TODO
+        # PSR J0030+0451 (NICER), arXiv:1912.05705, doi:10.5281/zenodo.3473466
         rad_0030 = struc.radius_at(mass_0030)
         logl += measurement_MR(mass_0030, rad_0030, NICER_0030)
 
-        # PSR J0740+6620 (NICER), arXiv:TODO
-        rad_6620 = struc.radius_at(m6620)
-        #logl += measurement_MR(m6620, rad_6620, NICER_6620) #TODO add measurement data
+        # PSR J0740+6620 (NICER), arXiv:2105.06979, doi:10.5281/zenodo.4670689
+        rad_0740 = struc.radius_at(m0740)
+        logl += measurement_MR(m0740, rad_0740, NICER_0740)
 
         if np.isneginf(logl):
             return logl, blobs
@@ -1078,7 +1082,7 @@ def myloglike(cube):
     blobs[ic+8]  = rad_1724
     blobs[ic+9]  = rad_1810
     blobs[ic+10] = rad_0030
-    blobs[ic+11] = rad_6620
+    blobs[ic+11] = rad_0740
 
     return logl, blobs
 
@@ -1479,22 +1483,19 @@ def initial_point(nwalkers, ndim):
                 if np.isfinite( measurement_MR(MR10, rad_MR10, NKS15_1810) ) and rad_MR10 < radius_cut:
                     break
 
-            # J0030+0451, NICER, arXiv:TODO
+            # J0030+0451, NICER, arXiv:1912.05705, doi:10.5281/zenodo.3473466
             for i in range(try_count):
-                # TODO optimal range
-                MR11  = np.random.uniform(1.0129494423462766, min(mmax, 2.2792157996697235))
+                MR11  = np.random.uniform(1.2, min(mmax, 1.7))
                 rad_MR11 = struc.radius_at(MR11)
                 if np.isfinite( measurement_MR(MR11, rad_MR11, NICER_0030) ) and rad_MR11 < radius_cut:
                     break
 
-            # PSR J0740+6620
+            # PSR J0740+6620, NICER, arXiv:2105.06979, doi:10.5281/zenodo.4670689
             for i in range(try_count):
-                Mm2   = np.random.uniform(2.01, min(mmax, 2.15)) # M_6620
+                Mm2   = np.random.uniform(2.01, min(mmax, 2.15))
                 rad_Mm2 = struc.radius_at(Mm2)
-                # TODO remove comments when we have the new dataset
-                #if np.isfinite( measurement_MR(Mm2, rad_Mm2, NICER_6620) ) and rad_Mm2 < radius_cut:
-                #    break
-                break #TODO remove this line too
+                if np.isfinite( measurement_MR(Mm2, rad_Mm2, NICER_0740) ) and rad_Mm2 < radius_cut:
+                    break
 
             list3 = [Mc, q, Mm1, Mm2, MR01, MR02, MR03, MR04, MR05, MR06, MR07, MR08, MR09, MR10, MR11]
 
@@ -1543,7 +1544,7 @@ if __name__ == "__main__":
     if False:
 
         #output
-        filename = prefix+'run.h5'
+        filename = prefix+'_run.h5'
 
         backend = emcee.backends.HDFBackend(filename)
         backend.reset(nwalkers, ndim) #no restart
