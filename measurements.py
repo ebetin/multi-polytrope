@@ -46,13 +46,22 @@ def read_hist2d_GW(f, dataset, path, xdir, ydir):
     return data, xval, yval
 
 # read o2scl hist2d object
-def read_hist2d_nicer(f):
+def read_hist2d_nicer_old(f):
     dset = f["hist2d"]
     data = dset['weights'][()]
     data = data.T
 
     xval = dset['x_bins'][()]
     yval = dset['y_bins'][()]
+
+    return data, xval, yval
+
+def read_hist2d_nicer_new(f):
+    data = f['weights'][()]
+    data = data.T
+
+    xval = f['r_bins'][()]
+    yval = f['m_bins'][()]
 
     return data, xval, yval
 
@@ -143,7 +152,11 @@ def interp_MR(string):
         dataset = "mcarlo"
         #path = 'data/weights'
     elif string == "NICER_0030":
-        fname = 'mrdata/nicer2020/0030_st_pst.o2'
+        #fname = 'mrdata/nicer2020/0030_st_pst.o2'  # old
+        fname = 'mrdata/nicer2020/0030_maryland_2spts.h5'
+        dataset = "weights"
+    elif string == "NICER_0740":
+        fname = 'mrdata/nicer2021/0740_maryland_nxmm.h5'
         dataset = "weights"
     elif string == "NSK17":
         fname = 'mrdata/nat17/1702_D_X_int.o2'
@@ -156,7 +169,9 @@ def interp_MR(string):
     elif dataset == "hist2_table":
         data, rval, mval = read_hist2d(f)
     elif dataset == "weights":
-        data, xval, yval = read_hist2d_nicer(f)
+        #if string == "NICER_0030":
+        #    data, xval, yval = read_hist2d_nicer_old(f)
+        data, xval, yval = read_hist2d_nicer_new(f)
         rval = [ (xval[i]+xval[i+1])*0.5 for i in range(len(xval)-1) ]
         mval = [ (yval[i]+yval[i+1])*0.5 for i in range(len(yval)-1) ]
     elif dataset == "rescaled":
@@ -186,8 +201,11 @@ SHS18_M13_H = deepcopy(interp_MR("SHS18_M13_H"))        # M13, hydrogen
 NKS15_1724 = deepcopy(interp_MR("NKS15_1724"))        # 4U 1724-307
 NKS15_1810 = deepcopy(interp_MR("NKS15_1810"))        # SAX J1810.8-260
 
-# NICER, J0030+0451, arXiv:TODO
+# NICER, PSR J0030+0451, arXiv:1912.05705, doi:10.5281/zenodo.3473466
 NICER_0030 = deepcopy(interp_MR("NICER_0030"))
+
+# NICER, PSR J0740+6620, arXiv:2105.06979, doi:10.5281/zenodo.4670689
+NICER_0740 = deepcopy(interp_MR("NICER_0740"))
 
 # Values from Nattila et al 2017 for 4U 1702-429, arXiv:1709.09120
 NSK17 = deepcopy(interp_MR("NSK17"))
