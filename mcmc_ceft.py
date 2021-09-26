@@ -330,7 +330,7 @@ def myprior(cube):
             elif x_model == 'log_uniform':
                 # Log-uniform distribution from x_min to 10
                 # lps[ci] = -math.log( cube[ci] ) - math.log( 2.302585092994046 - x_min_ln )
-                if cube[ci] > 10.
+                if cube[ci] > 10.:
                     return -linf
                 lps[ci] = -0.9907469279391756 - math.log( cube[ci] )  # NB assuming muQCD = 2.74 GeV!
             elif x_model == 'uniform':
