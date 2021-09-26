@@ -291,8 +291,6 @@ class structurePolytropeWithCEFT:
             # Pressure and energy density at the beginning of the pQCD EoS
             qcdPressureLow = pQCD(muQCD, X)
             qcdEnergyDensityLow = eQCD(muQCD, X)
-            print(qcdPressureLow, X)
-            print(qcdEnergyDensityLow)
             qcdMathing = [qcdPressureLow, qcdEnergyDensityLow * cgs.c**2]
 
 
