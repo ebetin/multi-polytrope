@@ -30,12 +30,10 @@ class tov:
         self.physical_eos = peos
         self.rhocs = rhocs
 
-    def tov(self, y, r):
+    def tov(self, r, y):
         P, m = y
         if P < 0.0:
             return [-10.0, 0.0]
-        elif P < press_min:
-            return [-P, 0., 0.]
 
         eden = self.physical_eos.edens_inv( P )
 
@@ -45,22 +43,36 @@ class tov:
 
         return [dPdr, dmdr]
 
-    def tovsolve(self, rhoc, N = 800):
-        r = np.linspace(1e0, 18e5, N)
+    def tovsolve(self, rhoc):
+        r = 1.0
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
-        m = 4.0*pi*r[0]**3*eden
+        m = 4.0*pi*r**3*eden
 
-        psol = odeint(self.tov, [P, m], r, rtol=1.0e-6, atol=1.0e-6)
+        def neg_press1(r, y):
+            return y[0] - press_min
+        neg_press1.terminal = True
+        neg_press1.direction = -1
+        psol = solve_ivp(
+                self.tov,
+                (1e0, 17e5),
+                [P, m],
+                rtol=1.0e-6,
+                atol=1.0e-6,
+                method = 'LSODA',
+                events = neg_press1
+                )
 
-        return r, psol[:,0], psol[:,1]
+        return psol.t[:], psol.y[0], psol.y[1]
 
 
-    def mass_radius(self, N = 200):
+    def mass_radius(self):
+        rhocs = self.rhocs
+        N = len(rhocs)
+
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
 
-        rhocs = self.rhocs
         mass_max = 0.0
         j = 0
 
@@ -72,11 +84,7 @@ class tov:
 
             mstar = mass[-1]
             rstar = rad[-1]
-            for i, p in enumerate(press):
-                if p > press_min:
-                    tmp = p / (press[i-1]- p)
-                    mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
-                    rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
+
             mcurve[j] = mstar
             rcurve[j] = rstar
 
@@ -178,41 +186,16 @@ class tov:
         jRef2 = 0
         for rhoc in rhocs:
             rad, press, mass, eta = self.tovLoveSolve(rhoc, l)
+
             mstar = mass[-1]
             rstar = rad[-1]
             etaStar = eta[-1]
-            '''
-            for i, p in reversed(list(enumerate(press))):
-                if p > press_min:
-                    if i == ( len(press) - 1 ):
-                        break
-                    if i > 0:
-                        if press[i-1] == p:
-                            continue
-                    else:
-                        mstar = mass[-1]
-                        rstar = rad[-1]
-                        etaStar = eta[-1]
-                        break
-                    tmp = p / (press[i-1] - p)
-                    mstar = mass[i] - (mass[i-1] - mass[i]) * tmp
-                    rstar = rad[i] - (rad[i-1] - rad[i]) * tmp
-                    etaStar = eta[i] - (eta[i-1] - eta[i]) * tmp
-                    if rstar < rad[i]:
-                        mstar = mass[i]
-                        rstar = rad[i]
-                        etaStar = eta[i]
-                    else:
-                        if rstar > rad[i+1]:
-                            mstar = mass[i]
-                            rstar = rad[i]
-                            etaStar = eta[i]
-                    break
-            '''
+
             mcurve[j] = mstar
             rcurve[j] = rstar
             etaCurve[j] = etaStar
             TDcurve[j] = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
+
             if mstar < mRef1 and mRef1 > 0.0:
                 jRef1 += 1
 
