@@ -291,6 +291,8 @@ class structurePolytropeWithCEFT:
             # Pressure and energy density at the beginning of the pQCD EoS
             qcdPressureLow = pQCD(muQCD, X)
             qcdEnergyDensityLow = eQCD(muQCD, X)
+            print(qcdPressureLow, X)
+            print(qcdEnergyDensityLow)
             qcdMathing = [qcdPressureLow, qcdEnergyDensityLow * cgs.c**2]
 
 
@@ -436,7 +438,7 @@ class structurePolytropeWithCEFT:
 
 class structureC2AGKNV:
 
-    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD):
+    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD, flag_muDelta = True):
         # Equation of state of the crust
         crustEoS = crustEoS_BPS
 
@@ -483,15 +485,17 @@ class structureC2AGKNV:
             gandolfiMatchingHigh = [gandolfiPressureHigh, gandolfiEnergyDensityHigh, gandolfiDensityHigh, gandolfiSpeed2High]
 
             # Determining matching chemical potentials
-            mu0 = cgs.mB * ( gandolfiEnergyDensityHigh * cgs.c**2 + gandolfiPressureHigh )
-            mu0 = mu0 / ( gandolfiDensityHigh * cgs.eV ) * 1.0e-9
-            muKnown = []
-            for mu in muDeltaKnown:
-                if len( muKnown ) == 0:
-                    muKnown.append( mu0 + mu )
-                else:
-                    muKnown.append( muKnown[-1] + mu )
-
+            if flag_muDelta:
+                mu0 = cgs.mB * ( gandolfiEnergyDensityHigh * cgs.c**2 + gandolfiPressureHigh ) * 1.0e-9
+                mu0 /= gandolfiDensityHigh * cgs.eV
+                muKnown = [None] * len(muDeltaKnown)
+                for i, mu in enumerate(muDeltaKnown):
+                    if i == 0:
+                        muKnown[0] = mu0 + mu
+                    else:
+                        muKnown[i] = muKnown[i-1] + mu
+            else:
+                muKnown = muDeltaKnown
             # Perturbative QCD EoS
             muQCD = QCD[0]
             X = QCD[1]
@@ -625,7 +629,7 @@ class structureC2AGKNV:
 
 class structureC2AGKNVwithCEFT:
 
-    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD, approximation = False, CEFT_model = 'HLPS'):
+    def __init__(self, muDeltaKnown, c2Known, transitions, lowDensity, QCD, approximation = False, CEFT_model = 'HLPS', flag_muDelta = True):
         # Equation of state of the crust
         crustEoS = crustEoS_BPS
 
@@ -670,14 +674,17 @@ class structureC2AGKNVwithCEFT:
             ceftMatchingHigh = [ceftPressureHigh, ceftEnergyDensityHigh, ceftDensityHigh, ceftC2High]
 
             # Determining matching chemical potentials
-            mu0 = cgs.mB * ( ceftEnergyDensityHigh * cgs.c**2 + ceftPressureHigh ) * 1.0e-9
-            mu0 /= ceftDensityHigh * cgs.eV
-            muKnown = [None] * len(muDeltaKnown)
-            for i, mu in enumerate(muDeltaKnown):
-                if i == 0:
-                    muKnown[0] = mu0 + mu
-                else:
-                    muKnown[i] = muKnown[i-1] + mu
+            if flag_muDelta:
+                mu0 = cgs.mB * ( ceftEnergyDensityHigh * cgs.c**2 + ceftPressureHigh ) * 1.0e-9
+                mu0 /= ceftDensityHigh * cgs.eV
+                muKnown = [None] * len(muDeltaKnown)
+                for i, mu in enumerate(muDeltaKnown):
+                    if i == 0:
+                        muKnown[0] = mu0 + mu
+                    else:
+                        muKnown[i] = muKnown[i-1] + mu
+            else:
+                muKnown = muDeltaKnown
 
             # Perturbative QCD EoS
             muQCD, X = QCD

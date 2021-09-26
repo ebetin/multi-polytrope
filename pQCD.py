@@ -543,6 +543,12 @@ def pQCD(mu, x, p=0):
     except NonpositivePressure:
         print("Pressure is nonpositive!")
 
+def pQCD_wo_errors(mu, x):
+    a_s = alpha_s(mu, x)
+    p_n = p_norm(a_s, x)
+
+    return pSB(mu) * p_n * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
+
 
 # Number density (GeV^3) as a function of the baryon chemical potential (GeV)
 # NB Number density = dP/d{mu}
@@ -624,7 +630,7 @@ def eQCD(mu, x, e=0):
     try:   
         if mu <= 0.0:
             raise NonpositiveChemicalPotential
-    
+
         energy = (mu * 1.0e9 * cgs.eV) * nQCD(mu, x) - pQCD(mu, x)
 
         if energy < 0.0 and e==0:
@@ -636,6 +642,14 @@ def eQCD(mu, x, e=0):
         print("Chemical potential is nonpositive!")
     except NonpositiveEnergyDensity:
         print("Energy density is nonpositive!")
+
+def eQCD_wo_errors(mu, x):
+    a_s = alpha_s(mu, x)
+    p_n = p_norm(a_s, x)
+    p_qcd = pSB(mu) * p_n * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
+    energy = (mu * 1.0e9 * cgs.eV) * nQCD_nu_wo_errors(mu, x) * cgs.GeV3_to_fm3 * 1.0e39 - p_qcd
+
+    return energy * c2inv
 
 
 # Pressure (Ba) as a function of function of the "energy" density (g/cm^3)
