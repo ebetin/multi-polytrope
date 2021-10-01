@@ -310,7 +310,7 @@ def myprior(cube):
             # Returns -inf if rhoo <= 0
             return -linf
         else:
-            if x_model == 'log_normal':
+            if x_model == 'log_normal' or x_model == 'log-normal':
                 # Old model
                 '''
                 # Truncated log-normal distribution demanding X > x_min
@@ -327,7 +327,7 @@ def myprior(cube):
                 # NB assumed that muQCD = 2.74 GeV!
                 lnc = math.log( cube[ci] - x_min )
                 lps[ci] = -1.0488004649983411 - lnc - 0.385632265311002 * (lnc - 0.280196649545193)**2
-            elif x_model == 'log_uniform':
+            elif x_model == 'log_uniform' or x_model == 'log-uniform':
                 # Log-uniform distribution from x_min to 10
                 # lps[ci] = -math.log( cube[ci] ) - math.log( 2.302585092994046 - x_min_ln )
                 if cube[ci] > 10.:
@@ -336,6 +336,8 @@ def myprior(cube):
             elif x_model == 'uniform':
                 # Uniform distribution from x_min to 10
                 lps[ci] = check_uniform(cube[ci], x_min, 10.)
+            else:
+                raise RuntimeError('Incorrect x_model value!')
 
         ci += 1
 
