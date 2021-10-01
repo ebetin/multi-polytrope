@@ -494,7 +494,8 @@ class qcd_pocket:
 #NNNLO results
 
 def alpha_s(mu, x):
-    tmp = 2.0 * log( 0.8818342151675485 * mu * x )
+    #tmp = 2.0 * log( 0.8818342151675485 * mu * x )
+    tmp = 2.0 * ( log(mu) + log(x) - 0.1257512053055604)
     tmp9_inv = 1.0 / ( 9.0 * tmp )
 
     return 4.0 * pi * ( 1.0 - 7.111111111111111 * tmp9_inv * log(tmp) ) * tmp9_inv
@@ -513,7 +514,8 @@ def p_norm_derva(a_s, x):
     return p_n_derva
 
 def alpha_s_derva(mu, x):
-    tmp = log(x * mu * inv3)
+    #tmp = log(x * mu * inv3)
+    tmp = log(x) + log(mu) - 1.0986122886681098
     tmp2 = 1.9457221667250986 + 2.0 * tmp
 
     asd = 4.412881861832576 * log(tmp2) - 5.585053606381853 * tmp - 7.639922233058851
@@ -840,7 +842,8 @@ class qcd:
         p_norm_derva2 = - 2.6620000000000004 + 2.9088981271421153 * a_s
         p_norm_derva2 -= 0.608 * log(a_s) + 1.824 * log(self.X)
 
-        tmp3log = log(self.X * muinv3)
+        #tmp3log = log(self.X * muinv3)
+        tmp3log = log(self.X) + log(muinv3)
         tmp2 = 1.9457221667250986 + 2.0 * tmp3log
         tmp2log = log(tmp2)
         tmp2_mu_inv = 1.0 / ( mu * tmp2**3 )
