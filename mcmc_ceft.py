@@ -70,6 +70,10 @@ if args.seed != 0:
 if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
 ##################################################
+# a new run or a continued one?
+flag_new_run = False #args.new_run TODO
+
+##################################################
 # global flags for different run modes
 
 # polytrope order
@@ -873,7 +877,7 @@ def myloglike(cube):
         return 0.75 * pi2inv * (mub * inv3)**4 * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm
 
     # Calculating certain blobs can be done faster if the c2-interpolation is used
-    if isinstance(eos_interp, c2AGKNV) and eos_interp.listRhoLong[-1] < trans_qcd:
+    if isinstance(eos_interp, c2AGKNV) and (eos_interp.listRhoLong[-1] - trans_qcd) * rhoS_inv < param_indices['nsat_long_grid'][0] - param_indices['nsat_long_grid'][1]:
         interp_index1 = np.where(param_indices['nsat_long_grid'] <= eos_interp.listRhoLong[-1]*rhoS_inv)[0]
         interp_index2 = np.where( (param_indices['nsat_long_grid'] <= trans_qcd*rhoS_inv) & (param_indices['nsat_long_grid'] > eos_interp.listRhoLong[-1]*rhoS_inv) )[0]
         pqcd_index = np.where(param_indices['nsat_long_grid'] > trans_qcd*rhoS_inv)
@@ -1550,7 +1554,8 @@ if __name__ == "__main__":
     nwalkers = args.walkers * ndim
 
     # initial point(s)
-    p0 = initial_point(nwalkers, ndim)
+    if flag_new_run:
+        p0 = initial_point(nwalkers, ndim)
 
     # number of steps
     Nsteps = args.nsteps
@@ -1563,22 +1568,27 @@ if __name__ == "__main__":
         filename = prefix+'_run.h5'
 
         backend = emcee.backends.HDFBackend(filename)
-        backend.reset(nwalkers, ndim) #no restart
+
+        if flag_new_run:
+            backend.reset(nwalkers, ndim) #no restart
+
+            import h5py
+            hf = h5py.File(filename, 'a')
+            group = hf.get('mcmc')
+            group.create_dataset('mass_grid', data=param_indices['mass_grid'])
+            group.create_dataset('eps_grid', data=param_indices['eps_grid'])
+            group.create_dataset('nsat_long_grid', data=param_indices['nsat_long_grid'])
+            group.create_dataset('nsat_short_grid', data=param_indices['nsat_short_grid'])
+            group.create_dataset('const_params', data=const_params)
+            hf.close()
         
         # initialize sampler
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
 
-        result = sampler.run_mcmc(p0, Nsteps)
-
-        import h5py
-        hf = h5py.File(filename, 'a')
-        group = hf.get('mcmc')
-        group.create_dataset('mass_grid', data=param_indices['mass_grid'])
-        group.create_dataset('eps_grid', data=param_indices['eps_grid'])
-        group.create_dataset('nsat_long_grid', data=param_indices['nsat_long_grid'])
-        group.create_dataset('nsat_short_grid', data=param_indices['nsat_short_grid'])
-        group.create_dataset('const_params', data=const_params)
-        hf.close()
+        if flag_new_run:
+            result = sampler.run_mcmc(p0, Nsteps, progress=True)
+        else:
+            result = sampler.run_mcmc(None, Nsteps, progress=True)
 
     #parallel v3.0
     if True:
@@ -1597,23 +1607,27 @@ if __name__ == "__main__":
             filename = prefix+'run.h5'
 
             backend = emcee.backends.HDFBackend(filename)
-            backend.reset(nwalkers, ndim) #no restart
 
+            if flag_new_run:
+                backend.reset(nwalkers, ndim) #no restart
 
-            import h5py
-            hf = h5py.File(filename, 'a')
-            group = hf.get('mcmc')
-            group.create_dataset('mass_grid', data=param_indices['mass_grid'])
-            group.create_dataset('eps_grid', data=param_indices['eps_grid'])
-            group.create_dataset('nsat_long_grid', data=param_indices['nsat_long_grid'])
-            group.create_dataset('nsat_short_grid', data=param_indices['nsat_short_grid'])
-            group.create_dataset('const_params', data=const_params)
-            group.create_dataset('input_parser', data=np.array(input_parser_params, dtype='S'))
-            hf.close()
+                import h5py
+                hf = h5py.File(filename, 'a')
+                group = hf.get('mcmc')
+                group.create_dataset('mass_grid', data=param_indices['mass_grid'])
+                group.create_dataset('eps_grid', data=param_indices['eps_grid'])
+                group.create_dataset('nsat_long_grid', data=param_indices['nsat_long_grid'])
+                group.create_dataset('nsat_short_grid', data=param_indices['nsat_short_grid'])
+                group.create_dataset('const_params', data=const_params)
+                group.create_dataset('input_parser', data=np.array(input_parser_params, dtype='S'))
+                hf.close()
 
             # initialize sampler
             sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
-            result = sampler.run_mcmc(p0, Nsteps, progress=True)
+            if flag_new_run:
+                result = sampler.run_mcmc(p0, Nsteps, progress=True)
+            else:
+                result = sampler.run_mcmc(None, Nsteps, progress=True)
 
     # serial version emcee v2.2
     if False:
