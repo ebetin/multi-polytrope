@@ -77,6 +77,12 @@ def parse_cli():
             type=str,
             help='Distribution for the pQCD parameter X [uniform (default), log-uniform, log-normal]')
 
+    parser.add_argument('--new',
+            dest='new_run',
+            default=True,
+            type=int,
+            help='Entirely new run? (Yes: 1 (default), No: 0)')
+
     args = parser.parse_args()
 
 

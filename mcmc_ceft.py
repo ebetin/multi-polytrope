@@ -71,7 +71,12 @@ if not os.path.exists(args.outputdir): os.mkdir(args.outputdir)
 
 ##################################################
 # a new run or a continued one?
-flag_new_run = False #args.new_run TODO
+if args.new_run == 1:
+    flag_new_run = True
+elif args.new_run == 0:
+    flag_new_run = False
+else:
+    raise Exception("Incorrect input (--new)")
 
 ##################################################
 # global flags for different run modes
@@ -355,11 +360,10 @@ def myprior(cube):
             if itrope + 1 != phaseTransition:
                 if debug:
                     mpi_print("prior for gamma from cube #{}".format(ci))
-                #lps[ci] = check_uniform(cube[ci], 0.0, 10.0)  #gamma_i [unitless] XXX old
 
-                # Log-uniform
                 if 0 < cube[ci] < 10:
-                    lps[ci] = -2. - math.log( cube[ci] )
+                    #lps[ci] = -2. - math.log( cube[ci] ) # Log-uniform
+                    lps[ci] = check_uniform(cube[ci], 0., 10.) # Uniform
                 else:
                     return -linf
 
@@ -597,6 +601,9 @@ def myloglike(cube):
                 trans.append(trans[-1] + cgs.rhoS * cube[ci])
             else:
                 trans.append(cgs.rhoS * cube[ci])
+                if trans[-2] > trans[-1]:
+                    logl = -linf
+                    return logl, blobs
             ci += 1
     elif eos_model == 1:
         # Matching chemical potentials (GeV)
@@ -613,6 +620,11 @@ def myloglike(cube):
                 if debug:
                     mpi_print("loading mu_know from cube #{}".format(ci))
                 mu_known.append(cube[ci])
+
+                if mu_known[-2] > mu_known[-1]:
+                    logl = -linf
+                    return logl, blobs
+
                 ci += 1
 
         speed2 = []
@@ -1225,7 +1237,7 @@ def initial_point(nwalkers, ndim):
                         else:
                             list2.append(np.random.uniform(0.0, nb_max))
                 else:
-                    list2 = list2 + list(np.random.uniform(0.0, 43., eos_Nsegment - 1))
+                    list2 = list2 + sorted(list(np.random.uniform(0.0, 43., eos_Nsegment - 1)))
 
             elif eos_model == 1:  # c_s^2 model
                 if ceft_model == 'HLPS' or ceft_model == 'HLPS3':
@@ -1254,7 +1266,7 @@ def initial_point(nwalkers, ndim):
                         else:
                             list2.append(np.random.uniform(0.0, muDmax))
                 else:
-                    list2 = list2 + list(np.random.uniform(mu0, muQCD, eos_Nsegment - 2))
+                    list2 = list2 + sorted(list(np.random.uniform(mu0, muQCD, eos_Nsegment - 2)))
 
                 for i in range(eos_Nsegment - 2):  # c_s^2
                     if flagSubConformal:
