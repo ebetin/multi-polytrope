@@ -80,6 +80,7 @@ class structurePolytrope:
         testCausalityGandolfi = causalityDoubleMonotrope(gandolfiEoS, transitions[0])
 
         testHydro = False
+        gammasAll = None
         self.gammasSolved = None
 
         if testCausalityGandolfi:
@@ -108,7 +109,8 @@ class structurePolytrope:
             polyConditions = matchPolytopesWithLimits(gandolfiMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
 
             gammasAll = polyConditions.GammaValues()
-            self.gammasSolved = polyConditions.gammasSolved
+            if gammasAll is not None:
+                self.gammasSolved = polyConditions.gammasSolved
 
         
             # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
@@ -276,6 +278,7 @@ class structurePolytropeWithCEFT:
 
         testHydro = False
         gammasAll = None
+        self.gammasSolved = None
 
         if testCausalityCEFT:
             # Pressure (Ba) and energy density (g/cm^3) at the end of the QMC EoS
@@ -303,8 +306,8 @@ class structurePolytropeWithCEFT:
             # Determine polytropic exponents
             polyConditions = matchPolytopesWithLimits(ceftMatchingHigh, qcdMathing, transitionsSaturation, gammasKnown)
             gammasAll = polyConditions.GammaValues()
-            self.gammasSolved = polyConditions.gammasSolved
-
+            if gammasAll is not None:
+                self.gammasSolved = polyConditions.gammasSolved
             # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
             testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
 
