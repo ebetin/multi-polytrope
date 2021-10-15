@@ -79,7 +79,7 @@ def parse_cli():
 
     parser.add_argument('--new',
             dest='new_run',
-            default=True,
+            default=1,
             type=int,
             help='Entirely new run? (Yes: 1 (default), No: 0)')
 
