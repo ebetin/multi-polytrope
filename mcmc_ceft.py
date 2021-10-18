@@ -1637,9 +1637,9 @@ if __name__ == "__main__":
             # initialize sampler
             sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend, pool=pool)
             if flag_new_run:
-                result = sampler.run_mcmc(p0, Nsteps, progress=True)
+                result = sampler.run_mcmc(p0, Nsteps, progress=False)
             else:
-                result = sampler.run_mcmc(None, Nsteps, progress=True)
+                result = sampler.run_mcmc(None, Nsteps, progress=False)
 
     # serial version emcee v2.2
     if False:
