@@ -127,13 +127,17 @@ class structurePolytrope:
         self.trans  = None
         self.eos = None
         self.realistic = False
+        self.rho_cc = 0.0
 
         if gammasAll is not None and testHydro and testCausality:
-            # Polytropic constants
-            Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
+            try:
+                # Polytropic constants
+                Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
 
-            for i in range(1, len(gammasAll)):
-                Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
+                for i in range(1, len(gammasAll)):
+                    Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
+            except:
+                return
 
             # Create polytropic presentation 
             assert len(gammasAll) == len(Ks) == len(transitionsPoly)
@@ -322,13 +326,17 @@ class structurePolytropeWithCEFT:
         self.trans  = None
         self.eos = None
         self.realistic = False
+        self.rho_cc = 0.0
 
         if gammasAll is not None and testHydro and testCausality:
-            # Polytropic constants
-            Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
+            try:
+                # Polytropic constants
+                Ks = [ceftPressureHigh * transitionsPoly[0]**(-gammasAll[0])]
 
-            for i in range(1, len(gammasAll)):
-                Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
+                for i in range(1, len(gammasAll)):
+                    Ks.append( Ks[i-1] * transitionsPoly[i]**(gammasAll[i-1]-gammasAll[i]) )
+            except:
+                return
 
             # Create polytropic presentation 
             assert len(gammasAll) == len(Ks) == len(transitionsPoly)
