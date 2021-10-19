@@ -155,8 +155,11 @@ class structurePolytrope:
             except:
                 self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[0] / cgs.mB) ) / transitions[0] - 1.0
 
-            # Create polytropic EoS
-            polytropicEoS = polytrope( self.tropes, self.trans )
+            try:
+                # Create polytropic EoS
+                polytropicEoS = polytrope( self.tropes, self.trans )
+            except:
+                return
 
             # Transition between the crust and the core
             # This has been approximated so that rho_crust(p_cc) = rho_ceft(p_cc)
@@ -354,8 +357,11 @@ class structurePolytropeWithCEFT:
             except:
                 self.tropes[0].a = ( ceftEnergyDensityHigh - ceftPressureHigh / cgs.c**2 * log(transitions[0] / cgs.mB) ) / transitions[0] - 1.0
 
-            # Create polytropic EoS
-            polytropicEoS = polytrope( self.tropes, self.trans )
+            try:
+                # Create polytropic EoS
+                polytropicEoS = polytrope( self.tropes, self.trans )
+            except:
+                return
 
             # Transition between the crust and the core
             # This has been approximated so that rho_crust(p_cc) = rho_ceft(p_cc)
