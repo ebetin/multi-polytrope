@@ -184,7 +184,7 @@ n_params = len(parameters)
 
 ##################################################
 # Save file
-prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-n{}-{}-{}-TOV_{}-GW_{}-Mobs_{}-MRobs_{}-".format(eos_model, eos_Nsegment, phaseTransition, args.seed, args.walkers, args.ngrid, args.nsteps, ceft_model, x_model, flag_TOV, flag_GW, flag_Mobs, flag_MRobs)
+prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-ceft_{}-X_{}-TOV_{}-".format(eos_model, eos_Nsegment, phaseTransition, args.seed, args.walkers, args.ngrid, ceft_model, x_model, flag_TOV)
 
 
 ##################################################
@@ -448,7 +448,7 @@ def myprior(cube):
         lps[ci] = 6.486468145459291 - 1.3527717270480054e6 * ( cube[ci] - 1.186 )**2
 
         # Mass ratio (GW170817), m_2 / m_1 s.t. m_1 >= m_2
-        lps[ci+1] = check_uniform(cube[ci+1], 0.0, 1.0)
+        lps[ci+1] = check_uniform(cube[ci+1], 0.4, 1.0)
 
         ci += 2
 
@@ -621,9 +621,10 @@ def myloglike(cube):
                     mpi_print("loading mu_know from cube #{}".format(ci))
                 mu_known.append(cube[ci])
 
-                if mu_known[-2] > mu_known[-1]:
-                    logl = -linf
-                    return logl, blobs
+                if len(mu_known) > 1:
+                    if mu_known[-2] > mu_known[-1]:
+                        logl = -linf
+                        return logl, blobs
 
                 ci += 1
 
@@ -1598,9 +1599,9 @@ if __name__ == "__main__":
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, backend=backend)
 
         if flag_new_run:
-            result = sampler.run_mcmc(p0, Nsteps, progress=True)
+            result = sampler.run_mcmc(p0, Nsteps, progress=False)
         else:
-            result = sampler.run_mcmc(None, Nsteps, progress=True)
+            result = sampler.run_mcmc(None, Nsteps, progress=False)
 
     #parallel v3.0
     if True:
