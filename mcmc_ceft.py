@@ -107,16 +107,16 @@ x_model = args.xmodel
 # extra restrictions
 
 # calculating MR curve
-flag_TOV   = False
+flag_TOV   = True
 
 # using GW170817 event as a constrain (NB usable if flag_TOV = True)
-flag_GW    = False
+flag_GW    = True
 
 # using mass measurement data (NB usable if flag_TOV = True)
-flag_Mobs  = False
+flag_Mobs  = True
 
 # using mass-radius observations (NB usable if flag_TOV = True)
-flag_MRobs = False
+flag_MRobs = True
 
 # discarding subconformal (c_s^2 > 1/3) EoSs (default: False)
 flagSubConformal = args.subconf
@@ -171,7 +171,7 @@ inv3 = 0.3333333333333333333333333
 ##################################################
 # Perturbative QCD parameter, see e.g. Fraga et al. (2014, arXiv:1311.5154) for details
 # Transition (matching) chemical potential (GeV) between interpolated and pQCD parts
-muQCD = 2.74  # 2.739512831322249
+muQCD = 2.6
 
 ##################################################
 # Parameters
@@ -197,7 +197,7 @@ Ngrid2 = 2*108+1  # TODO
 param_indices = {
         'mass_grid':       np.linspace(0.5, 3.0,   Ngrid),
         'eps_grid':        np.logspace(2.0, 4.7, Ngrid),
-        'nsat_long_grid':  np.linspace(1.0, 55., Ngrid),
+        'nsat_long_grid':  np.linspace(1.0, 46., Ngrid),
         'nsat_short_grid': np.linspace(1.2, 12., Ngrid2),
                }
 
@@ -341,7 +341,7 @@ def myprior(cube):
                 # lps[ci] = -math.log( cube[ci] ) - math.log( 2.302585092994046 - x_min_ln )
                 if cube[ci] > 10.:
                     return -linf
-                lps[ci] = -0.9907469279391756 - math.log( cube[ci] )  # NB assuming muQCD = 2.74 GeV!
+                lps[ci] = -0.4663238257734859 - math.log( cube[ci] )  # NB assuming muQCD = 2.6 GeV!
             elif x_model == 'uniform':
                 # Uniform distribution from x_min to 10
                 lps[ci] = check_uniform(cube[ci], x_min, 10.)
@@ -432,7 +432,7 @@ def myprior(cube):
                     lps[ci] = check_uniform(cube[ci], 0.0, 1.0)  #c_i^2 [unitless]
             else:
                 # Uniform speed of sound c_i!
-                if 0 < cube[ci] < 1:
+                if 0 <= cube[ci] <= 1:
                     lps[ci] = -0.6931471805599453 - 0.5 * math.log( cube[ci] )
                 else:
                     return -linf
@@ -988,7 +988,7 @@ def myloglike(cube):
             if flag_GW:
                 icT = param_indices['nsat_TD_'+str(ir)]
 
-            if ir <= struc.indexM:
+            if ir <= struc.indexM-1:
                 blobs[icM] = struc.mass[ir]
                 blobs[icR] = struc.rad[ir]
                 if flag_GW:
