@@ -6,7 +6,7 @@ from math import pi, log
 from polytropes import monotrope, polytrope
 from crust import SLyCrust
 from eoslib import get_eos, glue_crust_and_core, eosLib
-from scipy.integrate import odeint, solve_ivp
+from scipy.integrate import solve_ivp
 #from scipy.integrate import solve_ivp
 
 from scipy.special import hyp2f1
@@ -43,7 +43,7 @@ class tov:
 
         return [dPdr, dmdr]
 
-    def tovsolve(self, rhoc):
+    def tovsolve(self, rhoc, tol=1.e-4):
         r = 1.0
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
@@ -55,10 +55,10 @@ class tov:
         neg_press1.direction = -1
         psol = solve_ivp(
                 self.tov,
-                (1e0, 17e5),
+                (1e0, 16e5),
                 [P, m],
-                rtol=1.0e-6,
-                atol=1.0e-6,
+                rtol=tol,
+                atol=tol,
                 method = 'LSODA',
                 events = neg_press1
                 )
@@ -93,6 +93,30 @@ class tov:
                 j += 1
             else:
                 break
+
+        mass_max1 = 0.
+        for rhoc in np.linspace(rhocs[j-2], rhocs[-1], int(1000*(rhocs[-1]-rhocs[-2])/cgs.rhoS)*(len(rhocs)-j+1)):
+            rad, press, mass = self.tovsolve(rhoc, tol=1.e-5)
+
+            rad  *= 1.0e-5 #cm to km
+            mass *= Msun_inv
+
+            mstar = mass[-1]
+            rstar = rad[-1]
+
+            if mass_max1 < mstar:
+                mass_max1 = mstar
+                rho_max = rhoc
+                mass_max_r = rstar
+            else:
+                break
+
+        if mass_max1 > mass_max:
+            j += 1
+
+        rhocs[j-1] = rho_max
+        mcurve[j-1] = mass_max1
+        rcurve[j-1] = mass_max_r
 
         return mcurve[:j], rcurve[:j], rhocs[:j]
 
@@ -147,23 +171,24 @@ class tov:
 
         return [drdP, dmdr * drdP, detadr * drdP]
 
-    def tovLoveSolve(self, rhoc, l):
+    def tovLoveSolve(self, rhoc, l, tol=1.e-4):
         r = 1.0
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r**3*eden
         eta = 1.0 * l
+
         def neg_press(r, y, l):
             return y[0] - press_min
         neg_press.terminal = True
         neg_press.direction = -1
         psol = solve_ivp(
                 self.tovLove,
-                (1e0, 17e5),
+                (1e0, 16e5),
                 [P, m, eta], 
                 args=(1.0 * l, ), 
-                rtol=1.0e-6,
-                atol=1.0e-6,
+                rtol=tol,
+                atol=tol,
                 method = 'LSODA',
                 events = neg_press
                 )
@@ -186,7 +211,6 @@ class tov:
         jRef2 = 0
         for rhoc in rhocs:
             rad, press, mass, eta = self.tovLoveSolve(rhoc, l)
-
             mstar = mass[-1]
             rstar = rad[-1]
             etaStar = eta[-1]
@@ -207,6 +231,30 @@ class tov:
                 j += 1
             else:
                 break
+
+        mass_max1 = 0.
+        for rhoc in np.linspace(rhocs[j-2], rhocs[-1], int(1000*(rhocs[-1]-rhocs[-2])/cgs.rhoS)*(len(rhocs)-j+1)):
+            rad, press, mass, eta = self.tovLoveSolve(rhoc, l, tol=1.e-5)
+            mstar = mass[-1]
+            rstar = rad[-1]
+            etaStar = eta[-1]
+            td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
+
+            if mass_max1 < mstar:
+                mass_max1 = mstar
+                rho_max = rhoc
+                mass_max_r = rstar
+                mass_max_td = td_star
+            else:
+                break
+
+        if mass_max1 > mass_max:
+            j += 1
+        mass_max = mass_max1
+        rhocs[j-1] = rho_max
+        mcurve[j-1] = mass_max
+        rcurve[j-1] = mass_max_r
+        TDcurve[j-1] = mass_max_td
 
         if mRef1 > 0.0 and mass_max > mRef1:
             massTerm = (mRef1 - mcurve[jRef1]) / (mcurve[jRef1] - mcurve[jRef1-1])
