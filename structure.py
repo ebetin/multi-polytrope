@@ -112,9 +112,8 @@ class structurePolytrope:
             if gammasAll is not None:
                 self.gammasSolved = polyConditions.gammasSolved
 
-        
-            # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
-            testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
+                # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
+                testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
 
         testCausality = True
         self.speed2max = 0.0
@@ -230,6 +229,12 @@ class structurePolytrope:
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
 
+            self.mass = self.mass[:-1]
+            self.rad = self.rad[:-1]
+            self.rho = self.rho[:-1]
+
+            if m1 > 0. or m2 > 0.:
+                self.TDlist = self.TDlist[:-1]
 
 
     # interpolate radius given a mass
@@ -315,8 +320,8 @@ class structurePolytropeWithCEFT:
             gammasAll = polyConditions.GammaValues()
             if gammasAll is not None:
                 self.gammasSolved = polyConditions.gammasSolved
-            # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
-            testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
+                # Check that the polytropic EoS is hydrodynamically stable, ie. all polytropic exponents are non-negative
+                testHydro = hydrodynamicalStabilityPolytropes(gammasAll)
 
         testCausality = True
         self.speed2max = 0.0
@@ -431,6 +436,12 @@ class structurePolytropeWithCEFT:
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
 
+            self.mass = self.mass[:-1]
+            self.rad = self.rad[:-1]
+            self.rho = self.rho[:-1]
+
+            if m1 > 0. or m2 > 0.:
+                self.TDlist = self.TDlist[:-1]
 
     # interpolate radius given a mass
     # note: structure must be solved beforehand
@@ -621,6 +632,13 @@ class structureC2AGKNV:
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
 
+            self.mass = self.mass[:-1]
+            self.rad = self.rad[:-1]
+            self.rho = self.rho[:-1]
+
+            if m1 > 0. or m2 > 0.:
+                self.TDlist = self.TDlist[:-1]
+
 
     # interpolate radius given a mass
     # note: structure must be solved beforehand
@@ -804,6 +822,13 @@ class structureC2AGKNVwithCEFT:
             self.maxmass = self.mass[self.indexM]
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
+
+            self.mass = self.mass[:-1]
+            self.rad = self.rad[:-1]
+            self.rho = self.rho[:-1]
+
+            if m1 > 0. or m2 > 0.:
+                self.TDlist = self.TDlist[:-1]
 
 
     # interpolate radius given a mass
