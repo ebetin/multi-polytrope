@@ -1,4 +1,4 @@
-def blob_indices(parameter_indices, eosmodel = 0, flag_TOV = True, flag_GW = True, flag_Mobs = True, flag_MRobs = True):
+def blob_indices(parameter_indices, eosmodel = 0, flag_TOV = True, flag_GW = True, flag_Mobs = True, flag_MRobs = True, flag_baryonic_mass=True, flag_TD=False):
     param = parameter_indices
     param2 = []
     ci = 0
@@ -59,7 +59,7 @@ def blob_indices(parameter_indices, eosmodel = 0, flag_TOV = True, flag_GW = Tru
             param['nsat_radius_'+str(ir)] = ci
             ci += 1
 
-    if flag_TOV and flag_GW:
+    if flag_TOV and flag_GW and flag_TD:
         #add nsat - TD grid
         for ir, nsat  in enumerate(param['nsat_short_grid']):
             param2.append('nsat_TD_'+str(ir))
@@ -174,6 +174,40 @@ def blob_indices(parameter_indices, eosmodel = 0, flag_TOV = True, flag_GW = Tru
         ci += 1
         param2.append('r0030')
         param['r0030'] = ci
+        ci += 1
+
+    if flag_TOV and flag_GW:
+        if flag_TD:
+            # Tidal deformabilities
+            param2.append('mmax_TD')
+            param['mmax_TD'] = ci
+            ci += 1
+            param2.append('GW170817_TD1')
+            param['GW170817_TD1'] = ci
+            ci += 1
+            param2.append('GW170817_TD2')
+            param['GW170817_TD2'] = ci
+            ci += 1
+
+        # Radii
+        param2.append('GW170817_r1')
+        param['GW170817_r1'] = ci
+        ci += 1
+        param2.append('GW170817_r2')
+        param['GW170817_r2'] = ci
+        ci += 1
+
+        if flag_baryonic_mass:
+            # Baryonic masses (M_sun)
+            param2.append('mmax_B')
+            param['mmax_B'] = ci
+            ci += 1
+            param2.append('GW170817_mB1')
+            param['GW170817_mB1'] = ci
+            ci += 1
+            param2.append('GW170817_mB2')
+            param['GW170817_mB2'] = ci
+            ci += 1
 
     return param2, param
 
