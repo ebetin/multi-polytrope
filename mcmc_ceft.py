@@ -124,6 +124,12 @@ flagSubConformal = args.subconf
 # constant cEFT and pQCD limits:
 flag_const_limits = False
 
+# use the baryonic mass to constrain GW170817 event
+flag_baryonic_mass = True
+
+# Plot TD stuff
+flag_TD = False
+
 input_parser_params = [ [ ['flag_TOV', str(flag_TOV)],
                         ['flag_GW', str(flag_GW)],
                         ['flag_Mobs', str(flag_Mobs)],
@@ -138,7 +144,9 @@ input_parser_params = [ [ ['flag_TOV', str(flag_TOV)],
                         ['ngrid', str(args.ngrid)],
                         ['nsteps', str(args.nsteps)],
                         ['flag_const_limits', str(flag_const_limits)],
-                        ['flagSubConformal', str(flagSubConformal)]
+                        ['flagSubConformal', str(flagSubConformal)],
+                        ['flag_TD', str(flag_TD)],
+                        ['flag_baryonic_mass', str(flag_baryonic_mass)]
                       ] ]
 
 ##################################################
@@ -195,13 +203,13 @@ prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-ceft_{}-X_{}-TOV_{}-".format(eos_model
 Ngrid = args.ngrid
 Ngrid2 = 2*108+1  # TODO
 param_indices = {
-        'mass_grid':       np.linspace(0.5, 3.0,   Ngrid),
-        'eps_grid':        np.logspace(2.0, 4.7, Ngrid),
-        'nsat_long_grid':  np.linspace(1.0, 46., Ngrid),
+        'mass_grid':       np.linspace(0.5, 2.6,   Ngrid),
+        'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
+        'nsat_long_grid':  np.logspace(0, 1.662757831681, Ngrid), #np.linspace(1.0, 46., Ngrid),
         'nsat_short_grid': np.linspace(1.2, 12., Ngrid2),
                }
 
-parameters2, param_indices = blob_indices(param_indices, eosmodel = eos_model, flag_TOV = flag_TOV, flag_GW = flag_GW, flag_Mobs = flag_Mobs, flag_MRobs = flag_MRobs)
+parameters2, param_indices = blob_indices(param_indices, eosmodel = eos_model, flag_TOV = flag_TOV, flag_GW = flag_GW, flag_Mobs = flag_Mobs, flag_MRobs = flag_MRobs, flag_TD = flag_TD, flag_baryonic_mass = flag_baryonic_mass)
 
 mpi_print("Parameters to be only stored (blobs):")
 mpi_print(len(parameters2))
@@ -693,7 +701,11 @@ def myloglike(cube):
     if debug:
         mpi_print("Structure...")
     if eos_model == 0:
-        struc = structure_poly(gammas, trans, lowDensity, highDensity, CEFT_model = ceft_model)
+        try:
+            struc = structure_poly(gammas, trans, lowDensity, highDensity, CEFT_model = ceft_model)
+        except:
+            logl = -linf
+            return logl, blobs
     elif eos_model == 1:
         if flag_muDelta:
             struc = structure_c2(mu_deltas, speed2, trans, lowDensity, highDensity, approximation = True, CEFT_model = ceft_model, flag_muDelta = True)
@@ -731,7 +743,7 @@ def myloglike(cube):
 
     if flag_TOV:
         if flag_GW:  # with tidal deformabilities
-            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
+            struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS, flag_baryonic_mass=flag_baryonic_mass, flag_td_list=flag_TD)
         else:  # without
             struc.tov(rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
 
@@ -743,6 +755,10 @@ def myloglike(cube):
             if mass1_GW170817 > mmax or mass2_GW170817 > mmax:
                 logl = -linf
                 return logl, blobs
+            if flag_baryonic_mass:
+                if struc.TD_mass_b + struc.TD2_mass_b < struc.maxmass_b:
+                    logl = -linf
+                    return logl, blobs
 
     # Mass measurement of PSR J0348+0432 from Antoniadis et al 2013 arXiv:1304.6875
     # and PSR J0740+6620 from Cromartie et al 2019 arXiv:1904.06759
@@ -891,14 +907,35 @@ def myloglike(cube):
 
     # Calculating certain blobs can be done faster if the c2-interpolation is used
     if isinstance(eos_interp, c2AGKNV) and (eos_interp.listRhoLong[-1] - trans_qcd) * rhoS_inv < param_indices['nsat_long_grid'][0] - param_indices['nsat_long_grid'][1]:
-        interp_index1 = np.where(param_indices['nsat_long_grid'] <= eos_interp.listRhoLong[-1]*rhoS_inv)[0]
+        interp_index0 = np.where(param_indices['nsat_long_grid'] < trans_points_s[0])[0]
+        interp_index1 = np.where( (trans_points_s[0] <= param_indices['nsat_long_grid']) & (param_indices['nsat_long_grid'] <= eos_interp.listRhoLong[-1]*rhoS_inv) )[0]
         interp_index2 = np.where( (param_indices['nsat_long_grid'] <= trans_qcd*rhoS_inv) & (param_indices['nsat_long_grid'] > eos_interp.listRhoLong[-1]*rhoS_inv) )[0]
         pqcd_index = np.where(param_indices['nsat_long_grid'] > trans_qcd*rhoS_inv)
+
+        interp_rhoB0 = param_indices['nsat_long_grid'][interp_index0] * cgs.rhoS
         interp_rhoB1 = param_indices['nsat_long_grid'][interp_index1] * cgs.rhoS
         interp_rhoB2 = param_indices['nsat_long_grid'][interp_index2] * cgs.rhoS
         pqcd_rhoB = param_indices['nsat_long_grid'][pqcd_index]
 
         # cEFT part XXX NB the crust part has NOT been separeted from cEFT (i.e. keep n_B > n_s/2)!
+        for ir, rhoB in enumerate(interp_rhoB0):
+            icP = param_indices['nsat_p_'+str(ir)]
+            icE = param_indices['nsat_eps_'+str(ir)]
+            icG = param_indices['nsat_gamma_'+str(ir)]
+            icC2 = param_indices['nsat_c2_'+str(ir)]
+            icPfd = param_indices['nsat_press_'+str(ir)]
+
+            press, edens, speed2 = struc.eos.press_edens_c2( rhoB )
+            edens = edens * cgs.c**2
+            muB = ( press + edens ) * mB_nu / rhoB
+
+            blobs[icP] = press * confacinv
+            blobs[icE] = edens * confacinv
+            blobs[icG] = edens * speed2 / press
+            blobs[icC2] = speed2
+            blobs[icPfd] = press / ( 0.75 * pi2inv * (muB * inv3)**4 * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm )
+
+        # cs2 part 1
         ir = interp_index1[0]
         ii1_len = len(interp_index1)
         icP = param_indices['nsat_p_'+str(ir)]
@@ -918,7 +955,7 @@ def myloglike(cube):
         blobs[np.arange(icC2,icC2+ii1_len)] = speed2
         blobs[np.arange(icPfd,icPfd+ii1_len)] = press / ( 0.75 * pi2inv * (muB * inv3)**4 * cgs.GeV3_to_fm3 * cgs.GeVfm_per_dynecm )
 
-        # c2-interpolated part
+        # c2-interpolated part 2
         ir = interp_index2[0]
         ii2_len = len(interp_index2)
         icP = param_indices['nsat_p_'+str(ir)]
@@ -985,21 +1022,21 @@ def myloglike(cube):
             #these are the indecies pointing to correct positions in cube
             icM = param_indices['nsat_mass_'+str(ir)]
             icR = param_indices['nsat_radius_'+str(ir)]
-            if flag_GW:
+            if flag_GW and flag_TD:
                 icT = param_indices['nsat_TD_'+str(ir)]
 
             if ir <= struc.indexM-1:
                 blobs[icM] = struc.mass[ir]
                 blobs[icR] = struc.rad[ir]
-                if flag_GW:
+                if flag_GW and flag_TD:
                     blobs[icT] = struc.TDlist[ir]
             else:#TODO can this be removed?
                 blobs[icM] = 0.0
                 blobs[icR] = 0.0
-                if flag_GW:
+                if flag_GW and flag_TD:
                     blobs[icT] = 0.0
 
-    if flag_TOV and flag_GW:
+    if flag_TOV and flag_GW and flag_TD:
         #build M-TD curve
         if debug:
             ic = param_indices['TD_0'] #starting index
@@ -1018,7 +1055,7 @@ def myloglike(cube):
         ic = param_indices['mmax'] #this is the index pointing to correct position in cube
         rhoM = struc.maxmassrho # central number density
         press = struc.eos.pressure( rhoM ) # central pressure
-        edens = struc.eos.edens ( rhoM ) * cgs.c**2 # central energy density
+        edens = struc.eos.edens( rhoM ) * cgs.c**2 # central energy density
         muB = ( press + edens ) * mB_nu / rhoM # central chemical potential
         blobs[ic] = mmax # max mass [M_sun]
         blobs[ic+1] = struc.maxmassrad # rad(Mmax) [km]
@@ -1072,6 +1109,31 @@ def myloglike(cube):
         blobs[ic+8]  = rad_1724
         blobs[ic+9]  = rad_1810
         blobs[ic+10] = rad_0030
+
+    if flag_TOV and flag_GW:
+        if flag_TD:
+            # Tidal deformabilities
+            ic = param_indices['mmax_TD']
+            blobs[ic] = struc.maxmass_td
+            ic = param_indices['GW170817_TD1']
+            blobs[ic] = struc.TD
+            ic = param_indices['GW170817_TD2']
+            blobs[ic] = struc.TD2
+
+        # Radii
+        ic = param_indices['GW170817_r1']
+        blobs[ic] = struc.TD_rad
+        ic = param_indices['GW170817_r2']
+        blobs[ic] = struc.TD2_rad
+
+        if flag_baryonic_mass:
+            # Baryonic masses (M_sun)
+            ic = param_indices['mmax_B']
+            blobs[ic] = struc.maxmass_b
+            ic = param_indices['GW170817_mB1']
+            blobs[ic] = struc.TD_mass_b
+            ic = param_indices['GW170817_mB2']
+            blobs[ic] = struc.TD2_mass_b
 
     return logl, blobs
 
@@ -1351,7 +1413,11 @@ def initial_point(nwalkers, ndim):
 
             # Construct the EoS
             if eos_model == 0:
-                struc = structure_poly(gammas, trans, lowDensity, highDensity, CEFT_model = ceft_model)
+                try:
+                    struc = structure_poly(gammas, trans, lowDensity, highDensity, CEFT_model = ceft_model)
+                except:
+                    again = True
+                    continue
             elif eos_model == 1:
                 if flag_muDelta:
                     struc = structure_c2(mu_deltas, speed2, trans, lowDensity, highDensity, approximation = True, CEFT_model = ceft_model, flag_muDelta = flag_muDelta)
@@ -1375,12 +1441,13 @@ def initial_point(nwalkers, ndim):
             q    = 1.0
             list3 = []
             if flag_TOV:
+                rho_c = [item * cgs.rhoS for item in np.linspace(1.2, 15., Ngrid2)]
                 if flag_GW: # with tidal deformabilities
                     #GW170817
                     Mc = np.random.uniform(1.1855, 1.1865)
 
                     mass_GW170817 = 2.0**0.2 * Mc * cgs.Msun
-                    struc.tov(l=2, m1=mass_GW170817, m2=mass_GW170817, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
+                    struc.tov(l=2, m1=mass_GW170817, m2=mass_GW170817, rhocs=rho_c, flag_baryonic_mass=flag_baryonic_mass, flag_td_list=flag_TD)
 
                     # Realistic max mass and radius
                     if struc.maxmass < mass_cut or struc.maxmassrad >= radius_cut:
@@ -1395,7 +1462,7 @@ def initial_point(nwalkers, ndim):
                     mass1_GW170817 = (1.0 + q)**0.2 / q**0.6 * Mc
                     mass2_GW170817 = mass1_GW170817 * q
 
-                    struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
+                    struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = rho_c, flag_baryonic_mass=flag_baryonic_mass, flag_td_list=flag_TD)
                 else: # without
                     struc.tov(rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
 
@@ -1419,7 +1486,12 @@ def initial_point(nwalkers, ndim):
                         mass1_GW170817 = (1.0 + q)**0.2 / q**0.6 * Mc
                         mass2_GW170817 = mass1_GW170817 * q
 
-                        struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = param_indices['nsat_short_grid'] * cgs.rhoS)
+                        struc.tov(l=2, m1=mass1_GW170817*cgs.Msun, m2=mass2_GW170817*cgs.Msun, rhocs = rho_c, flag_baryonic_mass=flag_baryonic_mass, flag_td_list=flag_TD)
+
+                    if flag_baryonic_mass:
+                        if struc.TD_mass_b + struc.TD2_mass_b < struc.maxmass_b:
+                            again = True
+                            continue
 
                 if flag_Mobs:
                     # mass measurements
