@@ -196,35 +196,42 @@ class structurePolytrope:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
-        t = tov(self.eos, rhocs)
+    def tov(self, l=2, m1=-1., m2=-1., rhocs=None, flag_baryonic_mass=False, flag_td=True, flag_td_list=False):
+        if rhocs is None:
+            rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
 
+        t = tov(self.eos, rhocs)
         assert isinstance(l, int)
 
-        if m1 < 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho = t.mass_radius()
-            self.TD = 1.0e10
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-            self.TDlist = np.zeros(len(self.mass))
-        elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-        elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+        self.TD = np.inf
+        self.TD2 = np.inf
+        self.TDtilde = np.inf
+        self.maxmass_td = np.inf
+        self.TD_mass_b = np.inf
+        self.TD2_mass_b = np.inf
+        self.maxmass_b = 0
+        self.TD_rad = 0
+        self.TD2_rad = 0
+        self.TDlist = None
+        if m1 < 0 and m2 < 0:
+            #self.mass, self.rad, self.rho = t.mass_radius()
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 < 0:
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 > 0:
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
-            self.TD = 1.0e10
-            self.TDtilde = 1.0e10
-        
-        if len(self.mass) == 0:
-            self.maxmass = 0.0
-            self.maxmassrho = 0.0
-            self.maxmassrad = 0.0
-        else:
-            self.indexM = np.argmax( self.mass )
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+
+        self.indexM = None
+        self.maxmass = 0
+        self.maxmassrho = 0
+        self.maxmassrad = 0
+        if len(self.mass) > 0:
+            self.indexM = np.argmax(self.mass)
             self.maxmass = self.mass[self.indexM]
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
@@ -233,9 +240,8 @@ class structurePolytrope:
             self.rad = self.rad[:-1]
             self.rho = self.rho[:-1]
 
-            if m1 > 0. or m2 > 0.:
+            if (m1 > 0 or m2 > 0) and flag_td_list:
                 self.TDlist = self.TDlist[:-1]
-
 
     # interpolate radius given a mass
     # note: structure must be solved beforehand
@@ -403,35 +409,42 @@ class structurePolytropeWithCEFT:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
-        t = tov(self.eos, rhocs)
+    def tov(self, l=2, m1=-1., m2=-1., rhocs=None, flag_baryonic_mass=False, flag_td=True, flag_td_list=False):
+        if rhocs is None:
+            rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
 
+        t = tov(self.eos, rhocs)
         assert isinstance(l, int)
 
-        if m1 < 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho = t.mass_radius()
-            self.TD = 1.0e10
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-            self.TDlist = np.zeros(len(self.mass))
-        elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-        elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+        self.TD = np.inf
+        self.TD2 = np.inf
+        self.TDtilde = np.inf
+        self.maxmass_td = np.inf
+        self.TD_mass_b = np.inf
+        self.TD2_mass_b = np.inf
+        self.maxmass_b = 0
+        self.TD_rad = 0
+        self.TD2_rad = 0
+        self.TDlist = None
+        if m1 < 0 and m2 < 0:
+            #self.mass, self.rad, self.rho = t.mass_radius()
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 < 0:
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 > 0:
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
-            self.TD = 1.0e10
-            self.TDtilde = 1.0e10
-        
-        if len(self.mass) == 0:
-            self.maxmass = 0.0
-            self.maxmassrho = 0.0
-            self.maxmassrad = 0.0
-        else:
-            self.indexM = np.argmax( self.mass )
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+
+        self.indexM = None
+        self.maxmass = 0
+        self.maxmassrho = 0
+        self.maxmassrad = 0
+        if len(self.mass) > 0:
+            self.indexM = np.argmax(self.mass)
             self.maxmass = self.mass[self.indexM]
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
@@ -440,7 +453,7 @@ class structurePolytropeWithCEFT:
             self.rad = self.rad[:-1]
             self.rho = self.rho[:-1]
 
-            if m1 > 0. or m2 > 0.:
+            if (m1 > 0 or m2 > 0) and flag_td_list:
                 self.TDlist = self.TDlist[:-1]
 
     # interpolate radius given a mass
@@ -599,35 +612,42 @@ class structureC2AGKNV:
 
 
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
-        t = tov(self.eos, rhocs)
+    def tov(self, l=2, m1=-1., m2=-1., rhocs=None, flag_baryonic_mass=False, flag_td=True, flag_td_list=False):
+        if rhocs is None:
+            rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
 
+        t = tov(self.eos, rhocs)
         assert isinstance(l, int)
 
-        if m1 < 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho = t.mass_radius()
-            self.TD = 1.0e10
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-            self.TDlist = np.zeros(len(self.mass))
-        elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-        elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+        self.TD = np.inf
+        self.TD2 = np.inf
+        self.TDtilde = np.inf
+        self.maxmass_td = np.inf
+        self.TD_mass_b = np.inf
+        self.TD2_mass_b = np.inf
+        self.maxmass_b = 0
+        self.TD_rad = 0
+        self.TD2_rad = 0
+        self.TDlist = None
+        if m1 < 0 and m2 < 0:
+            #self.mass, self.rad, self.rho = t.mass_radius()
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 < 0:
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 > 0:
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
-            self.TD = 1.0e10
-            self.TDtilde = 1.0e10
-        
-        if len(self.mass) == 0:
-            self.maxmass = 0.0
-            self.maxmassrho = 0.0
-            self.maxmassrad = 0.0
-        else:
-            self.indexM = np.argmax( self.mass )
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+
+        self.indexM = None
+        self.maxmass = 0
+        self.maxmassrho = 0
+        self.maxmassrad = 0
+        if len(self.mass) > 0:
+            self.indexM = np.argmax(self.mass)
             self.maxmass = self.mass[self.indexM]
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
@@ -636,7 +656,7 @@ class structureC2AGKNV:
             self.rad = self.rad[:-1]
             self.rho = self.rho[:-1]
 
-            if m1 > 0. or m2 > 0.:
+            if (m1 > 0 or m2 > 0) and flag_td_list:
                 self.TDlist = self.TDlist[:-1]
 
 
@@ -789,36 +809,43 @@ class structureC2AGKNVwithCEFT:
                 pass
 
 
-
     #solve TOV equations
-    def tov(self, l = 2, m1 = -1.0, m2 = -1.0, rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS)) ):
+    def tov(self, l=2, m1=-1., m2=-1., rhocs=None, flag_baryonic_mass=False, flag_td=True, flag_td_list=False):
+        if rhocs is None:
+            rhocs = np.logspace(np.log10(1.1*cgs.rhoS), np.log10(11.0*cgs.rhoS))
+
         t = tov(self.eos, rhocs)
         assert isinstance(l, int)
 
-        if m1 < 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho = t.mass_radius()
-            self.TD = 1.0e10
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-            self.TDlist = np.zeros(len(self.mass))
-        elif m1 > 0.0 and m2 < 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
-            self.TD2 = 1.0e10
-            self.TDtilde = 1.0e10
-        elif m1 > 0.0 and m2 > 0.0:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD, self.TD2 = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2)
+        self.TD = np.inf
+        self.TD2 = np.inf
+        self.TDtilde = np.inf
+        self.maxmass_td = np.inf
+        self.TD_mass_b = np.inf
+        self.TD2_mass_b = np.inf
+        self.maxmass_b = 0
+        self.TD_rad = 0
+        self.TD2_rad = 0
+        self.TDlist = None
+        if m1 < 0 and m2 < 0:
+            #self.mass, self.rad, self.rho = t.mass_radius()
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 < 0:
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD = t.massRadiusTD(l, mRef1 = m1)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
+        elif m1 > 0 and m2 > 0:
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef1 = m1, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
             self.TDtilde = t.tidalDeformability(m1, m2, self.TD, self.TD2)
         else:
-            self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
-            self.TD = 1.0e10
-            self.TDtilde = 1.0e10
+            #self.mass, self.rad, self.rho, self.TDlist, self.TD2 = t.massRadiusTD(l, mRef2 = m2)
+            self.mass, self.rad, self.rho, self.TDlist, [self.maxmass_td, self.TD, self.TD2], [self.maxmass_b, self.TD_mass_b, self.TD2_mass_b], [self.TD_rad, self.TD2_rad] = t.massRadiusTD(l, mRef2 = m2, flag_mb=flag_baryonic_mass, flag_td=flag_td, flag_td_list=flag_td_list)
 
-        if len(self.mass) == 0:
-            self.maxmass = 0.0
-            self.maxmassrho = 0.0
-            self.maxmassrad = 0.0
-        else:
-            self.indexM = np.argmax( self.mass )
+        self.indexM = None
+        self.maxmass = 0
+        self.maxmassrho = 0
+        self.maxmassrad = 0
+        if len(self.mass) > 0:
+            self.indexM = np.argmax(self.mass)
             self.maxmass = self.mass[self.indexM]
             self.maxmassrho = self.rho[self.indexM]
             self.maxmassrad = self.rad[self.indexM]
@@ -827,8 +854,9 @@ class structureC2AGKNVwithCEFT:
             self.rad = self.rad[:-1]
             self.rho = self.rho[:-1]
 
-            if m1 > 0. or m2 > 0.:
+            if (m1 > 0 or m2 > 0) and flag_td_list:
                 self.TDlist = self.TDlist[:-1]
+            
 
 
     # interpolate radius given a mass

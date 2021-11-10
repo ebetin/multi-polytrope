@@ -437,7 +437,7 @@ class c2AGKNV:
 
 
     # Mass density (g/cm^3) as a function of the pressure (Ba)
-    def rho(self, pressure, approx):
+    def rho(self, pressure, approx=True):  # TODO approx default value?
         if approx:
             if pressure > self.p0:
                 try:
@@ -539,21 +539,41 @@ class c2AGKNV:
 
             return self.pressure(rho)
 
-    def tov(self, press):
+    def tov(self, press, length=2):
+        # TODO raise error if 'length' is not an integer or if it's smaller than 1 or greater than 3
         if self.approx:
             try:
-                #eden = self.ep_interp(press)
-                #speed2inv = self.c2invp_interp(press)
-                eden      = np.interp(press, self.listPLong, self.listELong)
-                speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+                if length > 0:
+                    eden = np.interp(press, self.listPLong, self.listELong)
+                    res = [eden]
+                if length > 1:
+                    speed2inv = np.interp(press, self.listPLong, self.listC2invLong)
+                    res.append(speed2inv)
+                if length > 2:
+                    rho = np.interp(press, self.listPLong, self.listRhoLong)
+                    res.append(rho)
             except:
-                eden      = self.edens_inv(press)
-                speed2inv = 1.0 / self.speed2(press)
+                if length > 0:
+                    eden = self.edens_inv(press)
+                    res = [eden]
+                if length > 1:
+                    speed2inv = 1.0 / self.speed2(press)
+                    res.append(speed2inv)
+                if length > 2:
+                    rho = self.rho(press)
+                    res.append(rho)
         else:
-            eden      = self.edens_inv(press)
-            speed2inv = 1.0 / self.speed2(press)
+            if length > 0:
+                eden = self.edens_inv(press)
+                res = [eden]
+            if length > 1:
+                speed2inv = 1.0 / self.speed2(press)
+                res.append(speed2inv)
+            if length > 2:
+                rho = self.rho(press)
+                res.append(rho)
 
-        return eden, speed2inv
+        return res
 
 
 

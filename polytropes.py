@@ -277,12 +277,21 @@ class polytrope:
 
         return trope.pressure_edens(edens)
 
-    def tov(self, press):
+    def tov(self, press, length=2):
+        # TODO error...
         trope = self._find_interval_given_pressure(press)
-        eden = trope.edens_inv(press)
-        speed2inv = (press + eden * c_square) / (trope.G * press)
 
-        return eden, speed2inv
+        if length > 0:
+            eden = trope.edens_inv(press)
+            res = [eden]
+        if length > 1:
+            speed2inv = (press + eden * c_square) / (trope.G * press)
+            res.append(speed2inv)
+        if length > 2:
+            rho = trope.rho(press)
+            res.append(rho)
+
+        return res
 
 
 
@@ -803,12 +812,19 @@ class doubleMonotrope:
 
         return self.pressure(rho)
 
-    def tov(self, press):
-        rho = self.rho(press)
-        eden = self.edens(rho)
-        speed2inv = 1.0 / self.speed2_rho(rho)
+    def tov(self, press, length=2):
+        # TODO error
+        if length > 0:
+            rho = self.rho(press)
+            eden = self.edens(rho)
+            res = [eden]
+        if length > 1:
+            speed2inv = 1.0 / self.speed2_rho(rho)
+            res.append(speed2inv)
+        if length > 2:
+            res.append(rho)
 
-        return eden, speed2inv
+        return res
 
 
 # Chiral effective field theory results by Hebeler et al. 2013
@@ -1030,11 +1046,19 @@ class cEFT:
             rhoB = fsolve(self.edens, cgs.rhoS, args = edens)[0]
             return self.pressure(rhoB)
 
-    def tov(self, press):
-        eden      = interp(press, self.listP, self.listE)
-        speed2inv = interp(press, self.listP, self.listC2inv)
+    def tov(self, press, length=2):
+        # TODO error...
+        if length > 0:
+            eden = interp(press, self.listP, self.listE)
+            res = [eden]
+        if length > 1:
+            speed2inv = interp(press, self.listP, self.listC2inv)
+            res.append(speed2inv)
+        if length > 2:
+            rho = interp(press, self.listP, self.listR)
+            res.append(rho)
 
-        return eden, speed2inv
+        return res
 
 
 
@@ -1313,13 +1337,19 @@ class cEFT_r4:
             rhoB = fsolve(self.edens, cgs.rhoS, args = edens)[0]
             return self.pressure(rhoB)
 
-    def tov(self, press):
-        #eden = self.edens_inv(press)
-        #speed2inv = 1.0 / self.speed2(press)
-        eden      = interp(press, self.listP, self.listE)
-        speed2inv = interp(press, self.listP, self.listC2inv)
+    def tov(self, press, length=2):
+        # TODO error...
+        if length > 0:
+            eden      = interp(press, self.listP, self.listE)
+            res = [eden]
+        if length > 1:
+            speed2inv = interp(press, self.listP, self.listC2inv)
+            res.append(speed2inv)
+        if length > 2:
+            rho = interp(press, self.listP, self.listR)
+            res.append(rho)
 
-        return eden, speed2inv
+        return res
 
 
 #Combines EoS parts together, SPECIAL CASE
@@ -1465,9 +1495,9 @@ class combiningEos:
         trope = self._find_interval_given_energy_density(edens)
         return trope.pressure_edens(edens)
 
-    def tov(self, press):
+    def tov(self, press, length=2):
         trope = self._find_interval_given_pressure(press)
-        return trope.tov(press)
+        return trope.tov(press, length=length)
 
 class transEoS:
     def __init__(self, press_t, edens_t):
@@ -1511,5 +1541,11 @@ class transEoS:
             return None
         return self.press_t
 
-    def tov(self, press):
-        return self.edens_inv(press), np.inf
+    def tov(self, press, length=2):
+        # TODO raise error if ...
+        if length == 1:
+            return self.edens_inv(press)
+        elif length == 2:
+            return self.edens_inv(press), np.inf
+
+        return self.edens_inv(press), np.inf, self.rho(press)

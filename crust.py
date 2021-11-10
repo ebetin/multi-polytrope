@@ -130,11 +130,18 @@ class BPS_crust:
         else: # d(ln p)/d(ln eps)
             return edens / press * speed2
 
-    def tov(self, press):
-        eden = self.edens_inv(press)
-        speed2inv = 1.0 / self.speed2(press)
+    def tov(self, press, length=2):
+        if length > 0:
+            eden = self.edens_inv(press)
+            res = [eden]
+        if length > 1:
+            speed2inv = 1.0 / self.speed2(press)
+            res.append(speed2inv)
+        if length > 2:
+            rho = self.rho(press)
+            res.append(rho)
 
-        return eden, speed2inv
+        return res
 
     def press_edens_c2(self, rho):
         press = self.pressure(rho)

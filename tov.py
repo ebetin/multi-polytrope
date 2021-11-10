@@ -2,7 +2,7 @@ import sys
 import os
 import numpy as np
 import units as cgs
-from math import pi, log
+from math import pi, log, sqrt, asin
 from polytropes import monotrope, polytrope
 from crust import SLyCrust
 from eoslib import get_eos, glue_crust_and_core, eosLib
@@ -123,30 +123,58 @@ class tov:
 
     # TOV [see Oppenheimer & Volkoff (1939), Phys. Rev. 55, 374] and (electric) Love number [see arXiv:1404.6798] solver
     def tovLove(self, r, y, l):
-        P, m, eta = y
-        if P < 0.0:
-            return [-1.e8, 0.0, 0.0]
-        #elif P < press_min:
-        #    return [-P, 0., 0.]
+        y_len = len(y)
 
-        eden, cS2Inv = self.physical_eos.tov( P )
+        if y_len == 2:
+            P, m = y
+        elif y_len == 3:
+            P, m, eta = y
+        elif y_len == 4:
+            P, m, eta, _ = y
+        # TODO else error!
+
+        if P < 0.0:
+            res = [-1.e8, 0.0]
+            if y_len > 2:
+                res.append(0.)
+            if y_len == 4:
+                res.append(0.)
+            return res
+
+        tov_point = self.physical_eos.tov(P, length=y_len-1)
+
+        if y_len == 2:
+            eden = tov_point[0]
+        elif y_len == 3:
+            eden, cS2Inv = tov_point
+        elif y_len == 4:
+            eden, cS2Inv, rho = tov_point
 
         ## Temp constant
         rInv = 1.0 / r
         tmp = 4.0 * pi * r**2
-        coeff = tmp * cgs.G * c2inv
         compactness = cgs.G * m * c2inv * rInv
         pc2inv = c2inv * P
 
         f = 1.0 / (1.0 - 2.0 * compactness)
-        A = 2.0 * f * ( 1.0 - 3.0 * compactness - 0.5 * coeff * (eden + 3.0 * pc2inv) )
-        B = f * ( l * (l + 1.0) - coeff * (eden + pc2inv) * (3.0 + cS2Inv))
-
         dPdr = -cgs.G * (eden + pc2inv) * (m * rInv + tmp * pc2inv) * rInv * f
         dmdr = tmp * eden
-        detadr = ( B - eta * (eta + A - 1.0) ) * rInv
+        res = [dPdr, dmdr]
 
-        return [dPdr, dmdr, detadr]
+        if y_len > 2:
+            coeff = tmp * cgs.G * c2inv
+            A = 2.0 * f * ( 1.0 - 3.0 * compactness - 0.5 * coeff * (eden + 3.0 * pc2inv) )
+            B = f * ( l * (l + 1.0) - coeff * (eden + pc2inv) * (3.0 + cS2Inv))
+
+            detadr = ( B - eta * (eta + A - 1.0) ) * rInv
+
+        if y_len == 3:
+            return dPdr, dmdr, detadr
+        if y_len == 4:
+            dmbdr = tmp * sqrt(f) * rho
+            return dPdr, dmdr, detadr, dmbdr
+
+        return dPdr, dmdr
 
     def tovLove_inv(self, P, y, l):
         r, m, eta = y
@@ -171,21 +199,33 @@ class tov:
 
         return [drdP, dmdr * drdP, detadr * drdP]
 
-    def tovLoveSolve(self, rhoc, l, tol=1.e-4):
+    def tovLoveSolve(self, rhoc, l=2, tol=1.e-4, flag_td=False, flag_mb=False):
         r = 1.0
         P = self.physical_eos.pressure( rhoc )
         eden = self.physical_eos.edens_inv( P )
         m = 4.0*pi*r**3*eden
-        eta = 1.0 * l
+        point_initial = [P, m]
+
+        if flag_td:
+            eta = 1.0 * l
+            point_initial.append(eta)
+
+            if flag_mb:
+                rho = self.physical_eos.rho( P )
+                tmp = 8. * inv3 * pi * cgs.G * eden * c2inv
+                tmp_sqrt = sqrt(tmp)
+                mb = 2. * pi * rho * ( asin(r * tmp_sqrt) / tmp_sqrt - r * sqrt(1. - r**2 * tmp) ) / tmp
+                point_initial.append(mb)
 
         def neg_press(r, y, l):
             return y[0] - press_min
         neg_press.terminal = True
         neg_press.direction = -1
+
         psol = solve_ivp(
                 self.tovLove,
                 (1e0, 16e5),
-                [P, m, eta], 
+                point_initial,
                 args=(1.0 * l, ), 
                 rtol=tol,
                 atol=tol,
@@ -193,32 +233,44 @@ class tov:
                 events = neg_press
                 )
 
-        # radius (cm), pressure (Ba), mass (g), eta (-)
-        return psol.t[:], psol.y[0], psol.y[1], psol.y[2]
+        # radius (cm), pressure (Ba), mass (g), eta (-), baryonic mass (g)
+        if flag_td and flag_mb:
+            return psol.t[:], psol.y[0], psol.y[1], psol.y[2], psol.y[3]
+        elif flag_td:
+            return psol.t[:], psol.y[0], psol.y[1], psol.y[2]
+
+        return psol.t[:], psol.y[0], psol.y[1]
     
-    def massRadiusTD(self, l, mRef1 = -1.0, mRef2 = -1.0, N = 100):
+    def massRadiusTD(self, l, mRef1=-1., mRef2=-1., N=100, flag_mb=False, flag_td=False, flag_td_list=False):
         rhocs = self.rhocs
         N = len(rhocs)
 
         mcurve = np.zeros(N)
         rcurve = np.zeros(N)
-        etaCurve = np.zeros(N)
-        TDcurve = np.zeros(N)
+
+        td_curve = None
+        if flag_td_list and flag_td:
+            td_curve = np.zeros(N)
 
         mass_max = 0.0
         j = 0
         jRef1 = 0
         jRef2 = 0
         for rhoc in rhocs:
-            rad, press, mass, eta = self.tovLoveSolve(rhoc, l)
+            if flag_td_list and flag_td:
+                rad, press, mass, eta = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=False, tol=1.e-5)
+            else:
+                rad, press, mass = self.tovLoveSolve(rhoc, l, flag_td=False, flag_mb=False, tol=1.e-5)
+
             mstar = mass[-1]
             rstar = rad[-1]
-            etaStar = eta[-1]
 
             mcurve[j] = mstar
             rcurve[j] = rstar
-            etaCurve[j] = etaStar
-            TDcurve[j] = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
+
+            if flag_td_list and flag_td:
+                eta_star = eta[-1]
+                td_curve[j] = self.loveElectric(l, mstar, rstar, eta_star, tdFlag = True)
 
             if mstar < mRef1 and mRef1 > 0.0:
                 jRef1 += 1
@@ -233,18 +285,34 @@ class tov:
                 break
 
         mass_max1 = 0.
-        for rhoc in np.linspace(rhocs[j-2], rhocs[-1], int(1000*(rhocs[-1]-rhocs[-2])/cgs.rhoS)*(len(rhocs)-j+1)):
-            rad, press, mass, eta = self.tovLoveSolve(rhoc, l, tol=1.e-5)
+        mass_max_td = np.inf
+        mass_max_b = 0.
+        rhocs_short = np.linspace(rhocs[j-2], rhocs[-1], int(1000.*(rhocs[-1]-rhocs[-2])/cgs.rhoS)*(len(rhocs)-j+1))
+        for rhoc in rhocs_short:
+            if mRef1 > 0 or mRef2 > 0:
+                if flag_mb:
+                    rad, press, mass, eta, massb = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=True, tol=1.e-5)
+                    etaStar = eta[-1]
+                    td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
+                    mbstar = massb[-1]
+                else:
+                    rad, press, mass, eta = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=False, tol=1.e-5)
+                    etaStar = eta[-1]
+                    td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
+            else:
+                rad, press, mass, eta = self.tovLoveSolve(rhoc, l, tol=1.e-5)
+
             mstar = mass[-1]
             rstar = rad[-1]
-            etaStar = eta[-1]
-            td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
 
             if mass_max1 < mstar:
                 mass_max1 = mstar
                 rho_max = rhoc
                 mass_max_r = rstar
-                mass_max_td = td_star
+                if flag_td:
+                    mass_max_td = td_star
+                    if flag_mb:
+                        mass_max_b = mbstar * Msun_inv
             else:
                 break
 
@@ -254,35 +322,51 @@ class tov:
         rhocs[j-1] = rho_max
         mcurve[j-1] = mass_max
         rcurve[j-1] = mass_max_r
-        TDcurve[j-1] = mass_max_td
+        if flag_td_list and flag_td:
+            td_curve[j-1] = td_star
 
-        if mRef1 > 0.0 and mass_max > mRef1:
-            massTerm = (mRef1 - mcurve[jRef1]) / (mcurve[jRef1] - mcurve[jRef1-1])
-            radiusRef1 = (rcurve[jRef1] - rcurve[jRef1-1]) * massTerm + rcurve[jRef1]
-            etaRef1 = (etaCurve[jRef1] - etaCurve[jRef1-1]) * massTerm + etaCurve[jRef1]
-            tidalDeformabilityRef1 = self.loveElectric(l, mRef1, radiusRef1, etaRef1, tdFlag = True)
-        else:
-            tidalDeformabilityRef1 = 0.0
+        def rtm(m_ref, j_ref):
+            td = np.inf
+            massb = 0
+            rad = 0
 
-        if mRef2 > 0.0  and mass_max > mRef2:
-            massTerm = (mRef2 - mcurve[jRef2]) / (mcurve[jRef2] - mcurve[jRef2-1])
-            radiusRef2 = (rcurve[jRef2] - rcurve[jRef2-1]) * massTerm + rcurve[jRef2]
-            etaRef2 = (etaCurve[jRef2] - etaCurve[jRef2-1]) * massTerm + etaCurve[jRef2]
-            tidalDeformabilityRef2 = self.loveElectric(l, mRef2, radiusRef2, etaRef2, tdFlag = True)
-        else:
-            tidalDeformabilityRef2 = 0.0
+            if mass_max < m_ref or m_ref <= 0:
+                return rad, td, massb
 
-        rcurve=[x * 1.0e-5 for x in rcurve]
-        mcurve=[x * Msun_inv for x in mcurve]
+            def mr(m1, m2, r1, r2, f_td, f_mb, tol=1.e-5):
+                mass_est = (m_ref - m1) / (m1 - m2)
+                rho_est = (r1 - r2) * mass_est + r1
+                out = self.tovLoveSolve(rho_est, l, flag_td=f_td, flag_mb=f_mb, tol=tol)
 
-        if mRef1 > 0.0 and mRef2 < 0.0:
-            return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef1
-        elif mRef1 > 0.0 and mRef2 > 0.0:
-            return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef1, tidalDeformabilityRef2
-        elif mRef1 < 0.0 and mRef2 > 0.0:
-            return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j], tidalDeformabilityRef2
+                if f_td and f_mb:
+                    return out
 
-        return mcurve[:j], rcurve[:j], rhocs[:j], TDcurve[:j]
+                r, _, m = out
+                return m, r, rho_est
+
+            mass_a, rad_a, rho_a = mr(mcurve[j_ref], mcurve[j_ref-1], rhocs[j_ref], rhocs[j_ref-1], False, False)
+            mass_b, rad_b, rho_b = mr(mass_a[-1], mcurve[j_ref], rho_a, rhocs[j_ref], False, False)
+            res = mr(mass_b[-1], mass_a[-1], rho_b, rho_a, flag_td, flag_mb)
+
+            rad = res[0][-1] * 1.e-5
+
+            if flag_td:
+                td = self.loveElectric(l, res[2][-1], res[0][-1], res[3][-1], tdFlag = True)
+            if flag_mb:
+                massb = res[4][-1] * Msun_inv
+
+            return rad, td, massb
+
+        radRef1, tidalDeformabilityRef1, massbRef1 = rtm(mRef1, jRef1)
+        radRef2, tidalDeformabilityRef2, massbRef2 = rtm(mRef2, jRef2)
+
+        rcurve=[x * 1.0e-5 for x in rcurve][:j]
+        mcurve=[x * Msun_inv for x in mcurve][:j]
+        rhocs = rhocs[:j]
+        if flag_td_list and flag_td:
+            td_curve = td_curve[:j]
+
+        return mcurve, rcurve, rhocs, td_curve, [mass_max_td, tidalDeformabilityRef1, tidalDeformabilityRef2], [mass_max_b, massbRef1, massbRef2], [radRef1, radRef2]
 
 
     def loveElectric(self, l, mass, radius, eta, tdFlag = False):
