@@ -318,6 +318,12 @@ class tov:
 
         if mass_max1 > mass_max:
             j += 1
+
+        if j-1 == len(rhocs):
+            rcurve = [x * 1.0e-5 for x in rcurve]
+            mcurve = [x * Msun_inv for x in mcurve]
+            return mcurve, rcurve, rhocs, td_curve, [mass_max_td, np.inf, np.inf], [mass_max_b, 0., 0.], [0., 0.]
+
         mass_max = mass_max1
         rhocs[j-1] = rho_max
         mcurve[j-1] = mass_max
