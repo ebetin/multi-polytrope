@@ -80,7 +80,12 @@ class BPS_crust:
 
     def pressure(self, rho):
         if rho < self.rho0:
-            return self.poly.pressure(rho)
+            try:
+                return self.poly.pressure(rho)
+            except:
+                if isinstance(rho, list):
+                    return [0.0]
+                return 0.0
         return self.pressure_interp(rho)
 
     def pressures(self, rhos):
