@@ -341,9 +341,16 @@ class tov:
             if mass_max < m_ref or m_ref <= 0:
                 return rad, td, massb
 
-            def mr(m1, m2, r1, r2, f_td, f_mb, tol=1.e-5):
+            def mr(m1, m2, r1, r2, f_td, f_mb, tol=1.e-5, mref=None):
                 mass_est = (m_ref - m1) / (m1 - m2)
                 rho_est = (r1 - r2) * mass_est + r1
+                if not min(r1, r2) < rho_est < max(r1, r2):
+                    rho_est = 0.5 * (r1 + r2)
+                    if mref is not None:
+                        rho_est = r2
+                        if abs(m_ref - m1) < abs(m_ref - m2):
+                            rho_est = r1
+
                 out = self.tovLoveSolve(rho_est, l, flag_td=f_td, flag_mb=f_mb, tol=tol)
 
                 if f_td and f_mb:
@@ -354,7 +361,7 @@ class tov:
 
             mass_a, rad_a, rho_a = mr(mcurve[j_ref], mcurve[j_ref-1], rhocs[j_ref], rhocs[j_ref-1], False, False)
             mass_b, rad_b, rho_b = mr(mass_a[-1], mcurve[j_ref], rho_a, rhocs[j_ref], False, False)
-            res = mr(mass_b[-1], mass_a[-1], rho_b, rho_a, flag_td, flag_mb)
+            res = mr(mass_b[-1], mass_a[-1], rho_b, rho_a, flag_td, flag_mb, mref=m_ref)
             rad = res[0][-1] * 1.e-5
 
             if flag_td:
