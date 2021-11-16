@@ -211,10 +211,12 @@ class tov:
             point_initial.append(eta)
 
             if flag_mb:
-                rho = self.physical_eos.rho( P )
                 tmp = 8. * inv3 * pi * cgs.G * eden * c2inv
                 tmp_sqrt = sqrt(tmp)
-                mb = 2. * pi * rho * ( asin(r * tmp_sqrt) / tmp_sqrt - r * sqrt(1. - r**2 * tmp) ) / tmp
+                try:
+                    mb = 2. * pi * rhoc * ( asin(r * tmp_sqrt) / tmp_sqrt - r * sqrt(1. - r**2 * tmp) ) / tmp
+                except:
+                    mb = 4. * inv3 * pi * rhoc * r**3
                 point_initial.append(mb)
 
         def neg_press(r, y, l):
@@ -353,7 +355,6 @@ class tov:
             mass_a, rad_a, rho_a = mr(mcurve[j_ref], mcurve[j_ref-1], rhocs[j_ref], rhocs[j_ref-1], False, False)
             mass_b, rad_b, rho_b = mr(mass_a[-1], mcurve[j_ref], rho_a, rhocs[j_ref], False, False)
             res = mr(mass_b[-1], mass_a[-1], rho_b, rho_a, flag_td, flag_mb)
-
             rad = res[0][-1] * 1.e-5
 
             if flag_td:
