@@ -10,13 +10,13 @@ import os
 def parse_cli():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-p', '--plots', 
+    parser.add_argument('-p', '--plots',
             dest='flag_plot', 
             default=0,
             type=int,
             help='Ploted fig(s): 1 (fig 1), 2 (fig 2), 3 (both) or 0 (none, default)')
 
-    parser.add_argument('-f', '--file', 
+    parser.add_argument('-f', '--file',
             dest='file', 
             default="",
             type=str,
@@ -45,6 +45,24 @@ def parse_cli():
             default=15,
             type=int,
             help='Mass-measurement parameters (default: 15)')
+
+    parser.add_argument('--ptrans',
+            dest='ptrans',
+            default=0,
+            type=int,
+            help='Phase transition location (default: 0)')
+
+    parser.add_argument('-b', '--burnin',
+            dest='burnin',
+            default=0,
+            type=int,
+            help='Burn-in period (default: 0)')
+
+    parser.add_argument('-l', '--len',
+            dest='len2',
+            default=0,
+            type=int,
+            help='Length of the test subsample (default: 0 = full length)')
 
     args = parser.parse_args()
 
@@ -101,6 +119,31 @@ def autocorr_new(y, c=5.0):
     window = auto_window(taus, c)
     return taus[window]
 
+def autocorr_params(x, c=5.):
+    x = np.atleast_1d(x)
+    if len(x.shape) == 1:
+        x = x[:, np.newaxis, np.newaxis]
+    if len(x.shape) == 2:
+        x = x[:, :, np.newaxis]
+    if len(x.shape) != 3:
+        raise ValueError("invalid dimensions")
+
+    n_t, n_w, n_d = x.shape
+    tau_est = np.empty(n_d)
+    windows = np.empty(n_d, dtype=int)
+
+    # Loop over parameters
+    for d in range(n_d):
+        f = np.zeros(n_t)
+        for k in range(n_w):
+            f += autocorr_func_1d(x[:, k, d])
+        f /= n_w
+        taus = 2.0*np.cumsum(f)-1.0
+        windows[d] = auto_window(taus, c)
+        tau_est[d] = taus[windows[d]]
+
+    return tau_est
+
 ##################################
 #Main code
 
@@ -111,15 +154,19 @@ flag_ml = args.flag_ml
 debug = args.debug
 
 prefix = args.file#'M1_S3_PT0-s587198-w5-g200-n20000'
-filename = 'chains/csc/'+prefix+'run.h5'        
-backend = emcee.backends.HDFBackend(filename,read_only=True)
+#filename = 'chains/csc/'+prefix+'run.h5'
+filename = 'chains/'+prefix+'-run.h5'
+#filename = '/media/eannala/My Data/csc/chains/'+prefix+'-run.h5
+backend = emcee.backends.HDFBackend(filename, read_only=True)
+
+burnin = args.burnin
 
 if flag_plot == 1 or flag_plot == 3:
     fig1 = plt.figure()
-    chain = backend.get_chain(discard=0)[:, :, 0].T
+    chain = backend.get_chain(discard=burnin)[:, :, 0].T
 
     # Compute the estimators for a few different chain lengths
-    N = np.exp(np.linspace(np.log(100), np.log(chain.shape[1]), 15)).astype(int)
+    N = np.exp(np.linspace(np.log(1000), np.log(chain.shape[1]), 15)).astype(int)
     gw2010 = np.empty(len(N))
     new = np.empty(len(N))
     for i, n in enumerate(N):
@@ -181,12 +228,11 @@ if flag_plot == 1 or flag_plot == 3:
         # Calculate the estimate for a set of different chain lengths
         ml = np.empty(len(N))
         ml[:] = np.nan
-        for j, n in enumerate(N[1:-1]):
+        for j, n in enumerate(N[1:]):
             i = j + 1
             thin = max(1, int(0.05 * new[i]))
             ml[i] = autocorr_ml(chain[:, :n], thin=thin)
 
-if flag_plot == 1 or flag_plot == 3:
     # Plot the comparisons
     plt.loglog(N, gw2010, "o-", label="G&W 2010")
     plt.loglog(N, new, "o-", label="new")
@@ -194,17 +240,19 @@ if flag_plot == 1 or flag_plot == 3:
         plt.loglog(N, ml, "o-", label="ML")
     ylim = plt.gca().get_ylim()
     plt.plot(N, N / 50.0, "--k", label=r"$\tau = N/50$")
+    plt.plot(N, N / 100.0, "-k", label=r"$\tau = N/100$")
     plt.ylim(ylim)
     plt.xlabel("number of samples, $N$")
     plt.ylabel(r"$\tau$ estimates")
     plt.legend(fontsize=14);
 
     fig1.savefig('chains/csc/post/'+prefix+'run_act1.pdf')
+    #fig1.savefig('tools/csc/'+prefix+'run_act1.pdf')
 
 
 if flag_plot == 2 or flag_plot == 3:
     fig2 = plt.figure()
-    samples = backend.get_chain()
+    samples = backend.get_chain(discard=burnin)
 
     #EoS model
     eos_model_pos1 = prefix.find("M")
@@ -223,9 +271,16 @@ if flag_plot == 2 or flag_plot == 3:
         eos_dim = 2 * eos_Nsegment - 3
     elif eos_model == 1: #c_s^2
         eos_dim = 2 * eos_Nsegment - 4
+    else:
+        eos_dim = 0
+        mparams = 0
     ndim = lhparams + eos_dim + mparams
 
-    labels = [r"$\alpha_L$", r"$\eta_L$", r"$X$"]
+    #labels = [r"$\alpha_L$", r"$\eta_L$", r"$X$"]
+    #labels = [r"$\alpha_L$", r"$\eta_L$", r"$\gamma_L$", r"$\zeta_L$", r"$\bar{\rho}_0$", r"$X$"]
+    labels = [r"$\alpha_L$", r"$\eta_L$", r"$\gamma_L$", r"$\zeta_L$", r"$\bar{\rho}_0$", r"$X$"]
+
+    phaseTransition = args.ptrans
 
     if eos_model == 0:
         #append gammas
@@ -237,13 +292,13 @@ if flag_plot == 2 or flag_plot == 3:
         #append transition depths
         for itrope in range(eos_Nsegment-1):
             #parameters.append("trans_delta"+str(1+itrope))
-            labels.append(r"$\Delta n_{{{0}}}$".format(1+itrope))
+            labels.append(r"$n_{{{0}}}$".format(1+itrope))
 
     elif eos_model == 1:
         #append chemical potential depths (NB last one will be determined)
         for itrope in range(eos_Nsegment-2):
             #parameters.append("mu_delta"+str(1+itrope))
-            labels.append(r"$\Delta\mu_{{{0}}}$".format((1+itrope)))
+            labels.append(r"$\mu_{{{0}}}$".format((1+itrope)))
 
         #append speed of sound squared (NB last one will be determined)
         for itrope in range(eos_Nsegment-2):
@@ -271,14 +326,57 @@ if flag_plot == 2 or flag_plot == 3:
     fig2, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
     for i in range(ndim):
         ax = axes[i]
-        ax.plot(samples[:, :, i], "k", alpha=0.3)
-        ax.set_xlim(0, len(samples))
+        len2 = args.len2
+        if len2 == 0:
+            sample_tmp = samples[:, :, i]
+        else:
+            sample_tmp = samples[:len2, :, i]
+        ax.plot(samples_tmp, "k", alpha=0.3)
+        ax.set_xlim(0, len(samples_tmp))
         ax.set_ylabel(labels[i])
         ax.yaxis.set_label_coords(-0.1, 0.5)
 
     axes[-1].set_xlabel("step number");
 
     fig2.savefig('chains/csc/post/'+prefix+'run_act2.pdf')
+    #fig2.savefig('tools/csc/'+prefix+'run_act2.pdf')
 
-act = backend.get_autocorr_time(discard=0, thin=1, quiet=True)
+if flag_plot == 4:
+    fig3 = plt.figure()
+    #chain = backend.get_chain(discard=burnin)[:, :, 0].T
+    chain = backend.get_chain(discard=burnin)
+
+    # Compute the estimators for a few different chain lengths
+    N = np.exp(np.linspace(np.log(1000), np.log(chain.shape[0]), 15)).astype(int)
+    new_p = []
+    for i, n in enumerate(N):
+        new_p.append(autocorr_params(chain[:n, :]))
+    # Plot the comparisons
+    labels = [r"$\alpha_L$", r"$\eta_L$", r"$\gamma_L$", r"$\zeta_L$", r"$\bar{\rho}_0$", r"$X$"]
+    #labels.append(r"$\gamma_3$")  # TODO
+    #labels.append(r"$\gamma_4$")  # TODO
+    #labels.append(r"$\gamma_5$")  # TODO
+    labels.append(r"$n_1$")  # TODO
+    #labels.append(r"$n_2$")  # TODO
+    #labels.append(r"$n_3$")  # TODO
+    #labels.append(r"$n_4$")  # TODO
+    #labels.append(r"$\mu_1$")  # TODO
+    #labels.append(r"$c^2_1$")  # TODO
+
+    for j in range(len(new_p[0])):
+        new_p_plot = [item[j] for item in new_p]
+        plt.loglog(N, new_p_plot, "o-", label=labels[j])
+    ylim = plt.gca().get_ylim()
+    plt.plot(N, N / 50.0, "--k", label=r"$\tau = N/50$")
+    plt.plot(N, N / 100.0, "-k", label=r"$\tau = N/100$")
+    plt.ylim(ylim)
+    plt.xlabel("number of samples, $N$")
+    plt.ylabel(r"$\tau$ estimates")
+    plt.legend(fontsize=14);
+
+    fig3.savefig('chains/csc/post/'+prefix+'run_act3.pdf')
+    #fig3.savefig('tools/csc/'+prefix+'run_act3.pdf')
+
+act = backend.get_autocorr_time(discard=burnin, thin=1, quiet=True)
 np.savetxt('chains/csc/post/'+prefix+'run_autocorr.txt', act)
+#np.savetxt('tools/csc/'+prefix+'run_autocorr.txt', act)
