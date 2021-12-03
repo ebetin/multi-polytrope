@@ -134,12 +134,11 @@ class tov:
         # TODO else error!
 
         if P < 0.0:
-            res = [-1.e8, 0.0]
-            if y_len > 2:
-                res.append(0.)
-            if y_len == 4:
-                res.append(0.)
-            return res
+            if y_len == 3:
+                return -0.1*P, 0., 0.
+            elif y_len == 4:
+                return -0.1*P, 0., 0., 0.
+            return -0.1*P, 0.
 
         tov_point = self.physical_eos.tov(P, length=y_len-1)
 
@@ -159,7 +158,6 @@ class tov:
         f = 1.0 / (1.0 - 2.0 * compactness)
         dPdr = -cgs.G * (eden + pc2inv) * (m * rInv + tmp * pc2inv) * rInv * f
         dmdr = tmp * eden
-        res = [dPdr, dmdr]
 
         if y_len > 2:
             coeff = tmp * cgs.G * c2inv
@@ -219,21 +217,46 @@ class tov:
                     mb = 4. * inv3 * pi * rhoc * r**3
                 point_initial.append(mb)
 
-        def neg_press(r, y, l):
-            return y[0] - press_min
-        neg_press.terminal = True
-        neg_press.direction = -1
+        try:
+            def neg_press(r, y, l):
+                return y[0] - press_min
+            neg_press.terminal = True
+            neg_press.direction = -1
 
-        psol = solve_ivp(
-                self.tovLove,
-                (1e0, 16e5),
-                point_initial,
-                args=(1.0 * l, ), 
-                rtol=tol,
-                atol=tol,
-                method = 'LSODA',
-                events = neg_press
-                )
+            psol = solve_ivp(
+                    self.tovLove,
+                    (1e0, 16e5),
+                    point_initial,
+                    args=(1.0 * l, ),
+                    rtol=tol,
+                    atol=tol,
+                    method = 'LSODA',
+                    events = neg_press
+                    )
+        except:
+            psol = solve_ivp(
+                    self.tovLove,
+                    (1e0, 16e5),
+                    point_initial,
+                    args=(1.0 * l, ),
+                    rtol=tol,
+                    atol=tol,
+                    method = 'LSODA'
+                    )
+
+            press_list_index = [i for i, item in enumerate(psol.y[0]) if item < press_min]
+            press_list = psol.y[0][:press_list_index[0]]
+            press_list_len = len(press_list)
+            rad_list = psol.t[:press_list_len]
+            mass_list = psol.y[1][:press_list_len]
+
+            if flag_td:
+                eta_list = psol.y[2][:press_list_len]
+                if flag_mb:
+                    mb_list = psol.y[3][:press_list_len]
+                    return rad_list, press_list, mass_list, eta_list, mb_list
+                return rad_list, press_list, mass_list, eta_list
+            return rad_list, press_list, mass_list
 
         # radius (cm), pressure (Ba), mass (g), eta (-), baryonic mass (g)
         if flag_td and flag_mb:
@@ -260,9 +283,9 @@ class tov:
         jRef2 = 0
         for rhoc in rhocs:
             if flag_td_list and flag_td:
-                rad, press, mass, eta = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=False, tol=1.e-5)
+                rad, _, mass, eta = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=False, tol=1.e-5)
             else:
-                rad, press, mass = self.tovLoveSolve(rhoc, l, flag_td=False, flag_mb=False, tol=1.e-5)
+                rad, _, mass = self.tovLoveSolve(rhoc, l, flag_td=False, flag_mb=False, tol=1.e-5)
 
             mstar = mass[-1]
             rstar = rad[-1]
@@ -293,16 +316,16 @@ class tov:
         for rhoc in rhocs_short:
             if mRef1 > 0 or mRef2 > 0:
                 if flag_mb:
-                    rad, press, mass, eta, massb = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=True, tol=1.e-5)
+                    rad, _, mass, eta, massb = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=True, tol=1.e-5)
                     etaStar = eta[-1]
                     td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
                     mbstar = massb[-1]
                 else:
-                    rad, press, mass, eta = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=False, tol=1.e-5)
+                    rad, _, mass, eta = self.tovLoveSolve(rhoc, l, flag_td=True, flag_mb=False, tol=1.e-5)
                     etaStar = eta[-1]
                     td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
             else:
-                rad, press, mass, eta = self.tovLoveSolve(rhoc, l, tol=1.e-5)
+                rad, _, mass, eta = self.tovLoveSolve(rhoc, l, tol=1.e-5)
 
             mstar = mass[-1]
             rstar = rad[-1]

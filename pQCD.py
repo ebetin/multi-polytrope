@@ -887,6 +887,19 @@ class qcd:
         except NonpositivePressure:
             print("Pressure is nonpositive!")
 
+    def tov(self, press, length=2):
+        if length > 0:
+            eden = self.edens_inv(press)
+            res = [eden]
+        if length > 1:
+            speed2inv = 1.0 / self.speed2(press)
+            res.append(speed2inv)
+        if length > 2:
+            rho = self.rho(press)
+            res.append(rho)
+
+        return res
+
 if __name__ == "__main__":
     # Ba -> Mev/fm^3
     confacinv = 1000.0 / cgs.GeVfm_per_dynecm
