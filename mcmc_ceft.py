@@ -85,7 +85,7 @@ else:
 eos_Nsegment = args.eos_nseg
 
 # flag for additional debug printing
-debug = args.debug
+debug = False if args.debug==0 else True
 
 # position of the 1st order transition
 # NB currently works only with polytropes TODO
@@ -103,29 +103,43 @@ ceft_model = args.ceft
 # PDF for the pQCD parameter X (uniform, log-uniform, log-normal)
 x_model = args.xmodel
 
+# Type of the run
+constraints = args.constraints
+if not constraints.isalpha(): # 'constraints' is an alphabetic string
+    raise ValueError("The type of the run is not valid!")
+if any(char not in set('prgx') for char in constraints): # contains only acceptable characters
+    raise ValueError("The type of the run is not valid!")
+if 'p' in constraints and len(constraints) > 1: # char 'p' cannot be combined with other ones
+    raise ValueError("The type of the run is not valid!")
+
 ##################################################
 # extra restrictions
 
 # calculating MR curve
-flag_TOV   = True
+flag_TOV = True
 
-# using GW170817 event as a constrain (NB usable if flag_TOV = True)
-flag_GW    = True
+flag_GW = False
+flag_Mobs = False
+flag_MRobs = False
+flag_baryonic_mass = False
+if flag_TOV:
+    # using GW170817 event as a constrain (NB usable if flag_TOV = True) [GW]
+    flag_GW = True if 'g' in constraints else False
 
-# using mass measurement data (NB usable if flag_TOV = True)
-flag_Mobs  = True
+    # using mass measurement data (NB usable if flag_TOV = True) [radio]
+    flag_Mobs = True if 'r' in constraints else False
 
-# using mass-radius observations (NB usable if flag_TOV = True)
-flag_MRobs = True
+    # using mass-radius observations (NB usable if flag_TOV = True) [X-ray]
+    flag_MRobs = True if 'x' in constraints else False
+
+    # use the baryonic mass to constrain GW170817 event [GW]
+    flag_baryonic_mass = True if 'g' in constraints else False
 
 # discarding subconformal (c_s^2 > 1/3) EoSs (default: False)
-flagSubConformal = args.subconf
+flagSubConformal = False if args.subconf==0 else True
 
 # constant cEFT and pQCD limits:
 flag_const_limits = False
-
-# use the baryonic mass to constrain GW170817 event
-flag_baryonic_mass = True
 
 # Plot TD stuff
 flag_TD = False
@@ -1635,15 +1649,13 @@ def initial_point(nwalkers, ndim):
 
 if __name__ == "__main__":
     # MCMC sample params
-    ndim = len(parameters)
-    nwalkers = args.walkers * ndim
+    ndim = len(parameters) # dimension of the parameters space
+    nwalkers = args.walkers * ndim # number of walkers
+    Nsteps = args.nsteps # number of steps
 
     # initial point(s)
     if flag_new_run:
         p0 = initial_point(nwalkers, ndim)
-
-    # number of steps
-    Nsteps = args.nsteps
 
     ##################################################
     #serial v3.0

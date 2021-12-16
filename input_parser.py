@@ -37,9 +37,9 @@ def parse_cli():
 
     parser.add_argument('--debug', 
             dest='debug', 
-            default=False,
-            type=bool,
-            help='Debug mode (default: False)')
+            default=0,
+            type=int,
+            help='Debug mode [default: 0 (False/Off)]')
 
     parser.add_argument('--ngrid', 
             dest='ngrid', 
@@ -61,9 +61,9 @@ def parse_cli():
 
     parser.add_argument('--subconf', 
             dest='subconf',
-            default=False,
-            type=bool,
-            help='Discarding subconformal (c_s^2 > 1/3) EoSs (default: False)')
+            default=0,
+            type=int,
+            help='Discarding superconformal (c_s^2 > 1/3) EoSs [default: 0 (False/No)]')
 
     parser.add_argument('-c','--ceft',
             dest='ceft',
@@ -83,13 +83,13 @@ def parse_cli():
             type=int,
             help='Entirely new run? (Yes: 1 (default), No: 0)')
 
+    parser.add_argument('--const',
+            dest='constraints',
+            default='p',
+            type=str,
+            help='Type of the run (p: without astro constraints (default), r: radio, g: gravitational wave, x: x-ray)')
+
     args = parser.parse_args()
 
-
-
-
     return args
-
-
-
 
