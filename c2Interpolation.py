@@ -449,7 +449,10 @@ class c2AGKNV:
             else:
                 return self.rho0
         else:
-            rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
+            try:
+                rho = fsolve(self.pressure, 2.0*cgs.rhoS, args = pressure)[0]
+            except:
+                rho = fsolve(self.pressure, self.rhoHigh1*cgs.rhoS, args = pressure)[0]
 
             return rho
 

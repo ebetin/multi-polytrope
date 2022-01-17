@@ -18,7 +18,7 @@ def parse_cli():
             help='Name of output dir (default: chains)')
 
     parser.add_argument('-s', '--seed', 
-            dest='seed', 
+            dest='seed',
             default=0,
             type=int,
             help='Random number generator seed (default: 0 = random)')
@@ -88,6 +88,12 @@ def parse_cli():
             default='p',
             type=str,
             help='Type of the run (p: without astro constraints (default), r: radio, g: gravitational wave, x: x-ray)')
+
+    parser.add_argument('--part',
+            dest='part',
+            default='0',
+            type=int,
+            help='Subchain identifier (default: 0)')
 
     args = parser.parse_args()
 

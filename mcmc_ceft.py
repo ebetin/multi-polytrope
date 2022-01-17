@@ -215,13 +215,33 @@ prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-ceft_{}-X_{}-TOV_{}-".format(eos_model
 #       this way they can be easily changed or expanded later on.
 
 Ngrid = args.ngrid
-Ngrid2 = 2*108+1  # TODO
-param_indices = {
-        'mass_grid':       np.linspace(0.5, 2.6,   Ngrid),
-        'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
-        'nsat_long_grid':  np.logspace(0, 1.662757831681, Ngrid), #np.linspace(1.0, 46., Ngrid),
-        'nsat_short_grid': np.linspace(1.2, 12., Ngrid2),
-               }
+if 'r' in constraints and 'g' in constraints and 'x' in constraints:
+    Ngrid2 = 2*108+1 # 1.2->12
+    param_indices = {
+            'mass_grid':       np.linspace(0.5, 2.6, Ngrid),
+            'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
+            'nsat_long_grid':  np.linspace(1.0, 46., Ngrid),
+            'nsat_short_grid': np.linspace(1.2, 12., Ngrid2),
+                   }
+elif constraints=='p' and eos_model==0 and eos_Nsegment==2:
+    Ngrid2 = 2*188+1 # 1.2->20
+    param_indices = {
+            'mass_grid':       np.linspace(0.5, 2.6, Ngrid),
+            'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
+            'nsat_long_grid':  np.linspace(1.0, 46., Ngrid),
+            'nsat_short_grid': np.linspace(1.2, 20., Ngrid2),
+                   }
+else:
+    raise ValueError("Unsupported command line arguments (constraints/eos_model/eos_Nsegment)")
+    '''
+    Ngrid2 = 2*188+1#2*238+1#2*188+1 # 2*108+1 # 1.2->12
+    param_indices = {
+            'mass_grid':       np.linspace(0.5, 2.6,   Ngrid),#np.linspace(0.5, 4.0, Ngrid),#np.linspace(0.5, 2.6,   Ngrid),
+            'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
+            'nsat_long_grid':  np.logspace(0, 1.662757831681, Ngrid), #np.linspace(1.0, 46., Ngrid),
+            'nsat_short_grid': np.linspace(1.2, 20., Ngrid2),#np.linspace(1.2, 25., Ngrid2) #np.linspace(1.2, 20., Ngrid2) # np.linspace(1.2, 12., Ngrid2),
+                   }
+    '''
 
 parameters2, param_indices = blob_indices(param_indices, eosmodel = eos_model, flag_TOV = flag_TOV, flag_GW = flag_GW, flag_Mobs = flag_Mobs, flag_MRobs = flag_MRobs, flag_TD = flag_TD, flag_baryonic_mass = flag_baryonic_mass)
 
@@ -1662,7 +1682,7 @@ if __name__ == "__main__":
     if False:
 
         #output
-        filename = prefix+'_run.h5'
+        filename = prefix+'run_part'+str(args.part)+'.h5'
 
         backend = emcee.backends.HDFBackend(filename)
 
@@ -1701,7 +1721,7 @@ if __name__ == "__main__":
                 sys.exit(0)
 
             #output
-            filename = prefix+'run.h5'
+            filename = prefix+'run_part'+str(args.part)+'.h5'
 
             backend = emcee.backends.HDFBackend(filename)
 

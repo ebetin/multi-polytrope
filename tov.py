@@ -325,7 +325,7 @@ class tov:
                     etaStar = eta[-1]
                     td_star = self.loveElectric(l, mstar, rstar, etaStar, tdFlag = True)
             else:
-                rad, _, mass, eta = self.tovLoveSolve(rhoc, l, tol=1.e-5)
+                rad, _, mass = self.tovLoveSolve(rhoc, l, tol=1.e-5)
 
             mstar = mass[-1]
             rstar = rad[-1]
@@ -334,7 +334,7 @@ class tov:
                 mass_max1 = mstar
                 rho_max = rhoc
                 mass_max_r = rstar
-                if flag_td:
+                if flag_td and (mRef1 > 0 or mRef2 > 0):
                     mass_max_td = td_star
                     if flag_mb:
                         mass_max_b = mbstar * Msun_inv
@@ -355,7 +355,7 @@ class tov:
         rcurve[j-1] = mass_max_r
         if flag_td_list and flag_td:
             td_curve[j-1] = td_star
-
+        #print("nb", rho_max/cgs.rhoS, "M", mass_max*Msun_inv, "R", mass_max_r*1.e-5)
         def rtm(m_ref, j_ref):
             td = np.inf
             massb = 0
