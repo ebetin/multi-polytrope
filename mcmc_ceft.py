@@ -220,7 +220,7 @@ if 'r' in constraints and 'g' in constraints and 'x' in constraints:
     param_indices = {
             'mass_grid':       np.linspace(0.5, 2.6, Ngrid),
             'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
-            'nsat_long_grid':  np.linspace(1.0, 46., Ngrid),
+            'nsat_long_grid':  np.logspace(0, 1.662757831681, Ngrid),
             'nsat_short_grid': np.linspace(1.2, 12., Ngrid2),
                    }
 elif constraints=='p' and eos_model==0 and eos_Nsegment==2:
@@ -228,7 +228,7 @@ elif constraints=='p' and eos_model==0 and eos_Nsegment==2:
     param_indices = {
             'mass_grid':       np.linspace(0.5, 2.6, Ngrid),
             'eps_grid':        np.logspace(2.0, 4.30103, Ngrid),
-            'nsat_long_grid':  np.linspace(1.0, 46., Ngrid),
+            'nsat_long_grid':  np.logspace(0, 1.662757831681, Ngrid),
             'nsat_short_grid': np.linspace(1.2, 20., Ngrid2),
                    }
 else:
