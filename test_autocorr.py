@@ -11,28 +11,28 @@ def parse_cli():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-p', '--plots',
-            dest='flag_plot', 
+            dest='flag_plot',
             default=0,
             type=int,
             help='Ploted fig(s): 1 (fig 1), 2 (fig 2), 3 (both) or 0 (none, default)')
 
     parser.add_argument('-f', '--file',
-            dest='file', 
+            dest='file',
             default="",
             type=str,
             help='File name (e.g. M1_S3_PT0-s587198-w5-g200-n20000)')
 
     parser.add_argument('-m', '--ml', 
-            dest='flag_ml', 
+            dest='flag_ml',
             default=True,
             type=bool,
             help='Usage of the maximum likelihood estimate (default: True)')
 
     parser.add_argument('--debug', 
-            dest='debug', 
-            default=False,
-            type=bool,
-            help='Debug mode (default: False)')
+            dest='debug',
+            default=0,
+            type=int,
+            help='Debug mode (default: 0 (false))')
 
     parser.add_argument('--lhparam', 
             dest='lhparams', 
@@ -151,12 +151,12 @@ args = parse_cli()
 
 flag_plot = args.flag_plot
 flag_ml = args.flag_ml
-debug = args.debug
+debug = True if args.debug == 1 else False
 
 prefix = args.file#'M1_S3_PT0-s587198-w5-g200-n20000'
 #filename = 'chains/csc/'+prefix+'run.h5'
 filename = 'chains/'+prefix+'-run.h5'
-#filename = '/media/eannala/My Data/csc/chains/'+prefix+'-run.h5
+#filename = '/media/eannala/My Data/csc/chains/'+prefix+'-run.h5'
 backend = emcee.backends.HDFBackend(filename, read_only=True)
 
 burnin = args.burnin
@@ -166,7 +166,7 @@ if flag_plot == 1 or flag_plot == 3:
     chain = backend.get_chain(discard=burnin)[:, :, 0].T
 
     # Compute the estimators for a few different chain lengths
-    N = np.exp(np.linspace(np.log(1000), np.log(chain.shape[1]), 15)).astype(int)
+    N = np.exp(np.linspace(np.log(100), np.log(chain.shape[1]), 15)).astype(int)
     gw2010 = np.empty(len(N))
     new = np.empty(len(N))
     for i, n in enumerate(N):
@@ -190,14 +190,14 @@ if flag_plot == 1 or flag_plot == 3:
                 print(z.min(), z.max(), tau)
                 print(np.log(0.9 * np.var(z)).min(), np.log(0.9 * np.var(z)).max(), -np.log(tau) )
             kernel = terms.RealTerm(
-                    np.log(0.9 * np.var(z)), -np.log(tau), bounds=[(-11.0, 11.0), (-np.log(N), 0.0)]
+                    np.log(0.9 * np.var(z)), -np.log(tau), bounds=[(-11.2, 11.2), (-np.log(N), 0.0)]
                 )
             if debug:
                 print( np.log(0.1 * np.var(z)).min(),  np.log(0.1 * np.var(z)).max(), -np.log(0.5 * tau))
             kernel += terms.RealTerm(
                 np.log(0.1 * np.var(z)),
                 -np.log(0.5 * tau),
-                bounds=[(-11.0, 11.0), (-np.log(N), 0.0)],
+                bounds=[(-11.2, 11.2), (-np.log(N), 0.0)],
             )
             gp = celerite.GP(kernel, mean=np.mean(z))
             gp.compute(np.arange(z.shape[1]))
@@ -246,7 +246,7 @@ if flag_plot == 1 or flag_plot == 3:
     plt.ylabel(r"$\tau$ estimates")
     plt.legend(fontsize=14);
 
-    fig1.savefig('chains/csc/post/'+prefix+'run_act1.pdf')
+    fig1.savefig('chains/post/'+prefix+'-run_act1.pdf')
     #fig1.savefig('tools/csc/'+prefix+'run_act1.pdf')
 
 
@@ -328,9 +328,9 @@ if flag_plot == 2 or flag_plot == 3:
         ax = axes[i]
         len2 = args.len2
         if len2 == 0:
-            sample_tmp = samples[:, :, i]
+            samples_tmp = samples[:, :, i]
         else:
-            sample_tmp = samples[:len2, :, i]
+            samples_tmp = samples[:len2, :, i]
         ax.plot(samples_tmp, "k", alpha=0.3)
         ax.set_xlim(0, len(samples_tmp))
         ax.set_ylabel(labels[i])
@@ -338,7 +338,7 @@ if flag_plot == 2 or flag_plot == 3:
 
     axes[-1].set_xlabel("step number");
 
-    fig2.savefig('chains/csc/post/'+prefix+'run_act2.pdf')
+    fig2.savefig('chains/post/'+prefix+'-run_act2.pdf')
     #fig2.savefig('tools/csc/'+prefix+'run_act2.pdf')
 
 if flag_plot == 4:
@@ -347,21 +347,39 @@ if flag_plot == 4:
     chain = backend.get_chain(discard=burnin)
 
     # Compute the estimators for a few different chain lengths
-    N = np.exp(np.linspace(np.log(1000), np.log(chain.shape[0]), 15)).astype(int)
+    N = np.exp(np.linspace(np.log(100), np.log(chain.shape[0]), 15)).astype(int)
     new_p = []
     for i, n in enumerate(N):
         new_p.append(autocorr_params(chain[:n, :]))
     # Plot the comparisons
     labels = [r"$\alpha_L$", r"$\eta_L$", r"$\gamma_L$", r"$\zeta_L$", r"$\bar{\rho}_0$", r"$X$"]
-    #labels.append(r"$\gamma_3$")  # TODO
-    #labels.append(r"$\gamma_4$")  # TODO
+    labels.append(r"$\gamma_3$")  # P3 TODO
+    labels.append(r"$\gamma_4$")  # P4 TODO
     #labels.append(r"$\gamma_5$")  # TODO
-    labels.append(r"$n_1$")  # TODO
-    #labels.append(r"$n_2$")  # TODO
-    #labels.append(r"$n_3$")  # TODO
+    labels.append(r"$n_1$")  # P2 TODO
+    labels.append(r"$n_2$")  # P3 TODO
+    labels.append(r"$n_3$")  # P4 TODO
     #labels.append(r"$n_4$")  # TODO
     #labels.append(r"$\mu_1$")  # TODO
     #labels.append(r"$c^2_1$")  # TODO
+
+    labels.append(r"$\mathcal{M}_{GW170817}$")
+    labels.append(r"$q_{GW170817}$")
+
+    labels.append(r"$M_{0432}$")
+    labels.append(r"$M_{6620}$")
+
+    labels.append(r"$M_{1702}$")
+    labels.append(r"$M_{6304}$")
+    labels.append(r"$M_{6397}$")
+    labels.append(r"$M_{M28}$")
+    labels.append(r"$M_{M30}$")
+    labels.append(r"$M_{X7}$")
+    labels.append(r"$M_{\omega Cen}$")
+    labels.append(r"$M_{M13}$")
+    labels.append(r"$M_{1724}$")
+    labels.append(r"$M_{1810}$")
+    labels.append(r"$M_{0437}$")
 
     for j in range(len(new_p[0])):
         new_p_plot = [item[j] for item in new_p]
@@ -374,9 +392,9 @@ if flag_plot == 4:
     plt.ylabel(r"$\tau$ estimates")
     plt.legend(fontsize=14);
 
-    fig3.savefig('chains/csc/post/'+prefix+'run_act3.pdf')
+    fig3.savefig('chains/post/'+prefix+'_run_act3.pdf')
     #fig3.savefig('tools/csc/'+prefix+'run_act3.pdf')
 
 act = backend.get_autocorr_time(discard=burnin, thin=1, quiet=True)
-np.savetxt('chains/csc/post/'+prefix+'run_autocorr.txt', act)
+np.savetxt('chains/post/'+prefix+'-run_autocorr.txt', act)
 #np.savetxt('tools/csc/'+prefix+'run_autocorr.txt', act)
