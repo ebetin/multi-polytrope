@@ -155,7 +155,7 @@ debug = True if args.debug == 1 else False
 
 prefix = args.file#'M1_S3_PT0-s587198-w5-g200-n20000'
 #filename = 'chains/csc/'+prefix+'run.h5'
-filename = 'chains/'+prefix+'-run.h5'
+filename = 'chains/'+prefix+'.h5'
 #filename = '/media/eannala/My Data/csc/chains/'+prefix+'-run.h5'
 backend = emcee.backends.HDFBackend(filename, read_only=True)
 
@@ -246,7 +246,7 @@ if flag_plot == 1 or flag_plot == 3:
     plt.ylabel(r"$\tau$ estimates")
     plt.legend(fontsize=14);
 
-    fig1.savefig('chains/post/'+prefix+'-run_act1.pdf')
+    fig1.savefig('chains/post/'+prefix+'_act1.pdf')
     #fig1.savefig('tools/csc/'+prefix+'run_act1.pdf')
 
 
@@ -338,7 +338,7 @@ if flag_plot == 2 or flag_plot == 3:
 
     axes[-1].set_xlabel("step number");
 
-    fig2.savefig('chains/post/'+prefix+'-run_act2.pdf')
+    fig2.savefig('chains/post/'+prefix+'_act2.pdf')
     #fig2.savefig('tools/csc/'+prefix+'run_act2.pdf')
 
 if flag_plot == 4:
@@ -392,9 +392,9 @@ if flag_plot == 4:
     plt.ylabel(r"$\tau$ estimates")
     plt.legend(fontsize=14);
 
-    fig3.savefig('chains/post/'+prefix+'_run_act3.pdf')
+    fig3.savefig('chains/post/'+prefix+'_act3.pdf')
     #fig3.savefig('tools/csc/'+prefix+'run_act3.pdf')
 
 act = backend.get_autocorr_time(discard=burnin, thin=1, quiet=True)
-np.savetxt('chains/post/'+prefix+'-run_autocorr.txt', act)
+np.savetxt('chains/post/'+prefix+'_autocorr.txt', act)
 #np.savetxt('tools/csc/'+prefix+'run_autocorr.txt', act)
