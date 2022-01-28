@@ -160,7 +160,8 @@ input_parser_params = [ [ ['flag_TOV', str(flag_TOV)],
                         ['flag_const_limits', str(flag_const_limits)],
                         ['flagSubConformal', str(flagSubConformal)],
                         ['flag_TD', str(flag_TD)],
-                        ['flag_baryonic_mass', str(flag_baryonic_mass)]
+                        ['flag_baryonic_mass', str(flag_baryonic_mass)],
+                        ['astro_constraints', str(constraints)]
                       ] ]
 
 ##################################################
@@ -215,7 +216,7 @@ prefix = "chains/M{}_S{}_PT{}-s{}-w{}-g{}-ceft_{}-X_{}-TOV_{}-".format(eos_model
 #       this way they can be easily changed or expanded later on.
 
 Ngrid = args.ngrid
-if 'r' in constraints and 'g' in constraints and 'x' in constraints:
+if 'r' in constraints:  #and 'g' in constraints and 'x' in constraints:
     Ngrid2 = 2*108+1 # 1.2->12
     param_indices = {
             'mass_grid':       np.linspace(0.5, 2.6, Ngrid),
@@ -1673,17 +1674,18 @@ if __name__ == "__main__":
     nwalkers = args.walkers * ndim # number of walkers
     Nsteps = args.nsteps # number of steps
 
+    # Output file
+    filename = prefix+'run_part'+str(args.part)+'.h5'
+
     # initial point(s)
     if flag_new_run:
+        if os.path.isfile(filename):
+            raise FileExistsError('Data file exists already! Please delete the old file if needed, or use the flag \'--new 0\' to continue the older run instead.')
         p0 = initial_point(nwalkers, ndim)
 
     ##################################################
     #serial v3.0
     if False:
-
-        #output
-        filename = prefix+'run_part'+str(args.part)+'.h5'
-
         backend = emcee.backends.HDFBackend(filename)
 
         if flag_new_run:
@@ -1719,9 +1721,6 @@ if __name__ == "__main__":
             if not pool.is_master():
                 pool.wait()
                 sys.exit(0)
-
-            #output
-            filename = prefix+'run_part'+str(args.part)+'.h5'
 
             backend = emcee.backends.HDFBackend(filename)
 
