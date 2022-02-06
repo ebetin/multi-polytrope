@@ -135,10 +135,10 @@ class tov:
 
         if P < 0.0:
             if y_len == 3:
-                return -0.01*P, 0., 0.
+                return -1.e-3*P, 0., 0.
             elif y_len == 4:
-                return -0.01*P, 0., 0., 0.
-            return -0.01*P, 0.
+                return -1.e-3*P, 0., 0., 0.
+            return -1.e-3*P, 0.
 
         tov_point = self.physical_eos.tov(P, length=y_len-1)
 
