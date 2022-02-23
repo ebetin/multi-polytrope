@@ -1056,7 +1056,7 @@ class cEFT:
             res.append(speed2inv)
         if length > 2:
             rho = interp(press, self.listP, self.listR)
-            res.append(rho)
+            res.append(rho * cgs.rhoS)
 
         return res
 
@@ -1347,7 +1347,7 @@ class cEFT_r4:
             res.append(speed2inv)
         if length > 2:
             rho = interp(press, self.listP, self.listR)
-            res.append(rho)
+            res.append(rho * cgs.rhoS)
 
         return res
 
