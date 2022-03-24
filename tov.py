@@ -365,14 +365,17 @@ class tov:
                 return rad, td, massb
 
             def mr(m1, m2, r1, r2, f_td, f_mb, tol=1.e-5, mref=None):
-                mass_est = (m_ref - m1) / (m1 - m2)
-                rho_est = (r1 - r2) * mass_est + r1
-                if not min(r1, r2) < rho_est < max(r1, r2):
-                    rho_est = 0.5 * (r1 + r2)
-                    if mref is not None:
-                        rho_est = r2
-                        if abs(m_ref - m1) < abs(m_ref - m2):
-                            rho_est = r1
+		if (m1==m2):
+		    rho_est = r1
+		else:
+                    mass_est = (m_ref - m1) / (m1 - m2)
+                    rho_est = (r1 - r2) * mass_est + r1
+                    if not min(r1, r2) < rho_est < max(r1, r2):
+                    	rho_est = 0.5 * (r1 + r2)
+                        if mref is not None:
+                       	    rho_est = r2
+                            if abs(m_ref - m1) < abs(m_ref - m2):
+                                rho_est = r1
 
                 out = self.tovLoveSolve(rho_est, l, flag_td=f_td, flag_mb=f_mb, tol=tol)
 
